@@ -1,0 +1,4 @@
+# Every class and method of the app, compiled ahead of time at install (the app is small, so all of it is hot).
+# Compose, Material 3 and the other AndroidX libraries ship their own profiles; profileinstaller installs them all.
+HSPLcom/rebuild/**;->**(**)**
+Lcom/rebuild/**;

@@ -1,0 +1,31 @@
+ACCESSIBILITY MANAGER (dumpsys accessibility)
+
+currentUserId=0
+hasWindowMagnificationConnection=false
+Magnifier on display#0
+    MagnificationConfig[mode: 1, scale: 1.0, centerX: 0.0, centerY: 0.0] 
+    Magnification region=SkRegion((5,5,1075,2274)(5,2274,168,2395)(911,2274,1075,2395))
+    IdOfLastServiceToMagnify=-1
+    SupportWindowMagnification=false
+    WindowMagnificationConnectionState=DISCONNECTED
+User state[
+     attributes:{id=0, touchExplorationEnabled=false, serviceHandlesDoubleTap=false, requestMultiFingerGestures=false, requestTwoFingerPassthrough=false, sendMotionEventsEnabledfalse, displayMagnificationEnabled=false, autoclickEnabled=false, nonInteractiveUiTimeout=0, interactiveUiTimeout=0, installedServiceCount=0, magnificationModes={0=1}, magnificationCapabilities=3, audioDescriptionByDefaultEnabled=false, magnificationFollowTypingEnabled=true}
+     shortcut key:{}
+     button:{}
+     button target:{null}
+     Bound services:{}
+     Enabled services:{}
+     Binding services:{}
+     Crashed services:{}
+     Client list info:{
+          Client list callbacks: 3
+          Client list killed: false
+          Client list broadcasts count: -1
+          Registered clients:{
+[com.android.inputmethod.latin][com.android.launcher3][com.rebuild]}]
+Global client list info:{
+    Client list callbacks: 4
+    Client list killed: false
+    Client list broadcasts count: -1
+    Registered clients:{
+[com.android.dynsystem, com.android.emulator.multidisplay, android, com.android.keychain, com.android.location.fused, com.android.settings, com.android.localtransport, com.android.server.telecom, com.android.providers.settings, com.android.inputdevices, com.android.wallpaperbackup][com.android.documentsui][com.android.systemui][com.android.dynsystem, com.android.emulator.multidisplay, android, com.android.keychain, com.android.location.fused, com.android.settings, com.android.localtransport, com.android.server.telecom, com.android.providers.settings, com.android.inputdevices, com.android.wallpaperbackup]

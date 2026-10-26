@@ -1,0 +1,282 @@
+[
+  {
+    "screen": "18-returning-prefill",
+    "label": "Back",
+    "widthDp": 48.0,
+    "heightDp": 48.0,
+    "bounds": "[12,85][138,211]"
+  },
+  {
+    "screen": "18-returning-prefill",
+    "label": "Workout note",
+    "widthDp": 47.6,
+    "heightDp": 48.0,
+    "bounds": "[654,85][779,211]"
+  },
+  {
+    "screen": "18-returning-prefill",
+    "label": "Finish",
+    "widthDp": 62.5,
+    "heightDp": 48.0,
+    "bounds": "[779,85][943,211]"
+  },
+  {
+    "screen": "18-returning-prefill",
+    "label": "More workout actions",
+    "widthDp": 48.0,
+    "heightDp": 48.0,
+    "bounds": "[944,85][1070,211]"
+  },
+  {
+    "screen": "18-returning-prefill",
+    "label": "1. Machine chest press  0/2",
+    "widthDp": 204.6,
+    "heightDp": 48.0,
+    "bounds": "[42,242][579,368]"
+  },
+  {
+    "screen": "18-returning-prefill",
+    "label": "2. Seated cable row  0/2",
+    "widthDp": 181.7,
+    "heightDp": 48.0,
+    "bounds": "[600,242][1077,368]"
+  },
+  {
+    "screen": "18-returning-prefill",
+    "label": "Adjust today",
+    "widthDp": 102.9,
+    "heightDp": 48.0,
+    "bounds": "[42,757][312,883]"
+  },
+  {
+    "screen": "18-returning-prefill",
+    "label": "40 / kg",
+    "widthDp": 143.2,
+    "heightDp": 64.0,
+    "bounds": "[42,1378][418,1546]"
+  },
+  {
+    "screen": "18-returning-prefill",
+    "label": "8 / Reps",
+    "widthDp": 110.1,
+    "heightDp": 64.0,
+    "bounds": "[439,1378][728,1546]"
+  },
+  {
+    "screen": "18-returning-prefill",
+    "label": "RIR",
+    "widthDp": 110.1,
+    "heightDp": 64.0,
+    "bounds": "[749,1378][1038,1546]"
+  },
+  {
+    "screen": "18-returning-prefill",
+    "label": "Warm-up set / Optional ramp-up; not counted toward working sets",
+    "widthDp": 379.4,
+    "heightDp": 48.0,
+    "bounds": "[42,1630][1038,1756]"
+  },
+  {
+    "screen": "18-returning-prefill",
+    "label": "Log set",
+    "widthDp": 379.4,
+    "heightDp": 56.0,
+    "bounds": "[42,1882][1038,2029]"
+  },
+  {
+    "screen": "18-returning-prefill",
+    "label": "Exercise note",
+    "widthDp": 379.4,
+    "heightDp": 64.0,
+    "bounds": "[42,2096][1038,2264]"
+  },
+  {
+    "screen": "18-returning-prefill",
+    "label": "",
+    "widthDp": 0.0,
+    "heightDp": 0.0,
+    "bounds": "[0,0][0,0]"
+  },
+  {
+    "screen": "20-after-first-returning-log",
+    "label": "Back",
+    "widthDp": 48.0,
+    "heightDp": 48.0,
+    "bounds": "[12,85][138,211]"
+  },
+  {
+    "screen": "20-after-first-returning-log",
+    "label": "Workout note",
+    "widthDp": 47.6,
+    "heightDp": 48.0,
+    "bounds": "[654,85][779,211]"
+  },
+  {
+    "screen": "20-after-first-returning-log",
+    "label": "Finish",
+    "widthDp": 62.5,
+    "heightDp": 48.0,
+    "bounds": "[779,85][943,211]"
+  },
+  {
+    "screen": "20-after-first-returning-log",
+    "label": "More workout actions",
+    "widthDp": 48.0,
+    "heightDp": 48.0,
+    "bounds": "[944,85][1070,211]"
+  },
+  {
+    "screen": "20-after-first-returning-log",
+    "label": "1. Machine chest press  1/2",
+    "widthDp": 204.6,
+    "heightDp": 48.0,
+    "bounds": "[42,242][579,368]"
+  },
+  {
+    "screen": "20-after-first-returning-log",
+    "label": "2. Seated cable row  0/2",
+    "widthDp": 181.7,
+    "heightDp": 48.0,
+    "bounds": "[600,242][1077,368]"
+  },
+  {
+    "screen": "20-after-first-returning-log",
+    "label": "Adjust today",
+    "widthDp": 102.9,
+    "heightDp": 48.0,
+    "bounds": "[42,577][312,703]"
+  },
+  {
+    "screen": "20-after-first-returning-log",
+    "label": "Set 1: 40 kg \u00d7 8 / Set 1 / 40 kg \u00d7 8",
+    "widthDp": 379.4,
+    "heightDp": 48.0,
+    "bounds": "[42,1018][1038,1144]"
+  },
+  {
+    "screen": "20-after-first-returning-log",
+    "label": "40 / kg",
+    "widthDp": 143.2,
+    "heightDp": 64.0,
+    "bounds": "[42,1271][418,1439]"
+  },
+  {
+    "screen": "20-after-first-returning-log",
+    "label": "8 / Reps",
+    "widthDp": 110.1,
+    "heightDp": 64.0,
+    "bounds": "[439,1271][728,1439]"
+  },
+  {
+    "screen": "20-after-first-returning-log",
+    "label": "RIR",
+    "widthDp": 110.1,
+    "heightDp": 64.0,
+    "bounds": "[749,1271][1038,1439]"
+  },
+  {
+    "screen": "20-after-first-returning-log",
+    "label": "Warm-up set / Optional ramp-up; not counted toward working sets",
+    "widthDp": 379.4,
+    "heightDp": 48.0,
+    "bounds": "[42,1523][1038,1649]"
+  },
+  {
+    "screen": "20-after-first-returning-log",
+    "label": "Log set",
+    "widthDp": 379.4,
+    "heightDp": 56.0,
+    "bounds": "[42,1775][1038,1922]"
+  },
+  {
+    "screen": "20-after-first-returning-log",
+    "label": "\u221230 s",
+    "widthDp": 59.0,
+    "heightDp": 41.9,
+    "bounds": "[728,1969][883,2079]"
+  },
+  {
+    "screen": "20-after-first-returning-log",
+    "label": "+30 s",
+    "widthDp": 59.0,
+    "heightDp": 41.9,
+    "bounds": "[883,1969][1038,2079]"
+  },
+  {
+    "screen": "20-after-first-returning-log",
+    "label": "Set time",
+    "widthDp": 76.6,
+    "heightDp": 48.0,
+    "bounds": "[42,2128][243,2254]"
+  },
+  {
+    "screen": "20-after-first-returning-log",
+    "label": "Skip rest",
+    "widthDp": 79.6,
+    "heightDp": 48.0,
+    "bounds": "[264,2128][473,2254]"
+  },
+  {
+    "screen": "20-after-first-returning-log",
+    "label": "Battery limits \u00b7 fix",
+    "widthDp": 134.1,
+    "heightDp": 48.0,
+    "bounds": "[494,2128][846,2254]"
+  },
+  {
+    "screen": "42-custom-loading-choice",
+    "label": "Name",
+    "widthDp": 272.0,
+    "heightDp": 64.0,
+    "bounds": "[183,626][897,794]"
+  },
+  {
+    "screen": "42-custom-loading-choice",
+    "label": "Bodyweight / Reps only; add a separate external exercise for weighted versions",
+    "widthDp": 272.0,
+    "heightDp": 64.4,
+    "bounds": "[183,1058][897,1227]"
+  },
+  {
+    "screen": "42-custom-loading-choice",
+    "label": "Assisted / Log the assistance kg; less assistance is harder",
+    "widthDp": 272.0,
+    "heightDp": 64.4,
+    "bounds": "[183,1227][897,1396]"
+  },
+  {
+    "screen": "42-custom-loading-choice",
+    "label": "kg per dumbbell / Log the weight of one dumbbell",
+    "widthDp": 272.0,
+    "heightDp": 48.0,
+    "bounds": "[183,1417][897,1543]"
+  },
+  {
+    "screen": "42-custom-loading-choice",
+    "label": "Cancel",
+    "widthDp": 67.4,
+    "heightDp": 48.0,
+    "bounds": "[547,1712][724,1838]"
+  },
+  {
+    "screen": "42-custom-loading-choice",
+    "label": "Add",
+    "widthDp": 57.9,
+    "heightDp": 48.0,
+    "bounds": "[745,1712][897,1838]"
+  },
+  {
+    "screen": "47-restore-preview-normal",
+    "label": "Cancel",
+    "widthDp": 67.4,
+    "heightDp": 48.0,
+    "bounds": "[238,1418][415,1544]"
+  },
+  {
+    "screen": "47-restore-preview-normal",
+    "label": "Save current backup",
+    "widthDp": 175.6,
+    "heightDp": 48.0,
+    "bounds": "[436,1418][897,1544]"
+  }
+]

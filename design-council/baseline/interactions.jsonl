@@ -1,0 +1,37 @@
+{"at": "2026-09-27T20:43:46.319313+00:00", "action": "capture", "name": "setup-state"}
+{"at": "2026-09-27T20:44:03.441589+00:00", "action": "tap", "label": "Wait", "index": 0, "bounds": "[70,1268][1010,1394]"}
+{"at": "2026-09-27T20:44:06.402373+00:00", "action": "tap", "label": "More", "index": 0, "bounds": "[913,2253][992,2295]"}
+{"at": "2026-09-27T20:44:09.005947+00:00", "action": "tap", "label": "Backup and restore", "index": 0, "bounds": "[42,362][427,425]"}
+{"at": "2026-09-27T20:44:11.308500+00:00", "action": "tap", "label": "Choose backup to restore", "index": 0, "bounds": "[331,1616][750,1669]"}
+{"at": "2026-09-27T20:44:16.962460+00:00", "action": "tap", "label": "design-council-synthetic.json", "index": 0, "bounds": "[196,1096][497,1147]"}
+{"at": "2026-09-27T20:44:34.453139+00:00", "action": "capture", "name": "setup-preview"}
+{"at": "2026-09-27T20:44:56.033944+00:00", "action": "tap", "label": "OK", "index": 0, "bounds": "[796,1348][846,1401]"}
+{"at": "2026-09-27T20:44:58.631056+00:00", "action": "tap", "label": "Choose backup to restore", "index": 0, "bounds": "[331,1616][750,1669]"}
+{"at": "2026-09-27T20:45:02.841012+00:00", "action": "hierarchy-retry", "attempt": 1, "error": "Command '['/opt/android-sdk/platform-tools/adb', '-s', 'emulator-5592', 'shell', 'uiautomator', 'dump', '/sdcard/rebuild-ux-audit.xml']' returned non-zero exit status 137."}
+{"at": "2026-09-27T20:45:05.442617+00:00", "action": "hierarchy-retry", "attempt": 2, "error": "Command '['/opt/android-sdk/platform-tools/adb', '-s', 'emulator-5592', 'shell', 'uiautomator', 'dump', '/sdcard/rebuild-ux-audit.xml']' returned non-zero exit status 137."}
+{"at": "2026-09-27T20:45:07.667950+00:00", "action": "hierarchy-retry", "attempt": 3, "error": "Command '['/opt/android-sdk/platform-tools/adb', '-s', 'emulator-5592', 'shell', 'uiautomator', 'dump', '/sdcard/rebuild-ux-audit.xml']' returned non-zero exit status 137."}
+{"at": "2026-09-27T20:45:21.557853+00:00", "action": "tap", "label": "design-council-synthetic.json", "index": 0, "bounds": "[196,1096][497,1147]"}
+{"at": "2026-09-27T20:45:24.825168+00:00", "action": "tap", "label": "Save current backup", "index": 0, "bounds": "[499,1417][834,1470]"}
+{"at": "2026-09-27T20:45:30.056247+00:00", "action": "tap", "label": "SAVE", "index": 0, "bounds": "[812,2211][1043,2337]"}
+{"at": "2026-09-27T20:45:41.259480+00:00", "action": "capture", "name": "setup-safety-result"}
+{"at": "2026-09-27T20:45:52.150487+00:00", "action": "tap", "label": "Replace all data", "index": 0, "bounds": "[575,1417][834,1470]"}
+{"at": "2026-09-27T20:45:56.493856+00:00", "action": "tap", "label": "OK", "index": 0, "bounds": "[796,1348][846,1401]"}
+{"at": "2026-09-27T20:45:59.475068+00:00", "action": "tap", "label": "Today", "index": 0, "bounds": "[81,2253][173,2295]"}
+{"at": "2026-09-27T20:46:02.407340+00:00", "action": "capture", "name": "light-today"}
+{"at": "2026-09-27T20:46:05.822946+00:00", "action": "capture", "name": "dark-today"}
+{"at": "2026-09-27T20:46:08.021740+00:00", "action": "tap", "label": "History", "index": 0, "bounds": "[348,2253][458,2295]"}
+{"at": "2026-09-27T20:46:11.123570+00:00", "action": "capture", "name": "dark-history"}
+{"at": "2026-09-27T20:46:14.288168+00:00", "action": "capture", "name": "light-history"}
+{"at": "2026-09-27T20:46:21.863533+00:00", "action": "tap", "label": "Upper", "index": 0, "bounds": "[42,327][161,390]"}
+{"at": "2026-09-27T20:46:24.621360+00:00", "action": "capture", "name": "light-history-detail"}
+{"at": "2026-09-27T20:46:28.199267+00:00", "action": "capture", "name": "dark-history-detail"}
+{"at": "2026-09-27T20:46:30.464016+00:00", "action": "tap", "label": "Back", "index": 0, "bounds": "[53,106][116,169]"}
+{"at": "2026-09-27T20:46:32.745577+00:00", "action": "tap", "label": "Today", "index": 0, "bounds": "[81,2253][173,2295]"}
+{"at": "2026-09-27T20:46:35.790663+00:00", "action": "tap", "label": "Start", "index": 0, "bounds": "[921,925][1003,978]"}
+{"at": "2026-09-27T20:46:38.731178+00:00", "action": "hierarchy-retry", "attempt": 1, "error": "syntax error: line 1, column 0"}
+{"at": "2026-09-27T20:46:41.743454+00:00", "action": "capture", "name": "setup-workout"}
+{"at": "2026-09-27T20:46:49.839051+00:00", "action": "tap", "label": "Log set", "index": 0, "bounds": "[480,1195][601,1248]"}
+{"at": "2026-09-27T20:46:53.577450+00:00", "action": "capture", "name": "dark-workout-rest"}
+{"at": "2026-09-27T20:46:57.133158+00:00", "action": "capture", "name": "light-workout-rest"}
+{"at": "2026-09-27T20:47:00.674690+00:00", "action": "capture", "name": "light-entry-200"}
+{"at": "2026-09-27T20:47:04.607247+00:00", "action": "capture", "name": "dark-entry-200"}

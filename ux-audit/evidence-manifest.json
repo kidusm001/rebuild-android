@@ -1,0 +1,756 @@
+{
+  "sourceCommit": "ea996eb5a23c4de9134b102d76ebd101b2bec29f",
+  "branch": "kidusm001-rebuild-android-mvp",
+  "apkSha256": "afa20b6820ef9a2d09a263552b838a56ba7b21b6bc2825ae8e08413a0bead872",
+  "trackedSourceUnchanged": true,
+  "captures": [
+    {
+      "capture": "01-initial-home",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "686f6eb794a6e4d9247d325aa639f7e897273691e97a0361638818c9cdeb121c"
+    },
+    {
+      "capture": "02-active-no-history",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "220daad3de0eefc41351c6d5ab203dee26da26e6d6a3e68f967ee798a7758eb9"
+    },
+    {
+      "capture": "03-keyboard-existing-weight",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "2db2e64b31cd27d57987abfd7a3ed728ac2fc8b1f0caa9ece160a07fa9391cdf"
+    },
+    {
+      "capture": "04-ime-next-reps",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "f2aa4b4745a9458f564e4e1b87b3b47419828cb2a57d6e37245db39d715078eb"
+    },
+    {
+      "capture": "05-ime-rir-done",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "e587ee7cf3b145e6fe9fcba6d3f9f717d76f9b00e31417a9fbe662ec23a7d497"
+    },
+    {
+      "capture": "06-after-ime-save-rest",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "0949f3fc59ed1563423b8858a0753b41a2a444d59284d9a92225b8bc65f72215"
+    },
+    {
+      "capture": "07-next-exercise-during-rest",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "d489ce00d70367c694255c489900ac88c38cc522ac96e8ce8b0636b4ea2980fa"
+    },
+    {
+      "capture": "08-empty-exercise-no-rest",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "3d38170fefc84e5111566b02a64bf9e3114c98ebe509d3f94de2cf83fa690050"
+    },
+    {
+      "capture": "09-empty-validation-error",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "ff8b0089763856aa7eee0364160652aea049500d8dcb0d7be972618186f32eb4"
+    },
+    {
+      "capture": "10-substitution-dialog",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "ed2adcca26ab65b52e8ec9730f44be3885f3620810e28de18aafb414e5859e00"
+    },
+    {
+      "capture": "11-unsaved-note-exit",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "2e94c0de44390e4778b69f79fe9e954617afb56aec6fdebc21f256019751c61b"
+    },
+    {
+      "capture": "12-finish-with-draft",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "2e94c0de44390e4778b69f79fe9e954617afb56aec6fdebc21f256019751c61b"
+    },
+    {
+      "capture": "13-finish-partial",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "0a4b3c6404410b4ceb6396bc764e693dbc7f00e0d3f20dc5b5ad7ba077915feb"
+    },
+    {
+      "capture": "14-history-list",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "92f3b6087f5b9dd938ab5c3c17a54da252c9e70452d31f331e81c29bece335bc"
+    },
+    {
+      "capture": "15-workout-history",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "fcff93d9eb2065dd2c0b7ec764bba925c7f89d11f84b68c3a1b5443a6d155b57"
+    },
+    {
+      "capture": "16-exercise-chart",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "acd930cd19eaffb93d16897f04574172839ae83e674ebac475203e41583ac6cf"
+    },
+    {
+      "capture": "17-phase-screen",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "c47165d5fe3a720ed5e140950e9583a5d5f9c0fc3fd9daf515889b300baea364"
+    },
+    {
+      "capture": "17b-phase-result",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "113fca8d154a3e40c7e11804179be8881b2425bbc7ad2b02af60db300f3e87b3"
+    },
+    {
+      "capture": "18-returning-prefill",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "17a37df77a33acf22684736c63031b113400b9fd667ee287fc1400eed62e34fe"
+    },
+    {
+      "capture": "19-returning-controls",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "93bfffbb0dcbffadccfc816fa9f0561811e0f4b82ff897c0f38e752036f6dea4"
+    },
+    {
+      "capture": "20-after-first-returning-log",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "0f7346b7cae09e1f63754ae50547118977a058e3ec859b86974509d08e41f6c6"
+    },
+    {
+      "capture": "21-repeat-button-after-one-scroll",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "0fa5f02abd3ecdf828b6f64c38209ecd2d87f2399387ba1bddb5717a7db50e9c"
+    },
+    {
+      "capture": "22-target-complete-rest",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: no",
+      "sha256": "100ff97182cb88f58e56a8bf193a4942ab6709a68ebf29fa19b7f33fb6b0a58e"
+    },
+    {
+      "capture": "23-dark-complete-rest",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "null",
+      "night": "Night mode: yes",
+      "sha256": "a38288c2b687ffa1bed589409979c2fc3dcf529133a48467440cca0316ca118f"
+    },
+    {
+      "capture": "24-dark-font130",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "1.3",
+      "night": "Night mode: yes",
+      "sha256": "767692f5d709f49edac34d7b671f27bc2c9b724b7b9e433675e81534032a4fcb"
+    },
+    {
+      "capture": "25-dark-font200-rest",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "2.0",
+      "night": "Night mode: yes",
+      "sha256": "6c4775acd7cdc93d3235b2d60d63dc0218924fc8b468d6a4878ad72a631c3568"
+    },
+    {
+      "capture": "26-dark-font200-controls",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "2.0",
+      "night": "Night mode: yes",
+      "sha256": "441c8c11b68c887f4454148ba8cd9796691c6064a6cab858699fa1954fc07b5f"
+    },
+    {
+      "capture": "26b-font200-content-scroll",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "2.0",
+      "night": "Night mode: yes",
+      "sha256": "24e864db3caa6aa48a1aa4f415c2ffc37273f0702ea5755fd8ef6a6e4a4441fe"
+    },
+    {
+      "capture": "26c-font200-controls",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "2.0",
+      "night": "Night mode: yes",
+      "sha256": "5c6801b8ca2c49b777e919a78d83381aee24c526f021e1e03fd6c619f93b5f5d"
+    },
+    {
+      "capture": "27-dark-font200-keyboard",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "2.0",
+      "night": "Night mode: yes",
+      "sha256": "c544ff534afa7791e4c546ef9495e65bc30fd18222a2b355cb389aa22c611f46"
+    },
+    {
+      "capture": "28-narrow360-font200",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 360.0,
+      "density": 480,
+      "fontScale": "2.0",
+      "night": "Night mode: yes",
+      "sha256": "37bbc37c68b1c04511e950e74865dc148ba8e8cc8326169bc5bc3c3fd490946c"
+    },
+    {
+      "capture": "29-narrow360-font200-controls",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 360.0,
+      "density": 480,
+      "fontScale": "2.0",
+      "night": "Night mode: yes",
+      "sha256": "8a372d5091b6a7c2786511423efc4a236bf41c802ec28ecaa3cee01500ab71bf"
+    },
+    {
+      "capture": "30-narrow360-font200-finish",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 360.0,
+      "density": 480,
+      "fontScale": "2.0",
+      "night": "Night mode: yes",
+      "sha256": "1c854dd051f178151345f9341cda18773556d5fe5737a9136133bd422449777c"
+    },
+    {
+      "capture": "31-narrow360-normal",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 360.0,
+      "density": 480,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "3925f4b208372a9a5f0248740eeda8939b40128ec51d5a8728bab952952c9e25"
+    },
+    {
+      "capture": "32-narrow360-top",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 360.0,
+      "density": 480,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "1bd01f0a3ba266ba46d4271f46e83c0b458c5017ae7f325dc4b99347d5b4b078"
+    },
+    {
+      "capture": "33-narrow360-entry",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 360.0,
+      "density": 480,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "8c8fcda1427728faf1725937f75594ed419f7702c6c04299dced7792687ba027"
+    },
+    {
+      "capture": "34-narrow360-keyboard",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 360.0,
+      "density": 480,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "0d64ef771a46722d70789565211cf340a4fb827b8a9611ecc969e774f111fc43"
+    },
+    {
+      "capture": "35-narrow360-font130-rest",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 360.0,
+      "density": 480,
+      "fontScale": "1.3",
+      "night": "Night mode: no",
+      "sha256": "2ae77b367af638a8272774dd1dcd23b6e9cda7eb4e1399a4182ae1a00ba99dda"
+    },
+    {
+      "capture": "36-light-narrow360-font200-rest",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 360.0,
+      "density": 480,
+      "fontScale": "2.0",
+      "night": "Night mode: no",
+      "sha256": "4b9ff063cbb9da15e38b846725b2e4568724ae0b834899a20720c3cc1c4b6318"
+    },
+    {
+      "capture": "37-landscape-normal-rest",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "cc264655dde87ec59411cb4dabd825b4e3465e7ae0e7cc857b1faeab5ac8aa3e"
+    },
+    {
+      "capture": "38-landscape-verified",
+      "pixels": [
+        2400,
+        1080
+      ],
+      "widthDp": 914.29,
+      "density": 420,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "94ce91b9f9c67b24de893ccbf9d39f90711148f05d032ddaae5a31d2087337dc"
+    },
+    {
+      "capture": "39-landscape-scroll1",
+      "pixels": [
+        2400,
+        1080
+      ],
+      "widthDp": 914.29,
+      "density": 420,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "f5e72c4c8d225cf0ccb52653ff0746879d0d962a729703ae20f5d2cdf1ce36a5"
+    },
+    {
+      "capture": "40-landscape-scroll2",
+      "pixels": [
+        2400,
+        1080
+      ],
+      "widthDp": 914.29,
+      "density": 420,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "7b15860a7b0e1df973b507e3a435b58b40033c68702f34beddee90523cbe55bb"
+    },
+    {
+      "capture": "41-landscape-keyboard",
+      "pixels": [
+        2400,
+        1080
+      ],
+      "widthDp": 914.29,
+      "density": 420,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "a3081799abee5b1aa2c8d44f6e86a02568707da59036780e7d8de17cc0dd1b14"
+    },
+    {
+      "capture": "42-custom-loading-choice",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "f6e59b25ab6fdfd0f44d8966b6c9f8722f3f059d18a5524fce92fad52e736f89"
+    },
+    {
+      "capture": "43-custom-substitution-ready",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "b47fc312981d01f9894209f636e5c9e6b39aca9adc3e7bd3222072e68f9c350b"
+    },
+    {
+      "capture": "44-substitution-applied",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "f2c0f6055dd2abc26fafb1ecf3e7081f711e2ff175971885b2dfbf537334b54a"
+    },
+    {
+      "capture": "45-backup-controls",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "356522fe6806534b1b7c64f1743976287a3ad52be287fa036f78feb73077ae7a"
+    },
+    {
+      "capture": "46-native-file-picker",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "f417f7b7d87a7315a7aae96ee5b73c548756fa47f260bc852d8a7d9ec855869a"
+    },
+    {
+      "capture": "47-restore-preview-normal",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "eefa046002a15f755a6df1d451be15a57b866fec658537f699ca4595e07d3bb8"
+    },
+    {
+      "capture": "48-restore-preview-large",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 360.0,
+      "density": 480,
+      "fontScale": "2.0",
+      "night": "Night mode: no",
+      "sha256": "0f51554adde63e9c968ae7618a0dce9f03b6a295bd9ebb58fa5df97a90636911"
+    },
+    {
+      "capture": "49-restore-preview-large-scrolled",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 360.0,
+      "density": 480,
+      "fontScale": "2.0",
+      "night": "Night mode: no",
+      "sha256": "5871be5c9e81e933a470419e371c99d29059871649d1d229b68cf6d65851304c"
+    },
+    {
+      "capture": "50-safety-file-picker",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "a31583562e50d5533812bb17c846d4c67ac5480f83c0dc6a3b513712529731be"
+    },
+    {
+      "capture": "51-replacement-confirmation",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "15b4c58abc5c833fb3f55b4416fbd61387338454b420b43f7e8dbba63fd508c9"
+    },
+    {
+      "capture": "52-restore-cancel-preserved",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "87445b676a6f783b1056168e35f868863a1b51a1baa2059e041514e2ea3a4bfd"
+    },
+    {
+      "capture": "53-two-workouts-after-cancel",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "54fabc26e8b41074afd7e17d73473f6a1724b1ebc5155e5e6defce8e42fa98b3"
+    },
+    {
+      "capture": "54-first-run-native",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "10b9676d7bd40c7783e590ad0789908777164c03929ddab45965f008e7c49fe0"
+    },
+    {
+      "capture": "55-first-run-large",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 360.0,
+      "density": 480,
+      "fontScale": "2.0",
+      "night": "Night mode: no",
+      "sha256": "7dbc820e9bddc23e70ae68194688696a663a1b58980872ff87d9ca8b2452a62e"
+    },
+    {
+      "capture": "56-onboarding-large-scroll1",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 360.0,
+      "density": 480,
+      "fontScale": "2.0",
+      "night": "Night mode: no",
+      "sha256": "f4d1d092c961861b51136a3ed9a05e7ff0b0875b49bc3ef0789e90ac72b7b341"
+    },
+    {
+      "capture": "56-onboarding-large-scroll2",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 360.0,
+      "density": 480,
+      "fontScale": "2.0",
+      "night": "Night mode: no",
+      "sha256": "6e9f6e7188907801bac057526a63f66fd7f2e6b29a1e2b48ed3f9b007baaf198"
+    },
+    {
+      "capture": "57-empty-history",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "92db02551af6fe4e07ef6032560f0f74f4f7edfc83a04f39ecaa9006e28fed28"
+    },
+    {
+      "capture": "58-restored-audit-state",
+      "pixels": [
+        1080,
+        2400
+      ],
+      "widthDp": 411.43,
+      "density": 420,
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "sha256": "47ec2b7d64fd0df3532c796c28e686863bfe62fcdd0f163d98a47cb5fdd0e4cd"
+    }
+  ],
+  "excludedInterpretations": {
+    "37-landscape-normal-rest": "Captured before rotation settled; portrait, not landscape evidence.",
+    "26-dark-font200-controls": "Gesture began on pinned rest bar; not proof that content cannot scroll."
+  }
+}

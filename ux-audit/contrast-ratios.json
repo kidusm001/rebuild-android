@@ -1,0 +1,118 @@
+{
+  "light": [
+    {
+      "foreground": "onSurface",
+      "background": "surface",
+      "foregroundHex": "1F1B16",
+      "backgroundHex": "FBF8F3",
+      "contrast": 16.16
+    },
+    {
+      "foreground": "onSurfaceVariant",
+      "background": "surface",
+      "foregroundHex": "4C4639",
+      "backgroundHex": "FBF8F3",
+      "contrast": 8.84
+    },
+    {
+      "foreground": "primary",
+      "background": "surface",
+      "foregroundHex": "7A5A12",
+      "backgroundHex": "FBF8F3",
+      "contrast": 6.01
+    },
+    {
+      "foreground": "onPrimary",
+      "background": "primary",
+      "foregroundHex": "FFFAF1",
+      "backgroundHex": "7A5A12",
+      "contrast": 6.12
+    },
+    {
+      "foreground": "onSecondaryContainer",
+      "background": "secondaryContainer",
+      "foregroundHex": "231A0B",
+      "backgroundHex": "EFE2CC",
+      "contrast": 13.41
+    },
+    {
+      "foreground": "primary",
+      "background": "secondaryContainer",
+      "foregroundHex": "7A5A12",
+      "backgroundHex": "EFE2CC",
+      "contrast": 4.98
+    },
+    {
+      "foreground": "error",
+      "background": "surface",
+      "foregroundHex": "A6352B",
+      "backgroundHex": "FBF8F3",
+      "contrast": 6.26
+    },
+    {
+      "foreground": "outline",
+      "background": "surface",
+      "foregroundHex": "7E7667",
+      "backgroundHex": "FBF8F3",
+      "contrast": 4.24
+    }
+  ],
+  "dark": [
+    {
+      "foreground": "onSurface",
+      "background": "surface",
+      "foregroundHex": "EAE1D7",
+      "backgroundHex": "171410",
+      "contrast": 14.2
+    },
+    {
+      "foreground": "onSurfaceVariant",
+      "background": "surface",
+      "foregroundHex": "D0C6B5",
+      "backgroundHex": "171410",
+      "contrast": 10.86
+    },
+    {
+      "foreground": "primary",
+      "background": "surface",
+      "foregroundHex": "E6C27A",
+      "backgroundHex": "171410",
+      "contrast": 10.81
+    },
+    {
+      "foreground": "onPrimary",
+      "background": "primary",
+      "foregroundHex": "412D00",
+      "backgroundHex": "E6C27A",
+      "contrast": 7.73
+    },
+    {
+      "foreground": "onSecondaryContainer",
+      "background": "secondaryContainer",
+      "foregroundHex": "EFE2CC",
+      "backgroundHex": "514533",
+      "contrast": 7.3
+    },
+    {
+      "foreground": "primary",
+      "background": "secondaryContainer",
+      "foregroundHex": "E6C27A",
+      "backgroundHex": "514533",
+      "contrast": 5.5
+    },
+    {
+      "foreground": "error",
+      "background": "surface",
+      "foregroundHex": "FFB4A9",
+      "backgroundHex": "171410",
+      "contrast": 10.8
+    },
+    {
+      "foreground": "outline",
+      "background": "surface",
+      "foregroundHex": "999080",
+      "backgroundHex": "171410",
+      "contrast": 5.82
+    }
+  ]
+}

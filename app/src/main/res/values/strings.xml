@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">Rebuild</string>
+    <string name="rest_channel_name">Rest complete</string>
+    <string name="rest_channel_description">Silent rest alerts with vibration. Delivery depends on Android and battery settings.</string>
+    <string name="rest_complete">Rest complete</string>
+    <string name="rest_complete_body">Ready when you are. Open Rebuild to continue.</string>
+    <string name="pause_complete">Pause complete</string>
+    <string name="rest_countdown_channel_name">Rest countdown</string>
+    <string name="rest_countdown_channel_description">The running rest timer while Rebuild is in the background.</string>
+    <string name="rest_running">Resting</string>
+    <string name="pause_running">Short pause</string>
+    <string name="pause_complete_body">Ready for your next mini-set when you are.</string>
+</resources>

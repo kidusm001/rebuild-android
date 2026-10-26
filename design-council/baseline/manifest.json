@@ -1,0 +1,167 @@
+{
+  "purpose": "Neutral current-app visual evidence. No aesthetic ratings or recommendations.",
+  "sourceCommit": "d93fac17253cdb7d40ee6e2daeac650713d84ff9",
+  "worktreeClean": true,
+  "package": "com.rebuild",
+  "versionName": "0.1.3",
+  "versionCode": 4,
+  "apkPath": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/delivery-0.1.3/rebuild-0.1.3-debug.apk",
+  "apkSha256": "178e3308d27485948a73f0958531169719910cdabd8eaecd2d79b8c2bf7913fe",
+  "apkBytes": 11281199,
+  "device": {
+    "api": 34,
+    "serial": "emulator-5592",
+    "fingerprint": "google/sdk_gphone64_x86_64/emu64xa:14/UE1A.230829.036.A4/12096271:user/release-keys",
+    "pixels": [
+      1080,
+      2400
+    ],
+    "densityDpi": 420,
+    "orientation": "portrait",
+    "language": "English",
+    "timezone": "device +03:00",
+    "navigation": "gesture",
+    "cores": 2,
+    "memoryMiB": 2048
+  },
+  "fixture": {
+    "path": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/synthetic-baseline.json",
+    "syntheticOnly": true,
+    "phase": "INTRO_TWO",
+    "history": "Two partial Upper workouts, Sep 19 and Sep 26.",
+    "previousChestPress": "42.5 kg x 10 @ 2 RIR; 42.5 kg x 9 @ 2 RIR",
+    "active": "New Upper; one 42.5 kg x 10 working set logged through UI; optional RIR blank.",
+    "rest": "180-second default auto-started by that working set.",
+    "import": "Real Android Files restore with mandatory saved safety copy.",
+    "plan": "Unedited 0.1.3 templates and planRevision 1, including prescribed Wednesday pulldown."
+  },
+  "captures": [
+    {
+      "id": "dark-today",
+      "screen": "Today, no active workout",
+      "theme": "dark",
+      "fontScale": 1.0,
+      "screenshot": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-today.png",
+      "hierarchy": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-today.xml",
+      "configurationAndNodes": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-today.json",
+      "capturedAt": "2026-09-27T20:46:05.822946+00:00",
+      "sha256": "259bf98a2e09a51c6d96e3129f1d82386603f65f563fbce34d4fb0b8f0a487a3"
+    },
+    {
+      "id": "light-today",
+      "screen": "Today, no active workout",
+      "theme": "light",
+      "fontScale": 1.0,
+      "screenshot": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-today.png",
+      "hierarchy": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-today.xml",
+      "configurationAndNodes": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-today.json",
+      "capturedAt": "2026-09-27T20:46:02.407340+00:00",
+      "sha256": "89bc82309ca1f0e32124e5aa66873f3590a65fac5d132806361df49a7869af4d"
+    },
+    {
+      "id": "dark-workout-rest",
+      "screen": "Active Upper, previous results and running rest",
+      "theme": "dark",
+      "fontScale": 1.0,
+      "screenshot": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-workout-rest.png",
+      "hierarchy": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-workout-rest.xml",
+      "configurationAndNodes": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-workout-rest.json",
+      "capturedAt": "2026-09-27T20:46:53.577450+00:00",
+      "sha256": "d35b487acb4217bd11d268b7711908319a48d8929f4d5ea19b881a4d5738adcf"
+    },
+    {
+      "id": "light-workout-rest",
+      "screen": "Active Upper, previous results and running rest",
+      "theme": "light",
+      "fontScale": 1.0,
+      "screenshot": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-workout-rest.png",
+      "hierarchy": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-workout-rest.xml",
+      "configurationAndNodes": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-workout-rest.json",
+      "capturedAt": "2026-09-27T20:46:57.133158+00:00",
+      "sha256": "fc2bf21686fd13af40266d65ff0932f661f936dca9e42db5fe2aa8a57159a265"
+    },
+    {
+      "id": "dark-history-detail",
+      "screen": "Read-first completed Upper workout",
+      "theme": "dark",
+      "fontScale": 1.0,
+      "screenshot": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-history-detail.png",
+      "hierarchy": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-history-detail.xml",
+      "configurationAndNodes": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-history-detail.json",
+      "capturedAt": "2026-09-27T20:46:28.199267+00:00",
+      "sha256": "0e4cbc5b0d8248dc6c7d6abd60c7726ba37d1f2009abd7888bfd68099547695e"
+    },
+    {
+      "id": "light-history-detail",
+      "screen": "Read-first completed Upper workout",
+      "theme": "light",
+      "fontScale": 1.0,
+      "screenshot": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-history-detail.png",
+      "hierarchy": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-history-detail.xml",
+      "configurationAndNodes": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-history-detail.json",
+      "capturedAt": "2026-09-27T20:46:24.621360+00:00",
+      "sha256": "9e5ef316f915aa9bc0616a4697b2f3d112d7c12b7f573cd32d032ebe82293a69"
+    },
+    {
+      "id": "dark-history",
+      "screen": "History workout list",
+      "theme": "dark",
+      "fontScale": 1.0,
+      "screenshot": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-history.png",
+      "hierarchy": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-history.xml",
+      "configurationAndNodes": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-history.json",
+      "capturedAt": "2026-09-27T20:46:11.123570+00:00",
+      "sha256": "ac822db1b298e70f3060a7197657b8d8f29a63116412ec485a7158b90f139394"
+    },
+    {
+      "id": "light-history",
+      "screen": "History workout list",
+      "theme": "light",
+      "fontScale": 1.0,
+      "screenshot": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-history.png",
+      "hierarchy": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-history.xml",
+      "configurationAndNodes": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-history.json",
+      "capturedAt": "2026-09-27T20:46:14.288168+00:00",
+      "sha256": "ae71b5da00dfabc2b7560312c6f541fb8489941a8702f13e2f38615cfc25c301"
+    },
+    {
+      "id": "dark-entry-200",
+      "screen": "Active entry at 200% font scale",
+      "theme": "dark",
+      "fontScale": 2.0,
+      "screenshot": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-entry-200.png",
+      "hierarchy": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-entry-200.xml",
+      "configurationAndNodes": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-entry-200.json",
+      "capturedAt": "2026-09-27T20:47:04.607247+00:00",
+      "sha256": "5ab262eb5c5715e4abbed3ae821d7ac692f0660f535824b98b3a641ac0c2db1f"
+    },
+    {
+      "id": "light-entry-200",
+      "screen": "Active entry at 200% font scale",
+      "theme": "light",
+      "fontScale": 2.0,
+      "screenshot": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-entry-200.png",
+      "hierarchy": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-entry-200.xml",
+      "configurationAndNodes": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-entry-200.json",
+      "capturedAt": "2026-09-27T20:47:00.674690+00:00",
+      "sha256": "84ac9fdf55af287a9cbafc677266f1ff0cd58b579418d4ce2c31ca6a398a24d5"
+    }
+  ],
+  "contactSheets": [
+    "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/contact-sheet.png",
+    "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/supplemental-contact-sheet.png"
+  ],
+  "themeTokens": "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/color-tokens.json",
+  "limitations": [
+    "Native emulator screenshots, not physical Galaxy A71 or TalkBack speech evidence.",
+    "One portrait viewport; keyboard is closed in all review captures.",
+    "Normal and selected 200% states only; not an exhaustive responsive/state matrix.",
+    "Timer seconds and status clock advance between paired captures; no composited app pixels.",
+    "Notifications/exact alarms were not granted; actual Alerts off state is visible.",
+    "History contains partial synthetic workouts and naturally scrolls beyond the captured viewport.",
+    "Contact sheets are scaled copies; original full-resolution PNGs are authoritative.",
+    "A boot System UI ANR dialog was dismissed; an invalid draft fixture was rejected before the valid import. Setup diagnostics are separate.",
+    "No new test-suite run or aesthetic scoring was performed for this prep-only packet."
+  ],
+  "implementation": "No repository edits. Awaiting parent council synthesis before 0.1.4 work."
+}

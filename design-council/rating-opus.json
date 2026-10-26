@@ -1,0 +1,282 @@
+{
+  "reviewer": "claude-opus-5.5",
+  "effort": "high",
+  "ratings": [
+    {
+      "id": "R1",
+      "name": "Hevy",
+      "scores": {
+        "hierarchy": 3,
+        "legibility": 3,
+        "action_clarity": 3,
+        "orientation": 3,
+        "theming": 3,
+        "rebuild_fit": 3
+      },
+      "confidence": "medium",
+      "evidence": [
+        "references/R1-hevy/01-workout-log.png",
+        "references/R1-hevy/02-exercise-chart.png",
+        "references/R1-hevy/03-routines.png"
+      ],
+      "limitations": [
+        "Marketing composite with enlarged rows/cards",
+        "Depicted OS unknown (iOS-style chrome)",
+        "Light theme only in selected media",
+        "No keyboard, running timer or history-detail screen"
+      ],
+      "adopt": [
+        "Grey prior value aligned beside bold current value per set, same unit order",
+        "Actual-load (heaviest weight) chart with dated axes"
+      ],
+      "avoid": [
+        "Volume/time/sets summary strip competing with logging",
+        "PR badge, One Rep Max metric, exercise illustrations"
+      ],
+      "sum": 18,
+      "possible": 24,
+      "coverage": "6/6"
+    },
+    {
+      "id": "R2",
+      "name": "Strong",
+      "scores": {
+        "hierarchy": 3,
+        "legibility": 3,
+        "action_clarity": 4,
+        "orientation": 3,
+        "theming": 3,
+        "rebuild_fit": 3
+      },
+      "confidence": "medium",
+      "evidence": [
+        "references/R2-strong/01-log-dark.png",
+        "references/R2-strong/02-log-light.png",
+        "references/R2-strong/03-progress.png"
+      ],
+      "limitations": [
+        "Keypad/plate region is promotional composite",
+        "Dense rows; real target size unverified",
+        "Progress chart is estimated 1RM"
+      ],
+      "adopt": [
+        "Done/pending/active row states distinguished by boxes, checks and caret, not colour alone",
+        "Inline rest indicator right after the completed set",
+        "Light theme: neutral near-white surfaces with accent reserved for state"
+      ],
+      "avoid": [
+        "Est. 1RM charts",
+        "Small table-cell inputs for one-handed gym use",
+        "Health Connect/dashboard profile"
+      ],
+      "sum": 19,
+      "possible": 24,
+      "coverage": "6/6"
+    },
+    {
+      "id": "R3",
+      "name": "Fitbod",
+      "scores": {
+        "hierarchy": 3,
+        "legibility": 3,
+        "action_clarity": 2,
+        "orientation": 2,
+        "theming": 3,
+        "rebuild_fit": 2
+      },
+      "confidence": "medium-low",
+      "evidence": [
+        "references/R3-fitbod/01-workout-overview.jpg",
+        "references/R3-fitbod/02-set-entry.jpg",
+        "references/R3-fitbod/03-strength-progress.jpg"
+      ],
+      "limitations": [
+        "No completion control visible in set entry",
+        "Overview cropped",
+        "Progress shows derived strength scores, not logged loads",
+        "Dark only in selected media"
+      ],
+      "adopt": [
+        "Current set labelled and outlined; completed tinted; upcoming subdued"
+      ],
+      "avoid": [
+        "Strength scores and generated plans",
+        "Media hero pushing sets down",
+        "Italic display numerals for data"
+      ],
+      "sum": 15,
+      "possible": 24,
+      "coverage": "6/6"
+    },
+    {
+      "id": "R4",
+      "name": "Boostcamp",
+      "scores": {
+        "hierarchy": 2,
+        "legibility": 2,
+        "action_clarity": 3,
+        "orientation": 3,
+        "theming": 3,
+        "rebuild_fit": 3
+      },
+      "confidence": "medium",
+      "evidence": [
+        "references/R4-boostcamp/01-logging-rpe-input.png",
+        "references/R4-boostcamp/02-workout-table.png",
+        "references/R4-boostcamp/03-exercise-chart.png"
+      ],
+      "limitations": [
+        "Toolbar time not proven to be rest countdown",
+        "RPE grid is not an optional-RIR flow",
+        "Depicted OS unknown; dark only in selected media",
+        "Chart demo content inconsistent"
+      ],
+      "adopt": [
+        "Charcoal + yellow/amber cohesion validates Rebuild dark direction",
+        "Verbal anchors if an optional RIR picker is ever added",
+        "Labelled secondary actions (Add Set, Swap) with icons"
+      ],
+      "avoid": [
+        "Five-column density with tiny effort superscripts",
+        "Accent colour on non-actionable exercise titles",
+        "% of 1RM targets, volume/bodyweight charts"
+      ],
+      "sum": 16,
+      "possible": 24,
+      "coverage": "6/6"
+    },
+    {
+      "id": "R5",
+      "name": "Alpha Progression",
+      "scores": {
+        "hierarchy": 3,
+        "legibility": 3,
+        "action_clarity": 2,
+        "orientation": 2,
+        "theming": 3,
+        "rebuild_fit": 3
+      },
+      "confidence": "medium-low",
+      "evidence": [
+        "references/R5-alpha-progression/01-set-logger.png",
+        "references/R5-alpha-progression/02-plan-days.png",
+        "references/R5-alpha-progression/03-progress-charts.png"
+      ],
+      "limitations": [
+        "Target-row semantics unclear from image",
+        "Depicted OS unknown (iPhone frame)",
+        "No keyboard, expanded timer or light theme",
+        "10RM metric, not actual load history"
+      ],
+      "adopt": [
+        "Compact aligned prior-session mini-table beneath the logger",
+        "Plan-day tabs with set/rep chips"
+      ],
+      "avoid": [
+        "10RM and automatic progression",
+        "Cryptic wrench/pencil header icons",
+        "Unlabelled thumbnail-only exercise navigation"
+      ],
+      "sum": 16,
+      "possible": 24,
+      "coverage": "6/6"
+    },
+    {
+      "id": "R6",
+      "name": "Liftin'",
+      "scores": {
+        "hierarchy": 3,
+        "legibility": 3,
+        "action_clarity": 2,
+        "orientation": 2,
+        "theming": 3,
+        "rebuild_fit": 2
+      },
+      "confidence": "low",
+      "evidence": [
+        "references/R6-liftin/01-set-log-rest.jpg",
+        "references/R6-liftin/02-workout-list.jpg",
+        "references/R6-liftin/03-progress-calendar.jpg"
+      ],
+      "limitations": [
+        "iOS only; style comparison",
+        "Finger illustration obscures set 3",
+        "Timer and Add callouts enlarged outside UI",
+        "No input fields visible"
+      ],
+      "adopt": [
+        "Rest shown as elapsed/remaining against target (e.g. 0:30 / 1:30)"
+      ],
+      "avoid": [
+        "PR cards and calendar-as-motivation",
+        "Pure black surfaces and illustration-heavy rows",
+        "Ambiguous rep-circle tap target"
+      ],
+      "sum": 15,
+      "possible": 24,
+      "coverage": "6/6"
+    },
+    {
+      "id": "RB",
+      "name": "Rebuild 0.1.3 baseline",
+      "scores": {
+        "hierarchy": 3,
+        "legibility": 3,
+        "action_clarity": 3,
+        "orientation": 3,
+        "theming": 2,
+        "rebuild_fit": 3
+      },
+      "confidence": "medium-high",
+      "evidence": [
+        "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-today.png",
+        "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-today.png",
+        "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-workout-rest.png",
+        "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-workout-rest.png",
+        "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-history-detail.png",
+        "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-history-detail.png",
+        "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-entry-200.png",
+        "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-entry-200.png",
+        "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/color-tokens.json",
+        "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/manifest.json"
+      ],
+      "limitations": [
+        "Emulator, not Galaxy A71",
+        "Keyboard closed in all captures",
+        "Single scroll position; logged-set list below fold",
+        "Contrast values are token arithmetic, not pixel measurement",
+        "Theming 2 = dark ~3 / light ~2"
+      ],
+      "adopt": [
+        "Preserve: dark charcoal/amber tokens, single full-width filled primary, large labelled kg/Reps/RIR fields, docked rest bar with +time/skip, exercise chips with n/N counters, prefilled-honesty copy, read-first history with per-set edit"
+      ],
+      "avoid": [
+        "Prose 'Last comparable' line that must be parsed",
+        "Text buttons inset from content edge",
+        "Seven amber text actions on history detail",
+        "Rest bar covering Log set at 200% in captured position",
+        "Olive-brown filled blocks on beige in light theme"
+      ],
+      "sum": 17,
+      "possible": 24,
+      "coverage": "6/6"
+    }
+  ],
+  "rebuild_dark": "Preserve palette (#171410 surface, #E6C27A primary; primary/surface 10.8:1, onPrimary/primary 7.7:1). Change only layout/emphasis: fewer amber text actions, aligned text buttons.",
+  "rebuild_light": "Redirect, do not remove: near-neutral faintly warm surfaces (~#FAF9F7 / containers ~#F3F1EE), charcoal-ink filled primary (~#2E2924, cream label #F6E3BE), amber #E6C27A only as fill behind dark ink (never text/lone boundary on light, 1.6:1), text buttons in ink or deeper bronze (~#6B4E0E, 7.3:1). Illustrative values; verify all role pairs.",
+  "top_changes": [
+    "Replace prose 'Last comparable' with per-set aligned rows adjacent to entry, emphasising row matching 'Log set N' (check 0/1/2 prior sets, lat-pulldown replacement, 200%, TalkBack)",
+    "Redirect light palette per rebuild_light; leave dark untouched (contrast test all used role pairs, system theme switching, no forced dark)",
+    "Reserve docked rest-bar height in scroll padding so it never covers Log set; optional remaining/target display (check 200%, IME open, landscape, process death)",
+    "Move working-set list (done/current/upcoming, non-colour state cues) directly after Log set (check edit-in-place, warm-up exclusion, recovery)",
+    "Reduce accent noise: align text buttons to content edge; group History detail 'Add missed set'/'Add exercise note' under per-exercise overflow (check reachability, labels, 48dp, semantics tests)"
+  ],
+  "uncertainties": [
+    "References are marketing composites; states/positions may be staged",
+    "Strong action_clarity 4 depends partly on composite keypad context",
+    "Charcoal light primary may feel stark; cleaner bronze is a valid alternative",
+    "Moving set list up may lengthen A71 scroll",
+    "RB judged on richer native evidence than references; possible scoring asymmetry",
+    "No interaction, touch-target, keyboard or dynamic-text verification for references"
+  ]
+}

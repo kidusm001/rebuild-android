@@ -1,0 +1,260 @@
+{
+  "reviewer": "gpt-6-astra",
+  "effort": "high",
+  "ratings": [
+    {
+      "id": "R1",
+      "name": "Hevy",
+      "scores": {
+        "hierarchy": 3,
+        "legibility": 3,
+        "action_clarity": 3,
+        "orientation": 3,
+        "theming": 3,
+        "rebuild_fit": 3
+      },
+      "confidence": "medium",
+      "evidence": [
+        "references/R1-hevy/01-workout-log.png",
+        "references/R1-hevy/02-exercise-chart.png",
+        "references/R1-hevy/03-routines.png"
+      ],
+      "limitations": [
+        "Android-facing publisher artwork; depicted OS and version unknown. Light visual evidence only.",
+        "Enlarged completed rows, chart and routine card excluded from native-layout ratings.",
+        "No exercised input, dark theme, running countdown, open keyboard or separate history detail; missing coverage does not imply missing features."
+      ],
+      "adopt": [
+        "Label previous results separately from current KG and Reps.",
+        "Distinguish a named routine Start action from quieter creation utilities."
+      ],
+      "avoid": [
+        "Very faint unfinished-set values that resemble disabled content.",
+        "Metric or exploration choices competing with the personal workout launcher."
+      ]
+    },
+    {
+      "id": "R2",
+      "name": "Strong",
+      "scores": {
+        "hierarchy": 3,
+        "legibility": 3,
+        "action_clarity": 3,
+        "orientation": 3,
+        "theming": 3,
+        "rebuild_fit": 4
+      },
+      "confidence": "medium",
+      "evidence": [
+        "references/R2-strong/01-log-dark.png",
+        "references/R2-strong/02-log-light.png",
+        "references/R2-strong/03-progress.png"
+      ],
+      "limitations": [
+        "Android-style chrome in publisher artwork; no installed build exercised and content date/version unknown.",
+        "Light caret and lower input/plate area do not verify keyboard behavior.",
+        "Enlarged progress chart excluded from native-layout ratings; its estimated-1RM label is not actual per-set history.",
+        "History is only a navigation label in the supplied material."
+      ],
+      "adopt": [
+        "Align previous and current numeric data without paragraph parsing.",
+        "Use bounded input cells, an explicit focus treatment and differentiated completed rows across both themes.",
+        "Keep time status near the ongoing logging task."
+      ],
+      "avoid": [
+        "Over-muted completed previous values.",
+        "Estimated-1RM dashboard and custom plate-entry complexity for Rebuild."
+      ]
+    },
+    {
+      "id": "R3",
+      "name": "Fitbod",
+      "scores": {
+        "hierarchy": 3,
+        "legibility": 3,
+        "action_clarity": 2,
+        "orientation": 3,
+        "theming": 3,
+        "rebuild_fit": 2
+      },
+      "confidence": "medium",
+      "evidence": [
+        "references/R3-fitbod/01-workout-overview.jpg",
+        "references/R3-fitbod/02-set-entry.jpg",
+        "references/R3-fitbod/03-strength-progress.jpg"
+      ],
+      "limitations": [
+        "Android-style publisher artwork, dark only in this packet; date/version unknown.",
+        "Completion gesture cannot be established by numbered markers and outlined fields.",
+        "History and rest are unopened affordances; no keyboard, running countdown or optional-RIR input shown.",
+        "Strength scores are not raw logged weight/reps; homepage HTTP 403 was not bypassed."
+      ],
+      "adopt": [
+        "Emphasize the current field pair while retaining completed and future context.",
+        "Pair exercise names with concise sets/reps/load summaries."
+      ],
+      "avoid": [
+        "Large instructional photography before every logging task.",
+        "Strength-score or coaching-led framing in an actuals-only personal logger."
+      ]
+    },
+    {
+      "id": "R4",
+      "name": "Boostcamp",
+      "scores": {
+        "hierarchy": 2,
+        "legibility": 2,
+        "action_clarity": 3,
+        "orientation": 3,
+        "theming": 3,
+        "rebuild_fit": 3
+      },
+      "confidence": "medium",
+      "evidence": [
+        "references/R4-boostcamp/01-logging-rpe-input.png",
+        "references/R4-boostcamp/02-workout-table.png",
+        "references/R4-boostcamp/03-exercise-chart.png"
+      ],
+      "limitations": [
+        "Android-facing publisher artwork with unverified depicted OS; dark visuals only, unknown date/version.",
+        "RPE input and a previous-performance RIR annotation do not demonstrate optional-RIR entry.",
+        "Toolbar time is not proven to be a rest countdown.",
+        "Chart depicts volume/bodyweight, not actual per-set reps; title/illustration mismatch is illustrative-content uncertainty."
+      ],
+      "adopt": [
+        "Keep Previous, Target and actual input conceptually distinct.",
+        "Name utilities and mark selected tabs visibly."
+      ],
+      "avoid": [
+        "Importing all columns, annotations and utilities into Rebuild's narrow logger.",
+        "Dual-axis volume/bodyweight analysis or RPE-calculator complexity."
+      ]
+    },
+    {
+      "id": "R5",
+      "name": "Alpha Progression",
+      "scores": {
+        "hierarchy": 3,
+        "legibility": 2,
+        "action_clarity": 3,
+        "orientation": 3,
+        "theming": 3,
+        "rebuild_fit": 3
+      },
+      "confidence": "medium",
+      "evidence": [
+        "references/R5-alpha-progression/01-set-logger.png",
+        "references/R5-alpha-progression/02-plan-days.png",
+        "references/R5-alpha-progression/03-progress-charts.png"
+      ],
+      "limitations": [
+        "Android-facing publisher artwork with iPhone-style frame; depicted OS/date/version unverified.",
+        "Yesterday block does not establish comparability logic.",
+        "10RM display and chart are not evidence of raw load/reps history plotting.",
+        "No open keyboard, expanded timer, light visual or optional-RIR editor retained."
+      ],
+      "adopt": [
+        "Use a dated prior-session block beside current logging context.",
+        "Separate selected plan day from exercise prescriptions and the explicit Save action."
+      ],
+      "avoid": [
+        "Very muted prior values and thumbnail-only exercise identity.",
+        "Derived-10RM prominence, target automation assumptions and a broad chart dashboard."
+      ]
+    },
+    {
+      "id": "R6",
+      "name": "Liftin'",
+      "scores": {
+        "hierarchy": 3,
+        "legibility": 3,
+        "action_clarity": 2,
+        "orientation": 3,
+        "theming": 3,
+        "rebuild_fit": 2
+      },
+      "confidence": "low",
+      "evidence": [
+        "references/R6-liftin/01-set-log-rest.jpg",
+        "references/R6-liftin/02-workout-list.jpg",
+        "references/R6-liftin/03-progress-calendar.jpg"
+      ],
+      "limitations": [
+        "iOS style comparison only; dark publisher artwork, unknown content date/version.",
+        "One-tap logging is advertising, not a measured interaction.",
+        "Enlarged timer, Add control, calendar treatment and illustrated finger excluded from native-placement scoring.",
+        "Circular rep badges leave planned/current/completed interpretation uncertain without interaction.",
+        "No keyboard, light visual, Android UI or actual load/reps time-series evidence."
+      ],
+      "adopt": [
+        "Use exercise-name rows with concise numerical summaries.",
+        "Make total-load versus per-side unit meaning explicit where relevant."
+      ],
+      "avoid": [
+        "Badge-only completion whose meaning relies on learned behavior.",
+        "iOS-specific chrome, plate-heavy layouts and Weight-PR-first history."
+      ]
+    },
+    {
+      "id": "RB",
+      "name": "Rebuild 0.1.3",
+      "scores": {
+        "hierarchy": 3,
+        "legibility": 3,
+        "action_clarity": 3,
+        "orientation": 4,
+        "theming": 2,
+        "rebuild_fit": 4
+      },
+      "confidence": "high",
+      "evidence": [
+        "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-today.png",
+        "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-today.png",
+        "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-workout-rest.png",
+        "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-workout-rest.png",
+        "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-history-detail.png",
+        "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-history-detail.png",
+        "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-entry-200.png",
+        "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-entry-200.png",
+        "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/dark-history.png",
+        "~/.copilot/session-state/7fe3ff42-fc79-4d02-b465-e3abb277ed6a/files/design-council-baseline/light-history.png"
+      ],
+      "limitations": [
+        "High confidence applies to visible native layout only, not verified interactions.",
+        "API 34 emulator at one portrait viewport; selected normal/200% states, all keyboards closed.",
+        "Synthetic partial history, no physical Galaxy A71 or TalkBack exercise by this reviewer.",
+        "200% Log set at timer boundary demonstrates viewport pressure, not proven inability to scroll or tap.",
+        "Bright bottom gesture band is visible in dark captures; cause unverified.",
+        "Semantics, persistence, timer, IME, backups and safety guards are required invariants, not inferred from photos."
+      ],
+      "adopt": [
+        "Preserve dominant Start/Log set actions and explicit actual kg/reps/optional-RIR entry.",
+        "Preserve workout/phase/exercise/count/rest orientation and dated read-first history.",
+        "Keep rounded-outline icons, system-aware themes and dark charcoal/amber identity."
+      ],
+      "avoid": [
+        "Prose-heavy previous-set comparison and repetitive supporting-action spacing.",
+        "Broad beige/tan/brown light treatment and an unexplained bright gesture-band break in dark.",
+        "Removing guards, auto-logging, automatic phase progression or importing competitor dashboards."
+      ]
+    }
+  ],
+  "rebuild_dark": "Preserve surface #171410 and primary #E6C27A, unboxed structure and rounded-outline icons. Refine data hierarchy without recoloring the identity; investigate the visible bright gesture-band discontinuity without assuming its cause.",
+  "rebuild_light": "Retain system-aware light mode. Neutralize light canvas, containers and outlines; use dark ink and trial dark-ink primary actions with restrained amber selection details instead of pervasive beige/brown. Validate semantic contrast and all component states before adopting exact colors.",
+  "top_changes": [
+    "Replace Last comparable prose with dated labeled set lines beside entry; preserve matching logic, actuals, RIR, provenance and large-font reflow.",
+    "Retune light semantic colors only; contrast-check real states and keep dark charcoal/amber unchanged.",
+    "Clarify the persistent rest strip with visible wrapping add-time/skip labels and secondary alerts status; protect IME, landscape, timer persistence and accessibility guards.",
+    "Tighten repetitive help/target spacing rather than fonts or touch targets; preserve one-tap prefill, no auto-save, warm-up distinction, edits, recovery and baseline/current/optional-upper caps.",
+    "Quiet repeated home/history support actions while retaining manual phase choice, explicit actual-log correction, scope distinctions and backup safety."
+  ],
+  "uncertainties": [
+    "Ratings are an independent expert judgment of bounded visible evidence, not consensus, a user study or an exhaustive market ranking.",
+    "All six visual dimensions are evidenced for all seven rows; no missing behavior is scored as zero.",
+    "Strong is the most transferable reference in this assessment, not a universally best product.",
+    "Reasonable reviewers may prefer Alpha Progression's prior-session block to Strong's comparative table, or more spacing to more density.",
+    "Publisher images cannot establish actual target sizes, dynamic text, keyboard behavior, persistence, semantics, one-handed reach or measured tap counts.",
+    "References were collected 2026-09-27, but their content dates/versions are unknown; missing light or dark evidence is not absence of support.",
+    "No enlarged promotional callout is treated as proof of an in-app control's size or location."
+  ]
+}

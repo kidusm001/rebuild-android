@@ -1,0 +1,34 @@
+.gradle/
+.kotlin/
+**/build/
+local.properties
+*.jks
+*.keystore
+*.apk
+*.aab
+*.pdf
+.tools/
+.idea/
+captures/
+
+# Release outputs are published as GitHub Releases, not kept in git history.
+/0.1.*/
+/README-0.1.*.md
+/rebuild-*.apk
+/delivery.json
+/SHA256SUMS
+/verification.md
+/apk-signature.txt
+/evidence/
+/logs/
+/reports/
+# Screenshots of other companies' apps, used privately as design references.
+/design-council/references/
+# Raw device dumps from design reviews (UI hierarchies, logs); the write-ups and screenshots are kept.
+/ux-audit/**/*.xml
+/design-council/**/*.xml
+/design-review/**/*.xml
+**/*logcat*.txt
+**/*-ime.txt
+**/*.db
+**/*.log
