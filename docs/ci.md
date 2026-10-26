@@ -9,8 +9,9 @@ two jobs:
   Robolectric screenshot tour renders too, then `lintRelease` and `assembleRelease`.
   - Uploads the JUnit results, the screenshots, the lint report and the APK. The APK is signed with the runner's own
     debug key, so it is for checking the build, not for installing over the app on a phone.
-- **Device tests.** It builds the app and its tests, starts an API 33 Google APIs emulator (Pixel 6 profile, 1080 ×
-  2400 at 420 dpi, the same shape as the development emulator) with KVM, and runs `connectedDebugAndroidTest`.
+- **Device tests**, on API 33 and API 34 in parallel. Each builds the app and its tests, starts a Google APIs emulator
+  (Pixel 6 profile, 1080 × 2400 at 420 dpi, the same shape as the development emulator) with KVM, and runs
+  `connectedDebugAndroidTest`. API 34 also runs the AccessibilityValidator checks, which need API 34 or later.
   - Uploads the instrumentation results.
 
 Each job writes a pass/fail summary to its run page.

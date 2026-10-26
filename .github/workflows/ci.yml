@@ -72,9 +72,14 @@ jobs:
           path: app/build/outputs/apk/release/app-release.apk
 
   device-tests:
-    name: Device tests (API 33 emulator)
+    name: Device tests (API ${{ matrix.api-level }} emulator)
     runs-on: ubuntu-latest
     timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        # 33 is the development emulator's level; 34 adds the AccessibilityValidator checks, which need API 34+.
+        api-level: [33, 34]
     steps:
       - uses: actions/checkout@v4
 
@@ -95,11 +100,11 @@ jobs:
       - name: Build the app and its tests
         run: ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
 
-      # The same shape as the development emulator: API 33, 1080 × 2400 at 420 dpi.
+      # The same shape as the development emulator: 1080 × 2400 at 420 dpi.
       - name: Instrumented tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 33
+          api-level: ${{ matrix.api-level }}
           target: google_apis
           arch: x86_64
           profile: pixel_6
@@ -109,11 +114,11 @@ jobs:
 
       - name: Summary
         if: always()
-        run: python3 .github/scripts/test_summary.py "Device tests" app/build/outputs/androidTest-results/connected >> "$GITHUB_STEP_SUMMARY"
+        run: python3 .github/scripts/test_summary.py "Device tests (API ${{ matrix.api-level }})" app/build/outputs/androidTest-results/connected >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: device-test-results
+          name: device-test-results-api${{ matrix.api-level }}
           path: app/build/outputs/androidTest-results/connected/
           if-no-files-found: ignore

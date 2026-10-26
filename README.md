@@ -55,8 +55,8 @@ The full manual is in [docs/user-guide.md](docs/user-guide.md), and why each scr
 - **Tested at three levels:**
   - About 340 JVM tests, covering the domain, the codec, migrations and Robolectric UI.
   - A Robolectric screenshot tour of every main screen in light, dark, 200% text and landscape.
-  - About 130 instrumented tests on an emulator, with real input, the keyboard, rotation, process recreation and
-    the accessibility tree; AccessibilityValidator checks are added on API 34 and later.
+  - About 130 instrumented tests, on API 33 and 34 emulators in CI, with real input, the keyboard, rotation, process
+    recreation and the accessibility tree; on API 34 they add AccessibilityValidator checks.
 
 | Package | What's in it |
 | --- | --- |
@@ -84,7 +84,7 @@ data.** Export a backup first.
 
 - **[CI](.github/workflows/ci.yml)** runs on every push and pull request:
   - unit tests with the screenshot tour, lint and a release build;
-  - the instrumented suite on an API 33 emulator.
+  - the instrumented suite on API 33 and API 34 emulators, the second with AccessibilityValidator checks.
 
   Test results, screenshots and the APK are attached to each run.
 - **[Release](.github/workflows/release.yml)** runs on a `v*` tag:

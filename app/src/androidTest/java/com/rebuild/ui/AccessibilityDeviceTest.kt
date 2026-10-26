@@ -32,6 +32,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.isEnabled
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -240,32 +241,47 @@ class AccessibilityDeviceTest {
     }
 
     @Test
-    fun openDropSetEntryRestPauseAndSetDetailsPassNativeChecks() {
+    fun aSetWithADropItsDetailsAndAnOpenRestPauseSetPassNativeChecks() {
         val repo = FakeRepository(seedState(Phase.INTRO_TWO))
         rule.setContent { RebuildApp(repo, FakePlatform(), clock = { FIXED_NOW }) }
         rule.onNodeWithTag("start-scheduled").performClick()
-        rule.onNodeWithTag("set-type").performScrollTo().performClick()
-        rule.onNodeWithTag("set-type-drop").tryPerformAccessibilityChecks()
-        rule.onNodeWithTag("set-type-drop").performClick()
-        rule.onNodeWithTag("entry-kg").performScrollTo().performTextInput("40")
-        rule.onNodeWithTag("entry-reps").performTextInput("10")
-        rule.onNodeWithTag("log-set").performScrollTo().performClick()
-        rule.waitUntil(5_000) { repo.state.value.activeWorkout!!.exercises.first().sets.size == 1 }
-        rule.waitUntil(5_000) { SemanticsProperties.Disabled !in rule.onNodeWithTag("log-set").fetchSemanticsNode().config }
-        rule.onNodeWithTag("log-set").assertTextContains("Add drop")
-        rule.onNodeWithTag("finish-group").performScrollTo()
-        rule.onRoot().tryPerformAccessibilityChecks()
-        captureEvidence("open-drop-set")
-        rule.onNodeWithTag("group-row").performScrollTo().performClick()
-        rule.onNodeWithTag("group-stages").tryPerformAccessibilityChecks()
-        rule.onNodeWithText("Rest-pause").performScrollTo().performClick()
-        rule.waitUntil(5_000) {
-            repo.state.value.activeWorkout!!.exercises.first().setGroups.single().method == com.rebuild.domain.SetMethod.REST_PAUSE
+        fun sets() = repo.state.value.activeWorkout!!.exercises.first().sets.size
+        fun log(kg: String, reps: String) {
+            val before = sets()
+            rule.onNodeWithTag("entry-kg").performScrollTo().performTextReplacement(kg)
+            rule.onNodeWithTag("entry-reps").performTextReplacement(reps)
+            rule.onNodeWithTag("log-set").performScrollTo().performClick()
+            rule.waitUntil(5_000) { sets() == before + 1 }
+            rule.waitUntil(5_000) { SemanticsProperties.Disabled !in rule.onNodeWithTag("set-type").fetchSemanticsNode().config }
         }
-        rule.onNodeWithTag("group-done").performClick()
-        rule.onNodeWithTag("short-pause").performScrollTo()
-        rule.onNodeWithTag("log-set").assertTextContains("Add mini-set")
+        fun openMenu() {
+            rule.onNodeWithTag("set-type").performScrollTo().performClick()
+            rule.waitUntil(5_000) { rule.onAllNodesWithTag("set-type-normal").fetchSemanticsNodes().isNotEmpty() }
+        }
+
+        // A set, then a drop added to it from the menu: one row, the drop beneath the set.
+        log("40", "10")
+        openMenu()
+        rule.onNodeWithTag("set-type-add-drop").tryPerformAccessibilityChecks()
+        rule.onNodeWithTag("set-type-add-drop").performClick()
+        rule.onNodeWithTag("log-set").assertTextContains("Log drop")
+        log("30", "8")
+        rule.onNodeWithTag("group-row").performScrollTo()
         rule.onRoot().tryPerformAccessibilityChecks()
+        captureEvidence("set-with-drop")
+        rule.onNodeWithTag("group-row").performClick()
+        rule.onNodeWithTag("group-stages").tryPerformAccessibilityChecks()
+        rule.onNodeWithTag("group-done").performClick()
+
+        // An open rest-pause set: its next mini-set and the optional short pause.
+        openMenu()
+        rule.onNodeWithTag("set-type-rest_pause").tryPerformAccessibilityChecks()
+        rule.onNodeWithTag("set-type-rest_pause").performClick()
+        log("40", "6")
+        rule.onNodeWithTag("log-set").assertTextContains("Add mini-set")
+        rule.onNodeWithTag("short-pause").performScrollTo()
+        rule.onRoot().tryPerformAccessibilityChecks()
+        captureEvidence("open-rest-pause-set")
     }
 
     @Test

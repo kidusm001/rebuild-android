@@ -34,11 +34,18 @@ class SetGroupsDeviceTest {
     }
 
     /** The type menu, like Log, is disabled for the cooldown after a save; a tap then would be ignored. */
-    private fun chooseType(option: String) {
+    /** Opens the set-type menu once the button is enabled again (it waits out the save cooldown) and the menu is up. */
+    private fun openSetTypeMenu() {
         rule.waitUntil(5_000) {
             rule.onAllNodes(hasTestTag("set-type") and isEnabled()).fetchSemanticsNodes().size == 1
         }
         rule.onNodeWithTag("set-type").performScrollTo().performClick()
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("set-type-normal").fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    private fun chooseType(option: String) {
+        openSetTypeMenu()
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("set-type-$option").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithTag("set-type-$option").performClick()
         rule.waitForIdle()
     }
@@ -102,7 +109,7 @@ class SetGroupsDeviceTest {
         val normalRest = requireNotNull(repo.state.value.restTimer)
 
         // A drop is part of the set just logged: never a set of its own, so the menu offers no "Drop set".
-        rule.onNodeWithTag("set-type").performScrollTo().performClick()
+        openSetTypeMenu()
         rule.onNodeWithTag("set-type-drop").assertDoesNotExist()
         rule.onNodeWithTag("set-type-add-drop").assertTextContains("Add drop to set 1", substring = true).performClick()
         rule.waitForIdle()
@@ -120,7 +127,7 @@ class SetGroupsDeviceTest {
 
         // Plates per stack: a set and its drop, in plates.
         switchUnit(LoadUnit.PLATES)
-        rule.onNodeWithTag("set-type").performScrollTo().performClick()
+        openSetTypeMenu()
         rule.onNodeWithTag("set-type-normal").performClick()
         logEntry(repo, "8", "10", "entry-plates")
         chooseType("add-drop")
