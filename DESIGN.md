@@ -110,7 +110,9 @@ Happy Scale, Libra, Strong and Hevy:
 **History** opens on a month calendar of finished workouts (a filled day opens
 the workout; today is a neutral outline, so it never reads as a workout) and
 working sets per primary muscle, starting on the latest week that has any, then
-the list. Tabs never break a word: at large text they scroll.
+the list. Tabs never break a word: at large text they scroll. The tabs are pages: swipe left or right between
+them, and the indicator slides with the finger. A horizontal drag on a chart reads the chart instead, so charts
+keep their touch.
 Exercises have a search field; each exercise's page adds **Records**: the
 heaviest working set actually lifted at each rep count up to 15, with ones beaten
 at more reps folded away. No estimated one-rep max.

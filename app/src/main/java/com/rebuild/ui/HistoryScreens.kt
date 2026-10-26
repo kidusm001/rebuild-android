@@ -1,6 +1,5 @@
 package com.rebuild.ui
 
-import com.rebuild.domain.repRecords
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -11,36 +10,43 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Tab
 import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabPosition
 import androidx.compose.material3.TabRow
+import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -60,24 +66,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.rebuild.domain.MAX_ROUTINES
-import com.rebuild.domain.Action
+import androidx.compose.ui.unit.lerp
 import com.rebuild.R
+import com.rebuild.domain.Action
 import com.rebuild.domain.Effort
 import com.rebuild.domain.Exercise
-import com.rebuild.domain.LoadingType
 import com.rebuild.domain.LoadUnit
+import com.rebuild.domain.LoadingType
 import com.rebuild.domain.LoggedSet
+import com.rebuild.domain.MAX_ROUTINES
 import com.rebuild.domain.Measure
 import com.rebuild.domain.WorkEntry
 import com.rebuild.domain.Workout
 import com.rebuild.domain.WorkoutExercise
 import com.rebuild.domain.asksPerLeg
-import com.rebuild.domain.limitUserText
 import com.rebuild.domain.followUps
+import com.rebuild.domain.limitUserText
 import com.rebuild.domain.mainSet
 import com.rebuild.domain.measured
 import com.rebuild.domain.openGroup
+import com.rebuild.domain.repRecords
 import com.rebuild.domain.warmupSetCount
 import com.rebuild.domain.workEntries
 import com.rebuild.domain.workingCount
@@ -88,6 +96,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlin.math.abs
+import kotlinx.coroutines.launch
 
 internal data class Identity(val id: String, val loading: LoadingType, val perDumbbell: Boolean)
 
@@ -99,89 +109,125 @@ internal fun HistoryScreen(
     onNavigate: (String) -> Unit,
     onOpenToday: () -> Unit = { onNavigate(com.rebuild.ui.Tab.HOME.route) }
 ) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    // The tabs are pages: swipe left or right between them, or tap a tab. The pager keeps the page across visits.
+    val pager = rememberPagerState { HISTORY_TABS.size }
+    val scope = rememberCoroutineScope()
     val finished = env.state.workouts.filter { it.finishedAt != null }.sortedByDescending { it.startedAt }
     ScreenScaffold(title = "History") {
+        val tab = pager.currentPage
         val tabs = @Composable {
             val selected = MaterialTheme.colorScheme.primary
             val unselected = MaterialTheme.colorScheme.onSurfaceVariant
-            listOf("Workouts", "Exercises", "Body").forEachIndexed { i, label ->
-                Tab(selected = tab == i, onClick = { tab = i }, text = { Text(label, maxLines = 1, softWrap = false) },
+            HISTORY_TABS.forEachIndexed { i, label ->
+                Tab(selected = tab == i, onClick = { scope.launch { pager.animateScrollToPage(i) } },
+                    text = { Text(label, maxLines = 1, softWrap = false) },
                     selectedContentColor = selected, unselectedContentColor = unselected,
                     modifier = Modifier.testTag("history-tab-$i"))
             }
         }
+        // The indicator slides with the finger, between the page it leaves and the one it's heading to.
+        val indicatorColor = MaterialTheme.colorScheme.primary
+        val indicator = @Composable { positions: List<TabPosition> ->
+            if (positions.isNotEmpty()) {
+                val fraction = pager.currentPageOffsetFraction
+                val from = positions[pager.currentPage.coerceIn(positions.indices)]
+                val to = positions.getOrNull(pager.currentPage + if (fraction > 0) 1 else -1) ?: from
+                TabRowDefaults.SecondaryIndicator(
+                    Modifier.fillMaxWidth().wrapContentSize(Alignment.BottomStart)
+                        .offset(x = lerp(from.left, to.left, abs(fraction)))
+                        .width(lerp(from.width, to.width, abs(fraction))),
+                    color = indicatorColor
+                )
+            }
+        }
         // A label never breaks mid-word: at large text the tabs scroll instead of squeezing.
         if (LocalDensity.current.fontScale > 1.3f) ScrollableTabRow(selectedTabIndex = tab, modifier = Modifier.readableWidth(),
-            edgePadding = 0.dp) { tabs() }
-        else TabRow(selectedTabIndex = tab, modifier = Modifier.readableWidth()) { tabs() }
-        if (tab == 2) {
-            BodyOverview(env, onWeight = { onNavigate(Routes.BODYWEIGHT) }, onMeasurements = { onNavigate(Routes.MEASUREMENTS) },
-                onMeasure = { onNavigate(Routes.MEASURE) }, onSite = { onNavigate(Routes.site(it)) })
-            return@ScreenScaffold
+            edgePadding = 0.dp, indicator = indicator) { tabs() }
+        else TabRow(selectedTabIndex = tab, modifier = Modifier.readableWidth(), indicator = indicator) { tabs() }
+        // A horizontal drag on a chart reads the chart; anywhere else on a page it turns the page.
+        HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth().testTag("history-pager"), key = { it },
+            verticalAlignment = Alignment.Top) { page ->
+            Column(Modifier.fillMaxSize()) {
+                when {
+                    page == 2 -> BodyOverview(env, onWeight = { onNavigate(Routes.BODYWEIGHT) },
+                        onMeasurements = { onNavigate(Routes.MEASUREMENTS) }, onMeasure = { onNavigate(Routes.MEASURE) },
+                        onSite = { onNavigate(Routes.site(it)) })
+                    finished.isEmpty() -> NoFinishedWorkouts(onOpenToday)
+                    page == 0 -> WorkoutsPage(env, finished, onNavigate)
+                    else -> ExercisesPage(finished, onNavigate)
+                }
+            }
         }
-        if (finished.isEmpty()) {
-            ScrollBody {
-                Text("No finished workouts yet", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "Finish a workout from Today and its sets, notes and exercise charts appear here.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+    }
+}
+
+private val HISTORY_TABS = listOf("Workouts", "Exercises", "Body")
+
+@Composable
+private fun ColumnScope.NoFinishedWorkouts(onOpenToday: () -> Unit) {
+    ScrollBody {
+        Text("No finished workouts yet", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Finish a workout from Today and its sets, notes and exercise charts appear here.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Button(onClick = onOpenToday) { Text("Go to Today") }
+    }
+}
+
+@Composable
+private fun ColumnScope.WorkoutsPage(env: AppEnv, finished: List<Workout>, onNavigate: (String) -> Unit) {
+    LazyBody(spacing = 0.dp) {
+        item(key = "calendar") { WorkoutCalendar(env, onOpen = { onNavigate(Routes.workoutDetail(it.id)) }) }
+        item(key = "muscles") { WeeklyMuscleSets(env) }
+        historyMonths(finished).forEach { (month, workouts) ->
+            item(key = "month/$month") {
+                SectionHeader(month, Modifier.padding(top = 8.dp, bottom = 4.dp))
+            }
+            itemsIndexed(workouts, key = { _, w -> w.id }) { i, workout ->
+                Column {
+                    if (i > 0) HorizontalDivider()
+                    HistoryWorkoutRow(workout) { onNavigate(Routes.workoutDetail(workout.id)) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.ExercisesPage(finished: List<Workout>, onNavigate: (String) -> Unit) {
+    val identities = finished.flatMap { w ->
+        w.exercises.filter { e -> e.sets.any { !it.warmup } || e.efforts.isNotEmpty() }.map { w to it.exercise }
+    }
+        .groupBy { it.second.identity() }
+        .map { (_, list) -> Triple(list.first().second, list.size, list.first().first.startedAt) }
+        .sortedBy { it.first.name.lowercase() }
+    var query by rememberSaveable { mutableStateOf("") }
+    val shown = identities.filter { (exercise, _, _) -> query.isBlank() || exercise.name.contains(query.trim(), ignoreCase = true) }
+    LazyBody(spacing = 0.dp) {
+        item(key = "search") {
+            OutlinedTextField(
+                query, { query = it },
+                label = { Text("Search your exercises") },
+                leadingIcon = { RebuildIcon(R.drawable.ic_search, contentDescription = null) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).testTag("history-exercise-search")
+            )
+        }
+        if (shown.isEmpty()) item(key = "none") {
+            Text("No exercise matches \"${query.trim()}\".", modifier = Modifier.padding(vertical = 12.dp))
+        }
+        itemsIndexed(shown, key = { _, (exercise, _, _) -> Routes.exerciseHistory(exercise) }) { i, (exercise, sessions, last) ->
+            Column {
+                if (i > 0) HorizontalDivider()
+                ListRow(
+                    headline = exercise.name,
+                    supporting = "${loadingShort(exercise).replaceFirstChar { it.uppercase() }} · " +
+                        "${countLabel(sessions, "session")}\nLast ${formatDate(last)}",
+                    onClick = { onNavigate(Routes.exerciseHistory(exercise)) },
+                    trailing = { Chevron() }
                 )
-                Button(onClick = onOpenToday) { Text("Go to Today") }
-            }
-            return@ScreenScaffold
-        }
-        if (tab == 0) {
-            LazyBody(spacing = 0.dp) {
-                item(key = "calendar") { WorkoutCalendar(env, onOpen = { onNavigate(Routes.workoutDetail(it.id)) }) }
-                item(key = "muscles") { WeeklyMuscleSets(env) }
-                historyMonths(finished).forEach { (month, workouts) ->
-                    item(key = "month/$month") {
-                        SectionHeader(month, Modifier.padding(top = 8.dp, bottom = 4.dp))
-                    }
-                    itemsIndexed(workouts, key = { _, w -> w.id }) { i, workout ->
-                        Column {
-                            if (i > 0) HorizontalDivider()
-                            HistoryWorkoutRow(workout) { onNavigate(Routes.workoutDetail(workout.id)) }
-                        }
-                    }
-                }
-            }
-        } else {
-            val identities = finished.flatMap { w ->
-                w.exercises.filter { e -> e.sets.any { !it.warmup } || e.efforts.isNotEmpty() }.map { w to it.exercise }
-            }
-                .groupBy { it.second.identity() }
-                .map { (_, list) -> Triple(list.first().second, list.size, list.first().first.startedAt) }
-                .sortedBy { it.first.name.lowercase() }
-            var query by rememberSaveable { mutableStateOf("") }
-            val shown = identities.filter { (exercise, _, _) -> query.isBlank() || exercise.name.contains(query.trim(), ignoreCase = true) }
-            LazyBody(spacing = 0.dp) {
-                item(key = "search") {
-                    OutlinedTextField(
-                        query, { query = it },
-                        label = { Text("Search your exercises") },
-                        leadingIcon = { RebuildIcon(R.drawable.ic_search, contentDescription = null) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).testTag("history-exercise-search")
-                    )
-                }
-                if (shown.isEmpty()) item(key = "none") {
-                    Text("No exercise matches \"${query.trim()}\".", modifier = Modifier.padding(vertical = 12.dp))
-                }
-                itemsIndexed(shown, key = { _, (exercise, _, _) -> Routes.exerciseHistory(exercise) }) { i, (exercise, sessions, last) ->
-                    Column {
-                        if (i > 0) HorizontalDivider()
-                        ListRow(
-                            headline = exercise.name,
-                            supporting = "${loadingShort(exercise).replaceFirstChar { it.uppercase() }} · " +
-                                "${countLabel(sessions, "session")}\nLast ${formatDate(last)}",
-                            onClick = { onNavigate(Routes.exerciseHistory(exercise)) },
-                            trailing = { Chevron() }
-                        )
-                    }
-                }
             }
         }
     }

@@ -4,7 +4,11 @@ Every version installs over the one before it with the same signing key and keep
 on, release APKs are built and published by [GitHub Actions](.github/workflows/release.yml); notes for each are in
 [docs/releases](docs/releases/).
 
-## 0.1.16 (version code 17)
+## 0.1.17 (version code 18)
+- Swipe left and right between History's tabs, with an indicator that follows the finger. A horizontal drag on a
+  chart still reads the chart.
+
+## 0.1.16 (17)
 - A drop is never counted as a working set, and never triggers the over-target warning. After a drop, the next entry
   stays a drop until you log a normal set, so a second drop can't be logged as a new set by accident. The set-type
   menu no longer offers a separate "Drop set" that started a new counted set. A drop logged as its own set in an

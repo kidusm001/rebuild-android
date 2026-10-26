@@ -404,7 +404,7 @@ that week. No body-fat percentage is estimated.
 **Charts.** Every chart can be touched: press or drag to select the nearest point. A readout above names it, for
 example "83.7 kg average · Mon 31 Aug – Sun 6 Sep · 3 days". With TalkBack, a chart works like a slider.
 
-**History** opens on a month calendar of finished workouts and the working sets per primary muscle for any week.
+**History** has three tabs, Workouts, Exercises and Body. Swipe left or right between them, or tap one. It opens on a month calendar of finished workouts and the working sets per primary muscle for any week.
 Each exercise lists its **Records**: the heaviest set actually lifted at each rep count up to 15. Nothing is
 estimated.
 

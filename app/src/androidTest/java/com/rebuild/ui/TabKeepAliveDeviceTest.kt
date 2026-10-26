@@ -76,4 +76,42 @@ class TabKeepAliveDeviceTest {
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
         rule.waitUntil(5_000) { rule.activity.isFinishing || rule.activity.isDestroyed }
     }
+
+    @Test fun historyTabsSwipeLeftAndRightButADragOnAChartReadsTheChart() {
+        val day = 86_400_000L
+        val weighIns = listOf(21L, 20L, 14L, 13L, 7L, 6L).mapIndexed { i, daysAgo ->
+            val at = FIXED_NOW - daysAgo * day
+            BodyweightEntry("w$i", at, localDateOf(at).toString(), 84.0 - i * 0.3, MassUnit.KG)
+        }
+        val repo = FakeRepository(seedState(Phase.INTRO_TWO, listOf(finishedUpper())).copy(bodyweights = weighIns))
+        rule.setContent { RebuildApp(repo, FakePlatform(), clock = { FIXED_NOW }) }
+        rule.onNodeWithText("History").performClick()
+        rule.onNodeWithTag("history-tab-0").assertIsSelected()
+
+        rule.onNodeWithTag("history-pager").performTouchInput { swipeLeft() }
+        rule.waitForIdle()
+        rule.onNodeWithTag("history-tab-1").assertIsSelected()
+        rule.onNodeWithTag("history-exercise-search").assertIsDisplayed()
+
+        rule.onNodeWithTag("history-pager").performTouchInput { swipeLeft() }
+        rule.waitForIdle()
+        rule.onNodeWithTag("history-tab-2").assertIsSelected()
+
+        // On a chart, the same horizontal drag picks a point and stays on Body.
+        rule.onNodeWithTag("trend-chart").performScrollTo().performTouchInput { swipeRight() }
+        rule.waitForIdle()
+        rule.onNodeWithTag("history-tab-2").assertIsSelected()
+        rule.onNode(hasText("Touch to read")).assertDoesNotExist()
+
+        // Off the chart (near the top of the page), the same drag turns the page back.
+        rule.onNodeWithTag("history-pager").performTouchInput {
+            swipe(androidx.compose.ui.geometry.Offset(left + 8f, top + 24f), androidx.compose.ui.geometry.Offset(right - 8f, top + 24f), 300)
+        }
+        rule.waitForIdle()
+        rule.onNodeWithTag("history-tab-1").assertIsSelected()
+        // Tapping a tab still works, and the tab you left keeps its place.
+        rule.onNodeWithTag("history-tab-0").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("history-tab-0").assertIsSelected()
+    }
 }

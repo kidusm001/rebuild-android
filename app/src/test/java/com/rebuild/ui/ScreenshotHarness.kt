@@ -194,7 +194,8 @@ class ScreenshotHarness {
     private fun tap(text: String) {
         val matcher = hasText(text) and hasClickAction()
         if (compose.onAllNodes(matcher).fetchSemanticsNodes().isEmpty()) {
-            compose.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(matcher)
+            // The innermost list: History's tab pager is a scrollable container around its pages' lists.
+            compose.onAllNodes(hasScrollToNodeAction() and !hasTestTag("history-pager")).onFirst().performScrollToNode(matcher)
         }
         compose.onAllNodes(matcher).onFirst().performClick()
         compose.waitForIdle()
