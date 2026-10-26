@@ -75,10 +75,7 @@ jobs:
     name: Device tests (API ${{ matrix.api-level }} emulator)
     runs-on: ubuntu-latest
     timeout-minutes: 75
-    # API 33 gates every push (it is the phone's Android 13). API 34 adds the AccessibilityValidator checks; it reports
-    # on every push but doesn't block, until its known failures (mostly keyboard timing on the headless emulator, see
-    # docs/ci.md) are fixed.
-    continue-on-error: ${{ matrix.api-level == 34 }}
+    # Both gate every push: API 33 is the phone's Android 13, and API 34 adds the AccessibilityValidator checks.
     strategy:
       fail-fast: false
       matrix:
