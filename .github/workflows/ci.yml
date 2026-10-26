@@ -104,6 +104,9 @@ jobs:
         run: ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
 
       # The same shape as the development emulator: 1080 × 2400 at 420 dpi.
+      # The headless emulator's launcher can stop responding while it settles. Its "isn't responding" dialog then sits
+      # over the app under test and holds input focus, so the keyboard never opens and Back goes to the dialog. Hiding
+      # error dialogs keeps new ones away, and closing system dialogs removes any already up.
       - name: Instrumented tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -113,7 +116,10 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
-          script: ./gradlew --no-daemon :app:connectedDebugAndroidTest
+          script: |
+            adb shell settings put global hide_error_dialogs 1
+            adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS
+            ./gradlew --no-daemon :app:connectedDebugAndroidTest
 
       - name: Summary
         if: always()
