@@ -13,6 +13,10 @@ two jobs:
   (Pixel 6 profile, 1080 × 2400 at 420 dpi, the same shape as the development emulator) with KVM, and runs
   `connectedDebugAndroidTest`. API 34 also runs the AccessibilityValidator checks, which need API 34 or later.
   - Uploads the instrumentation results.
+  - **API 33 gates every push**: it's the phone's Android 13, and the whole suite passes there. **API 34 is advisory
+    for now**: it reports on every push without blocking. Its first run (0.1.17) had 24 known failures of 146. Most
+    are keyboard waits timing out on the headless emulator; one is a real accessibility finding, an unlabelled
+    12 px-tall element on the plan-removal screen. Once they're fixed, API 34 gates too: remove `continue-on-error`.
 
 Each job writes a pass/fail summary to its run page.
 
