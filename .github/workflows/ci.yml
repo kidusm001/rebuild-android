@@ -75,10 +75,7 @@ jobs:
     name: Device tests (API ${{ matrix.api-level }} emulator)
     runs-on: ubuntu-latest
     timeout-minutes: 75
-    # API 33 gates every push (it is the phone's Android 13). API 34 adds the AccessibilityValidator checks; it reports
-    # on every push but doesn't block, until its known failures (mostly keyboard timing on the headless emulator, see
-    # docs/ci.md) are fixed.
-    continue-on-error: ${{ matrix.api-level == 34 }}
+    # Both gate every push: API 33 is the phone's Android 13, and API 34 adds the AccessibilityValidator checks.
     strategy:
       fail-fast: false
       matrix:
@@ -104,6 +101,9 @@ jobs:
         run: ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
 
       # The same shape as the development emulator: 1080 × 2400 at 420 dpi.
+      # The headless emulator's launcher can stop responding while it settles. Its "isn't responding" dialog then sits
+      # over the app under test and holds input focus, so the keyboard never opens and Back goes to the dialog. Hiding
+      # error dialogs keeps new ones away, and closing system dialogs removes any already up.
       - name: Instrumented tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -113,7 +113,10 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
-          script: ./gradlew --no-daemon :app:connectedDebugAndroidTest
+          script: |
+            adb shell settings put global hide_error_dialogs 1
+            adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS
+            ./gradlew --no-daemon :app:connectedDebugAndroidTest
 
       - name: Summary
         if: always()

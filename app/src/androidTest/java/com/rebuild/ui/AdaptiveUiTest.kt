@@ -179,6 +179,8 @@ class AdaptiveUiTest {
         }
         rule.onNodeWithTag("start-scheduled").performScrollTo().performClick()
         rule.onNodeWithTag("entry-kg").performScrollTo().performClick()
+        // Typing while the keyboard still slides in can crash Compose 1.8's scroll-into-view (two animations at once).
+        rule.waitUntil(5_000) { imeBottom > 0 && imeBottom == imeTarget }
         rule.onNodeWithTag("entry-kg").performTextInput("42.5")
         rule.waitUntil(5_000) { imeBottom > 0 && imeBottom == imeTarget }
         rule.waitForIdle()
@@ -263,6 +265,8 @@ class AdaptiveUiTest {
         rule.onNodeWithText("Resume workout").performScrollTo().performClick()
         rule.onNodeWithTag("log-set").performScrollTo().assertTextContains("Add mini-set")
         rule.onNodeWithTag("entry-reps").performScrollTo().performClick()
+        // The keyboard settles before the field changes, as in assertImeEntryGeometry.
+        rule.waitUntil(5_000) { imeBottom > 0 && imeBottom == imeTarget }
         rule.onNodeWithTag("entry-reps").performTextReplacement("4")
         rule.waitUntil(5_000) { imeBottom > 0 && imeBottom == imeTarget }
         rule.waitForIdle()

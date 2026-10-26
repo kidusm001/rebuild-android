@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -442,7 +443,8 @@ private fun TotalLine(label: String, sets: Int, strong: Boolean = false) {
         Modifier
             .fillMaxWidth()
             .heightIn(min = 40.dp)
-            .semantics(mergeDescendants = true) {},
+            // Labelled on the row itself: scrolled to a sliver under the phase chips, its texts leave the tree.
+            .clearAndSetSemantics { contentDescription = "$label, $sets" },
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f),

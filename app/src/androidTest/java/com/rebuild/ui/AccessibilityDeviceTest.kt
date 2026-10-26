@@ -7,8 +7,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imeAnimationTarget
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
@@ -52,8 +57,12 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import com.google.android.apps.common.testing.accessibility.framework.AccessibilityCheckResult.AccessibilityCheckResultType
+import com.google.android.apps.common.testing.accessibility.framework.AccessibilityCheckResultUtils.matchesCheck
+import com.google.android.apps.common.testing.accessibility.framework.AccessibilityCheckResultUtils.matchesElements
+import com.google.android.apps.common.testing.accessibility.framework.checks.SpeakableTextPresentCheck
 import com.google.android.apps.common.testing.accessibility.framework.integrations.espresso.AccessibilityValidator
 import com.google.android.apps.common.testing.accessibility.framework.integrations.espresso.AccessibilityViewCheckException
+import com.google.android.apps.common.testing.accessibility.framework.uielement.ViewHierarchyElement
 import com.rebuild.domain.Action
 import com.rebuild.domain.Distance
 import com.rebuild.domain.DistanceUnit
@@ -65,6 +74,9 @@ import com.rebuild.domain.RoutineExercise
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import java.io.File
+import org.hamcrest.CoreMatchers.allOf
+import org.hamcrest.Description
+import org.hamcrest.TypeSafeMatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -87,7 +99,24 @@ class AccessibilityDeviceTest {
         rule.enableAccessibilityChecks(
             AccessibilityValidator().setRunChecksFromRootView(true)
                 .setThrowExceptionFor(AccessibilityCheckResultType.ERROR)
+                .setSuppressingResultMatcher(allOf(matchesCheck(SpeakableTextPresentCheck::class.java), matchesElements(cutTextField)))
         )
+    }
+
+    /**
+     * A text field cut to a sliver at the keyboard's or a list's edge. Its label is a child that leaves the tree while
+     * it's out of view, and Compose has no hint text to keep it on the field, so ATF reads the sliver as unlabelled.
+     * A whole field is at least 56 dp tall, so every field that is actually shown is still checked.
+     */
+    private val cutTextField = object : TypeSafeMatcher<ViewHierarchyElement>() {
+        private val minHeight = 48 * InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
+
+        override fun matchesSafely(element: ViewHierarchyElement) =
+            element.isEditable == true && element.boundsInScreen.height < minHeight
+
+        override fun describeTo(description: Description) {
+            description.appendText("a text field cut to under 48 dp at a viewport edge")
+        }
     }
 
     @Test
@@ -145,20 +174,29 @@ class AccessibilityDeviceTest {
         rule.onNodeWithText("Rest options").tryPerformAccessibilityChecks()
     }
 
+    @OptIn(ExperimentalLayoutApi::class)
     @Test
     fun largeTextEntryAndExpiredRestPassNativeChecks() {
+        var imeBottom = 0
+        var imeTarget = 0
         val repo = FakeRepository(seedState(Phase.INTRO_ONE).copy(
             restTimer = RestTimer("rest", "workout", "exercise", FIXED_NOW - 1)
         ))
         rule.setContent {
             val density = LocalDensity.current.density
             CompositionLocalProvider(LocalDensity provides Density(density, 2f)) {
+                val bottom = WindowInsets.ime.getBottom(LocalDensity.current)
+                val target = WindowInsets.imeAnimationTarget.getBottom(LocalDensity.current)
+                SideEffect { imeBottom = bottom; imeTarget = target }
                 RebuildApp(repo, FakePlatform(PlatformStatus(false, false, true)), clock = { FIXED_NOW })
             }
         }
         rule.onNodeWithTag("start-scheduled").performScrollTo().performClick()
         rule.onRoot().tryPerformAccessibilityChecks()
-        rule.onNodeWithTag("entry-kg").performScrollTo().performTextInput("20")
+        rule.onNodeWithTag("entry-kg").performScrollTo().performClick()
+        // Typing while the keyboard still slides in can crash Compose 1.8's scroll-into-view (two animations at once).
+        rule.waitUntil(5_000) { imeBottom > 0 && imeBottom == imeTarget }
+        rule.onNodeWithTag("entry-kg").performTextInput("20")
         rule.onRoot().tryPerformAccessibilityChecks()
         rule.onNodeWithContentDescription("Rest options").performClick()
         rule.onNodeWithText("Rest options").tryPerformAccessibilityChecks()
@@ -252,7 +290,8 @@ class AccessibilityDeviceTest {
             rule.onNodeWithTag("entry-reps").performTextReplacement(reps)
             rule.onNodeWithTag("log-set").performScrollTo().performClick()
             rule.waitUntil(5_000) { sets() == before + 1 }
-            rule.waitUntil(5_000) { SemanticsProperties.Disabled !in rule.onNodeWithTag("set-type").fetchSemanticsNode().config }
+            // Log, unlike the type button, stays while a rest-pause set is open; both wait out the save cooldown.
+            rule.waitUntil(5_000) { SemanticsProperties.Disabled !in rule.onNodeWithTag("log-set").fetchSemanticsNode().config }
         }
         fun openMenu() {
             rule.onNodeWithTag("set-type").performScrollTo().performClick()
@@ -302,6 +341,9 @@ class AccessibilityDeviceTest {
         rule.onNodeWithTag("per-leg-yes").tryPerformAccessibilityChecks()
         captureEvidence("per-leg-question")
         rule.onNodeWithTag("per-leg-yes").performClick()
+        // A rep-based exercise added to a live workout then offers working sets; this one is added without a goal.
+        rule.onNodeWithTag("add-sets-none").tryPerformAccessibilityChecks()
+        rule.onNodeWithTag("add-sets-none").performClick()
         rule.waitUntil(5_000) { repo.state.value.activeWorkout!!.exercises.size == 1 }
         rule.onNodeWithTag("target-line").assertTextContains("No target", substring = true)
         rule.onRoot().tryPerformAccessibilityChecks()
