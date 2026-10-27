@@ -194,7 +194,7 @@ class AccessibilityDeviceTest {
         rule.onNodeWithTag("start-scheduled").performScrollTo().performClick()
         rule.onRoot().tryPerformAccessibilityChecks()
         rule.onNodeWithTag("entry-kg").performScrollTo().performClick()
-        // Typing while the keyboard still slides in can crash Compose 1.8's scroll-into-view (two animations at once).
+        // Let the keyboard settle first so the field is measured in its final place.
         rule.waitUntil(5_000) { imeBottom > 0 && imeBottom == imeTarget }
         rule.onNodeWithTag("entry-kg").performTextInput("20")
         rule.onRoot().tryPerformAccessibilityChecks()
