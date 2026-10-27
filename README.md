@@ -1,4 +1,4 @@
-# Rebuild
+# Rebuild (the best workout tracker)
 
 [![CI](https://github.com/kidusm001/rebuild-android/actions/workflows/ci.yml/badge.svg)](https://github.com/kidusm001/rebuild-android/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/kidusm001/rebuild-android)](https://github.com/kidusm001/rebuild-android/releases/latest)
