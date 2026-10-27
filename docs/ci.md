@@ -22,15 +22,20 @@ two jobs:
 
 Each job writes a pass/fail summary to its run page.
 
-## Releases
+## Releases (continuous delivery)
 
-[`release.yml`](../.github/workflows/release.yml) runs when a tag like `v0.1.16` is pushed:
+[`release.yml`](../.github/workflows/release.yml) runs **automatically after every CI run that passes on `main`**:
 
-1. The tag must equal `versionName` in `app/build.gradle.kts`.
-2. The signing key is restored from a secret, then unit tests, lint and a signed release build run.
+1. It reads `versionName` from `app/build.gradle.kts`. If `v<versionName>` is already released, the merge didn't bump
+   the version, so it stops there and publishes nothing. A test or CI change doesn't push a "new version" to the phone.
+2. Otherwise it checks out the exact commit CI tested, restores the signing key, and runs unit tests, lint and a signed
+   release build.
 3. The APK's certificate must be `d834bba6…365b`, the key every Rebuild build has been signed with, or nothing is
    published. An APK signed with another key wouldn't install over the app on the phone.
-4. The APK and its `SHA256SUMS` are published as a GitHub Release, with notes from `docs/releases/<version>.md`.
+4. It tags that commit `v<versionName>` and publishes the APK and its `SHA256SUMS` as a GitHub Release, with notes from
+   `docs/releases/<version>.md`.
+
+Pushing a `v*` tag by hand still runs the same steps; the tag must match `versionName`.
 
 ### One-time setup: the signing secrets
 
@@ -46,12 +51,9 @@ gh secret set REBUILD_KEY_PASSWORD --repo kidusm001/rebuild-android --body andro
 
 ### Making a release
 
+In the change (or PR) that should ship:
+
 1. Bump `versionCode` and `versionName` in `app/build.gradle.kts`.
 2. Add `docs/releases/<version>.md` and a line in `CHANGELOG.md`.
-3. Push to `main` and wait for CI to pass.
-4. Tag the release:
 
-   ```sh
-   git tag v0.1.16
-   git push origin v0.1.16
-   ```
+Merge or push it to `main`. When CI passes, the release publishes itself; there's nothing to tag.

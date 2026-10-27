@@ -87,11 +87,13 @@ data.** Export a backup first.
   - the instrumented suite on API 33 and API 34 emulators, the second with AccessibilityValidator checks.
 
   Test results, screenshots and the APK are attached to each run.
-- **[Release](.github/workflows/release.yml)** runs on a `v*` tag:
-  1. checks the tag against the app version;
-  2. tests and lints;
-  3. builds and signs the APK with the app's key;
-  4. verifies the certificate;
-  5. publishes the APK and its SHA-256 as a GitHub Release, with notes from `docs/releases/`.
+- **[Release](.github/workflows/release.yml)** is continuous delivery. After CI passes on `main`, if `versionName`
+  has no release yet:
+  1. it builds and signs the APK with the app's key;
+  2. verifies the certificate;
+  3. tags the commit;
+  4. publishes the APK and its SHA-256 as a GitHub Release, with notes from `docs/releases/`.
+
+  A merge without a version bump releases nothing.
 
 Setup is in [docs/ci.md](docs/ci.md). Version history is in [CHANGELOG.md](CHANGELOG.md).
