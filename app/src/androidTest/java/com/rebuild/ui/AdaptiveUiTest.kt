@@ -162,6 +162,51 @@ class AdaptiveUiTest {
         assertImeEntryGeometry(1f)
     }
 
+    /**
+     * Compose foundation 1.8 could crash while the keyboard slid in over a focused entry ("launchAnimation called when
+     * previous animation was running"): the entry asks to be brought into view as the viewport shrinks, and Compose
+     * started a second scroll over the first. Foundation 1.10 no longer takes that path. Edit straight after the tap and
+     * keep editing until the keyboard settles, over several openings. The collision depends on frame timing, so with
+     * Compose 1.8 this caught it only in some runs (API 34): a guard against the crash returning, not a sure reproduction.
+     */
+    @OptIn(ExperimentalLayoutApi::class)
+    @Test
+    fun largeTextTypingWhileTheKeyboardSlidesInDoesNotCrash() {
+        var imeBottom = 0
+        var imeTarget = 0
+        val repo = FakeRepository(seedState(Phase.INTRO_ONE).copy(
+            restTimer = RestTimer("timer", "workout", "exercise", FIXED_NOW + 180_000)
+        ))
+        rule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(3f, 2f)) {
+                val bottom = WindowInsets.ime.getBottom(LocalDensity.current)
+                val target = WindowInsets.imeAnimationTarget.getBottom(LocalDensity.current)
+                SideEffect { imeBottom = bottom; imeTarget = target }
+                RebuildApp(repo, FakePlatform(PlatformStatus(false, false, true)), clock = { FIXED_NOW })
+            }
+        }
+        rule.onNodeWithTag("start-scheduled").performScrollTo().performClick()
+        var edits = 0
+        var weight = ""
+        repeat(3) { round ->
+            // Taps a second apart on the test clock, or Compose reads them as a double tap and leaves the keyboard down.
+            if (round > 0) rule.mainClock.advanceTimeBy(1_000)
+            rule.onNodeWithTag("entry-kg").performScrollTo().performClick()
+            val deadline = System.currentTimeMillis() + 5_000
+            do {
+                weight = "${40 + edits % 10}"
+                rule.onNodeWithTag("entry-kg").performTextReplacement(weight)
+                edits++
+            } while ((imeBottom == 0 || imeBottom != imeTarget) && System.currentTimeMillis() < deadline)
+            rule.waitUntil(5_000) { imeBottom > 0 && imeBottom == imeTarget }
+            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+            rule.waitUntil(5_000) { imeBottom == 0 }
+        }
+        rule.waitForIdle()
+        assertEquals(weight, rule.onNodeWithTag("entry-kg").fetchSemanticsNode().config[SemanticsProperties.EditableText].text)
+        assertTrue(repo.actions.none { it is Action.SaveSet })
+    }
+
     @OptIn(ExperimentalLayoutApi::class)
     private fun assertImeEntryGeometry(fontScale: Float) {
         var imeBottom = 0
@@ -179,7 +224,7 @@ class AdaptiveUiTest {
         }
         rule.onNodeWithTag("start-scheduled").performScrollTo().performClick()
         rule.onNodeWithTag("entry-kg").performScrollTo().performClick()
-        // Typing while the keyboard still slides in can crash Compose 1.8's scroll-into-view (two animations at once).
+        // Let the keyboard settle first so the field is measured in its final place.
         rule.waitUntil(5_000) { imeBottom > 0 && imeBottom == imeTarget }
         rule.onNodeWithTag("entry-kg").performTextInput("42.5")
         rule.waitUntil(5_000) { imeBottom > 0 && imeBottom == imeTarget }
