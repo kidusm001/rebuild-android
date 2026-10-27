@@ -4,6 +4,11 @@ Every version installs over the one before it with the same signing key and keep
 on, release APKs are built and published by [GitHub Actions](.github/workflows/release.yml); notes for each are in
 [docs/releases](docs/releases/).
 
+## 0.1.18 (version code 19)
+- Compose BOM 2026.03.01: no more scroll-into-view animation crash when focusing an entry while the keyboard slides in.
+- Plan screen: weekly working sets totals are explicitly labelled on their rows for accessibility.
+- Continuous delivery: signed releases are automatically built and published after CI passes on main.
+
 ## 0.1.17 (version code 18)
 - Swipe left and right between History's tabs, with an indicator that follows the finger. A horizontal drag on a
   chart still reads the chart.
