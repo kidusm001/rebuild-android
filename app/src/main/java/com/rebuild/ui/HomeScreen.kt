@@ -1,5 +1,9 @@
 package com.rebuild.ui
 
+import androidx.compose.runtime.remember
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.platform.LocalContext
+import android.content.Context
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -361,7 +365,11 @@ private fun TodayNotices(env: AppEnv, now: Long, onNavigate: (String) -> Unit) {
             Triple("Battery restricted · rest alerts may be late", "Battery settings") { env.platform.openBatterySettings() }
         else -> null
     }
-    if (!backupDue && alert == null) return
+    // The rest bar repeats a limitation while resting, so this notice can be put away until the limitation changes.
+    val prefs = LocalContext.current.getSharedPreferences(NOTICE_PREFS, Context.MODE_PRIVATE)
+    var dismissedAlert by remember { mutableStateOf(prefs.getString(DISMISSED_ALERT_KEY, null)) }
+    val shownAlert = alert?.takeIf { it.first != dismissedAlert }
+    if (!backupDue && shownAlert == null) return
     Column(Modifier.testTag("today-notices")) {
         if (backupDue) NoticeRow(
             R.drawable.ic_archive_restore,
@@ -370,11 +378,23 @@ private fun TodayNotices(env: AppEnv, now: Long, onNavigate: (String) -> Unit) {
             action = "Back up now",
             modifier = Modifier.testTag("notice-backup")
         ) { onNavigate(Routes.BACKUP) }
-        if (backupDue && alert != null) HorizontalDivider()
-        if (alert != null) NoticeRow(
-            R.drawable.ic_rest, alert.first, action = alert.second,
-            modifier = Modifier.testTag("notice-rest-alerts"), onClick = alert.third
-        )
+        if (backupDue && shownAlert != null) HorizontalDivider()
+        if (shownAlert != null) Row(verticalAlignment = Alignment.CenterVertically) {
+            NoticeRow(
+                R.drawable.ic_rest, shownAlert.first, action = shownAlert.second,
+                modifier = Modifier.weight(1f).testTag("notice-rest-alerts"), onClick = shownAlert.third
+            )
+            IconButton(
+                onClick = {
+                    prefs.edit().putString(DISMISSED_ALERT_KEY, shownAlert.first).apply()
+                    dismissedAlert = shownAlert.first
+                },
+                modifier = Modifier.size(48.dp).testTag("dismiss-rest-alerts")
+            ) {
+                RebuildIcon(R.drawable.ic_x, contentDescription = "Hide this notice",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+            }
+        }
     }
 }
 
@@ -408,6 +428,9 @@ private fun NoticeRow(
             tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
     }
 }
+
+private const val NOTICE_PREFS = "today_notices"
+private const val DISMISSED_ALERT_KEY = "dismissed_rest_alert"
 
 /** A wrapped summary line never starts with a separator dot: each dot stays with the word before it. */
 private fun String.keepSeparators(): String = replace(" · ", "\u00A0· ")
@@ -568,6 +591,8 @@ private fun ActiveSessionCard(env: AppEnv, workout: Workout, onResume: () -> Uni
             ) {
                 OutlinedButton(onClick = { finishing = true }, enabled = !env.runner.busy,
                     modifier = Modifier.heightIn(min = 48.dp)) { Text("Finish") }
+                // Discard sits at the far edge, so a thumb aimed at Finish never lands on it.
+                Spacer(Modifier.weight(1f))
                 TextButton(
                     onClick = { discarding = true },
                     enabled = !env.runner.busy,

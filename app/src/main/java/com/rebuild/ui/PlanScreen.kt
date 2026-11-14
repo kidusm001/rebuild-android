@@ -1,7 +1,6 @@
 package com.rebuild.ui
 
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,7 +8,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,8 +15,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -89,16 +85,13 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
     val slots = week.filterIsInstance<WorkoutTemplate>().flatMap { it.slots }
     val takenOff = state.removedTemplates(viewPhase)
 
-    // The chips scroll so the phase being viewed is always in sight, even at large text.
-    val chips = rememberLazyListState()
-    LaunchedEffect(viewPhase) { chips.animateScrollToItem(Phase.entries.indexOf(viewPhase)) }
     ScreenScaffold(title = "Plan") {
-        LazyRow(
-            state = chips,
-            contentPadding = PaddingValues(horizontal = 16.dp),
+        // Every phase stays whole and in sight: the chips wrap to a second line rather than scroll off the edge.
+        FlowRow(
+            modifier = Modifier.padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(Phase.entries) { phase ->
+            Phase.entries.forEach { phase ->
                 FilterChip(
                     selected = phase == viewPhase,
                     onClick = {

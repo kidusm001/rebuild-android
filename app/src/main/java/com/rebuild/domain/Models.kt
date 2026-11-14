@@ -5,10 +5,10 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class Phase(val title: String, val targetRir: Int, val fourDay: Boolean) {
-    INTRO_ONE("Four days: return gently", 4, true),
-    INTRO_TWO("Four days: build consistency", 3, true),
-    FIVE_TWO("Five days: start with two sets", 3, false),
-    BASELINE("Five days: established baseline", 2, false)
+    INTRO_ONE("Return gently · 4 days", 4, true),
+    INTRO_TWO("Build consistency · 4 days", 3, true),
+    FIVE_TWO("Two-set start · 5 days", 3, false),
+    BASELINE("Baseline · 5 days", 2, false)
 }
 
 @Serializable

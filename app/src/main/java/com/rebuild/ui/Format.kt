@@ -156,9 +156,10 @@ internal fun phaseGuidance(phase: Phase): String = when (phase) {
 }
 
 internal fun phaseShort(phase: Phase): String = when (phase) {
-    Phase.INTRO_ONE -> "Intro 1"
-    Phase.INTRO_TWO -> "Intro 2"
-    Phase.FIVE_TWO -> "Five days"
+    // The same name the phase has everywhere else: its title without the day count.
+    Phase.INTRO_ONE -> "Return gently"
+    Phase.INTRO_TWO -> "Build consistency"
+    Phase.FIVE_TWO -> "Two-set start"
     Phase.BASELINE -> "Baseline"
 }
 // Mirrors the repository/backup codec limits so every valid stored value can be shown and edited.

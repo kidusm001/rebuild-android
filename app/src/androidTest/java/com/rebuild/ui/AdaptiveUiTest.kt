@@ -94,14 +94,14 @@ class AdaptiveUiTest {
     fun largeTextHeaderDoesNotClipItsSubtitle() {
         rule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(3f, 2f)) {
-                RebuildTheme { ScreenScaffold("Upper", subtitle = "Intro 2") {} }
+                RebuildTheme { ScreenScaffold("Upper", subtitle = "Build consistency") {} }
             }
         }
         val layouts = mutableListOf<TextLayoutResult>()
-        rule.onNodeWithText("Intro 2").assertIsDisplayed()
+        rule.onNodeWithText("Build consistency").assertIsDisplayed()
             .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
         val layout = layouts.single()
-        val bounds = rule.onNodeWithText("Intro 2").fetchSemanticsNode().boundsInRoot
+        val bounds = rule.onNodeWithText("Build consistency").fetchSemanticsNode().boundsInRoot
         assertFalse("Subtitle cannot be ellipsized", layout.isLineEllipsized(0))
         assertTrue("Whole subtitle line must fit visible bounds: $bounds vs ${layout.multiParagraph.height}",
             bounds.height >= layout.multiParagraph.height - 1)

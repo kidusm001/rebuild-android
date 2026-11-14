@@ -72,7 +72,7 @@ class RebuildAppTest {
         Phase.entries.forEach { rule.onNodeWithTag("phase-${it.name}").assertIsDisplayed() }
 
         rule.onNodeWithTag("phase-INTRO_ONE").performClick()
-        rule.onNodeWithText("Start with Intro 1").assertIsEnabled().performClick()
+        rule.onNodeWithText("Start with Return gently").assertIsEnabled().performClick()
         rule.waitForIdle()
 
         assertEquals(listOf(Action.SelectPhase(Phase.INTRO_ONE)), repo.actions)

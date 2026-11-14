@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -35,6 +36,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -532,37 +534,46 @@ private fun ExerciseFocus(
                             heading()
                             contentDescription = "${exercise.name}, exercise ${index + 1} of ${workout.exercises.size}"
                         })
+                    // One subtitle line: how the load is entered, then the unit as a chip to change it.
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            loadingDescription(exercise, we.entryLoadUnit) + if (we.perLeg) " · reps per leg" else "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (env.state.canSetLoadUnit(workout.id, we.id)) {
+                            AssistChip(
+                                onClick = { choosingUnit = true },
+                                enabled = !env.runner.busy && open == null && !watchHere,
+                                label = { Text(unitName(we.entryLoadUnit), maxLines = 1) },
+                                leadingIcon = {
+                                    RebuildIcon(R.drawable.ic_sliders_horizontal, contentDescription = null,
+                                        modifier = Modifier.size(18.dp))
+                                },
+                                modifier = Modifier.heightIn(min = 48.dp).testTag("choose-load-unit")
+                                    .semantics { contentDescription = "Load unit: ${unitName(we.entryLoadUnit)}" }
+                            )
+                        }
+                    }
                     Text(
-                        loadingDescription(exercise, we.entryLoadUnit) + if (we.perLeg) " · reps per leg" else "",
+                        targetLine(workout, we),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("target-line")
                     )
                     if (we.entryLoadUnit == LoadUnit.PLATES) Text(
                         "Compare plates only on the same machine.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (env.state.canSetLoadUnit(workout.id, we.id)) {
-                        SecondaryTextButton(onClick = { choosingUnit = true },
-                            enabled = !env.runner.busy && open == null && !watchHere,
-                            icon = R.drawable.ic_sliders_horizontal, modifier = Modifier.testTag("choose-load-unit")) {
-                            Text("Load unit: ${unitName(we.entryLoadUnit)}")
-                        }
-                        if (open != null || watchHere) Text(
-                            if (open != null) "The unit stays as it is until the ${open.method.title.lowercase()} is finished."
-                            else "The unit stays as it is until the stopwatch's effort is logged or discarded.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    if (env.state.canSetLoadUnit(workout.id, we.id) && (open != null || watchHere)) Text(
+                        if (open != null) "The unit stays as it is until the ${open.method.title.lowercase()} is finished."
+                        else "The unit stays as it is until the stopwatch's effort is logged or discarded.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-
-                Text(
-                    targetLine(workout, we),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.testTag("target-line")
-                )
 
                 if (!pinned) Entry(workspaceViewport)
 
@@ -575,12 +586,7 @@ private fun ExerciseFocus(
 
                 // Secondary actions read as one compact list with aligned icons, below the sets they relate to.
                 Column {
-                    if (!targetMet && !we.showsSkipped() && open == null && onNext != null && nextName != null) {
-                        SecondaryTextButton(onClick = onNext, icon = R.drawable.ic_arrow_right,
-                            modifier = Modifier.fillMaxWidth().testTag("next-exercise")) {
-                            Text("Next: $nextName", modifier = Modifier.weight(1f))
-                        }
-                    }
+                    // Before the target is met the rail is the way to move on; the Target done panel offers Next.
                     SecondaryTextButton(onClick = { details = !details }, icon = R.drawable.ic_clipboard_list,
                         modifier = Modifier.fillMaxWidth().testTag("exercise-details")) {
                         Text(

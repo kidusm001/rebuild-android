@@ -299,7 +299,7 @@ class RoutinesDeviceTest {
         // Its own page: not on the week, so it starts as an extra session.
         rule.onNode(hasText("Arms") and isHeading()).assertExists()
         rule.onNodeWithTag("routine-start-note")
-            .assertTextContains("Not on your Intro 2 week, so it runs as an extra session", substring = true)
+            .assertTextContains("Not on your Build consistency week, so it runs as an extra session", substring = true)
         rule.onNodeWithTag("routine-start").assertTextContains("Start as extra session").performClick()
         rule.waitUntil(5_000) { repo.state.value.activeWorkoutId != null }
         rule.waitForIdle()
@@ -332,11 +332,11 @@ class RoutinesDeviceTest {
         // A free day: shown as a rest day and added directly.
         rule.onNodeWithTag("routine-schedule").performScrollTo().performClick()
         assertDialogShows("Add Arms to a week")
-        rule.onNodeWithTag("schedule-phase-INTRO_TWO").assert(hasContentDescription("Intro 2, current phase"))
+        rule.onNodeWithTag("schedule-phase-INTRO_TWO").assert(hasContentDescription("Build consistency, current phase"))
         rule.onNodeWithTag("schedule-confirm").assertIsNotEnabled()
         rule.onNodeWithTag("schedule-day-1").performScrollTo().assertTextContains("Rest day").performClick()
         rule.onNodeWithTag("schedule-conflict").assertDoesNotExist()
-        rule.onNodeWithTag("schedule-confirm").assertIsEnabled().assertTextEquals("Add to Intro 2 week").performClick()
+        rule.onNodeWithTag("schedule-confirm").assertIsEnabled().assertTextEquals("Add to Build consistency week").performClick()
         rule.waitUntil(5_000) { repo.state.value.placements.size == 1 }
         rule.waitForIdle()
         val monday = repo.state.value.placements.single()
@@ -346,7 +346,7 @@ class RoutinesDeviceTest {
         assertEquals("r-arms", monday.routineId)
         assertFalse(monday.removedFromPlan)
         assertEquals(listOf(face, hammer), repo.state.value.placementExercises(monday))
-        rule.onNodeWithText("Added to the Intro 2 week on Monday.").assertIsDisplayed()
+        rule.onNodeWithText("Added to the Build consistency week on Monday.").assertIsDisplayed()
 
         // A taken day never loses its routine silently: alongside or an explicit replacement.
         rule.onNodeWithTag("routine-schedule").performScrollTo().performClick()
@@ -366,10 +366,10 @@ class RoutinesDeviceTest {
         assertEquals(2, tuesday.weekday)
         assertTrue("Alongside takes nothing off", repo.state.value.scheduleRemovals.isEmpty())
         assertEquals(listOf(monday.id, "intro-upper", tuesday.id, "lower-a", "upper", "lower-b"), weekIds(repo))
-        rule.onNodeWithText("Added to the Intro 2 week on Tuesday.").assertIsDisplayed()
+        rule.onNodeWithText("Added to the Build consistency week on Tuesday.").assertIsDisplayed()
         rule.onNodeWithTag("routine-start").assertTextContains("Start Arms")
         rule.onNodeWithTag("routine-start-note")
-            .assertTextContains("On your Intro 2 week on Monday, Tuesday.", substring = true)
+            .assertTextContains("On your Build consistency week on Monday, Tuesday.", substring = true)
         assertSaved(repo)
 
         // Today: one checklist row per occurrence, with today's first routine featured.
@@ -383,7 +383,7 @@ class RoutinesDeviceTest {
 
         // Starting the library routine asks which workout it is: nothing preselected.
         rule.onNodeWithTag("open-routines").performScrollTo().assertTextContains("Start one of your routines").performClick()
-        rule.onNodeWithTag("routine-row-r-arms").assert(hasText("Intro 2: Mon, Tue", substring = true)).performClick()
+        rule.onNodeWithTag("routine-row-r-arms").assert(hasText("Build consistency: Mon, Tue", substring = true)).performClick()
         rule.onNodeWithTag("routine-start").performClick()
         assertDialogShows("Start Arms")
         rule.onNodeWithTag("start-choice-${monday.id}").assertTextContains("Monday · Arms").assertIsNotSelected()
@@ -473,7 +473,7 @@ class RoutinesDeviceTest {
         rule.onNodeWithTag("plan-menu-edit").assertDoesNotExist()
         rule.onNodeWithTag("plan-menu-move").assertDoesNotExist()
         rule.onNodeWithTag("plan-menu-take-off").performClick()
-        assertDialogShows("Take Upper off the Intro 2 week?")
+        assertDialogShows("Take Upper off the Build consistency week?")
         rule.onNodeWithTag("confirm-button").assertTextContains("Take off").performClick()
         rule.waitUntil(5_000) { repo.state.value.scheduleRemovals.isNotEmpty() }
         rule.waitForIdle()

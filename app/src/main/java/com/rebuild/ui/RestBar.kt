@@ -91,8 +91,10 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                     val word = if (pause) "Pause" else "Rest"
                     val note = limitation?.let { " · $it" } ?: ""
                     val time = if (remaining > 0) formatRest(remaining) else "Done"
-                    // Short windows and large text keep the bar to one line, so it never squeezes the entry.
-                    if (compact) Text("$word $time$note", style = MaterialTheme.typography.titleMedium, maxLines = 2)
+                    // Short windows and large text keep the bar to one line, so it never squeezes the entry: the
+                    // countdown stays whole and the alert limitation moves to Options (and to TalkBack).
+                    if (compact) Text("$word $time", style = MaterialTheme.typography.titleMedium, maxLines = 1,
+                        modifier = Modifier.semantics { if (limitation != null) contentDescription = "$word $time, $limitation" })
                     else {
                         Text(word + note, style = MaterialTheme.typography.labelMedium)
                         Text(time, style = MaterialTheme.typography.headlineMedium)
@@ -106,10 +108,15 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                         modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Add 30 seconds" }
                     ) { Text("+30 s") }
                 }
-                IconButton(onClick = { env.runner.run(Action.SkipRest) }, enabled = !env.runner.busy, modifier = Modifier.size(48.dp)) {
-                    RebuildIcon(if (remaining > 0) R.drawable.ic_skip_forward else R.drawable.ic_x,
-                        contentDescription = if (remaining > 0) "Skip rest" else "Dismiss rest")
-                }
+                // Skipping ends this rest for good, so it's a labelled button rather than a bare icon beside Options.
+                TextButton(
+                    onClick = { env.runner.run(Action.SkipRest) },
+                    enabled = !env.runner.busy,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
+                    modifier = Modifier.heightIn(min = 48.dp).semantics {
+                        contentDescription = if (remaining > 0) "Skip rest" else "Dismiss rest"
+                    }
+                ) { Text(if (remaining > 0) "Skip" else "Dismiss", maxLines = 1) }
                 IconButton(onClick = { options = true }, modifier = Modifier.size(48.dp)) {
                     RebuildIcon(R.drawable.ic_ellipsis_vertical, contentDescription = "Rest options")
                 }

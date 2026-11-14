@@ -57,7 +57,7 @@ class ScrollEdgeAccessibilityTest {
         val repo = MainThreadCollection(introRepository())
         rule.setContent { RebuildApp(repo, FakePlatform(), clock = { FIXED_NOW }) }
         rule.onNodeWithText("Plan", substring = false).performClick()
-        val chips = listOf("Intro 1", "Intro 2", "Five days").map { rule.onNodeWithText(it).fetchSemanticsNode() }
+        val chips = listOf("Return gently", "Build consistency", "Two-set start").map { rule.onNodeWithText(it).fetchSemanticsNode() }
         tuckRowUnderTopEdge(hasScrollAction() and hasAnyDescendant(hasTestTag("plan-routines")), chips)
         chips.forEach { assertWholeProviderTarget(it.config[SemanticsProperties.Text].joinToString(), it) }
     }
