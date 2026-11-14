@@ -231,6 +231,7 @@ internal fun EntryPanel(
     val extra = !dropping && (we.targetSets?.let { ordinal > it } ?: false)
     var entryFocused by remember { mutableStateOf(false) }
     var confirmingFinish by rememberSaveable { mutableStateOf(false) }
+    var unlikelyReason by rememberSaveable { mutableStateOf<String?>(null) }
     val haptics = LocalHapticFeedback.current
     val entryBounds = remember { BringIntoViewRequester() }
     // Relocate after the hosting viewport is measured; IME insets read in composition can precede the resize.
@@ -249,7 +250,7 @@ internal fun EntryPanel(
         if (choice != null) draft.warmup = false
     }
 
-    fun log() {
+    fun log(confirmed: Boolean = false) {
         if (env.runner.busy) return
         val parsed = validateSet(we.exercise, draft.kg, draft.reps, draft.rir, we.entryLoadUnit)
         val input = when (parsed) {
@@ -261,6 +262,14 @@ internal fun EntryPanel(
             is SetValidation.Valid -> parsed.input
         }
         draft.validation = null
+        if (!confirmed) {
+            val reason = unlikelySetReason(env.state, we, input)
+            if (reason != null) {
+                unlikelyReason = reason
+                return
+            }
+        }
+        unlikelyReason = null
         draft.error = null
         // A committed id must never be reused for a new set: that would overwrite the logged one.
         if (workout.exercises.any { e -> e.sets.any { it.id == draft.pendingSetId } }) draft.pendingSetId = newId()
@@ -298,7 +307,7 @@ internal fun EntryPanel(
     @Composable fun Fields(modifier: Modifier) {
         Column(modifier) {
             SetFields(we.exercise, draft.kg, { draft.kg = it }, draft.reps, { draft.reps = it }, draft.rir,
-                { draft.rir = it }, ::log, "entry", draft.validation, draft.validationAttempt, showRirHint = false,
+                { draft.rir = it }, { log() }, "entry", draft.validation, draft.validationAttempt, showRirHint = false,
                 unit = we.entryLoadUnit, stackOnError = false)
         }
     }
@@ -315,9 +324,9 @@ internal fun EntryPanel(
         }
         // Extra sets stay available but are never styled as the expected next step; an open set's next stage is.
         if (extra && open == null) {
-            OutlinedButton(onClick = ::log, enabled = !env.runner.busy, modifier = logModifier) { Text(label, maxLines = 1) }
+            OutlinedButton(onClick = { log() }, enabled = !env.runner.busy, modifier = logModifier) { Text(label, maxLines = 1) }
         } else {
-            Button(onClick = ::log, enabled = !env.runner.busy, modifier = logModifier) { Text(label, maxLines = 1) }
+            Button(onClick = { log() }, enabled = !env.runner.busy, modifier = logModifier) { Text(label, maxLines = 1) }
         }
     }
 
@@ -440,6 +449,17 @@ internal fun EntryPanel(
         }
     }
 
+    unlikelyReason?.let { reason ->
+        ConfirmDialog(
+            title = "Check this set",
+            text = "$reason Save it as typed, or go back and fix it.",
+            confirmLabel = "Save as typed",
+            busy = env.runner.busy,
+            onDismiss = { unlikelyReason = null },
+            onConfirm = { log(confirmed = true) }
+        )
+    }
+
     if (confirmingFinish && open != null) {
         ConfirmDialog(
             title = "Finish without these values?",
@@ -558,12 +578,13 @@ internal fun TargetMetPanel(
             }
         }
         @Composable fun Extra(modifier: Modifier) {
-            OutlinedButton(onClick = onExtra, modifier = modifier.heightIn(min = 48.dp).testTag("extra-set")) {
+            // Quiet text actions: going further on this exercise never rivals Next.
+            TextButton(onClick = onExtra, modifier = modifier.heightIn(min = 48.dp).testTag("extra-set")) {
                 Text(extraLabel, maxLines = 1)
             }
         }
         @Composable fun Drop(modifier: Modifier) {
-            if (dropLabel != null) OutlinedButton(onClick = onDrop, modifier = modifier.heightIn(min = 48.dp).testTag("drop-set")) {
+            if (dropLabel != null) TextButton(onClick = onDrop, modifier = modifier.heightIn(min = 48.dp).testTag("drop-set")) {
                 Text(dropLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }

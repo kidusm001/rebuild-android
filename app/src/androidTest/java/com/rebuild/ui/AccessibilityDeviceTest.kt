@@ -140,7 +140,7 @@ class AccessibilityDeviceTest {
         rule.onRoot().tryPerformAccessibilityChecks()
         captureEvidence("disabled-phase")
         rule.onNodeWithTag("phase-INTRO_ONE").performClick()
-        rule.onNodeWithText("Start with Intro 1").performClick()
+        rule.onNodeWithText("Start with Return gently").performClick()
         rule.onRoot().tryPerformAccessibilityChecks()
         assertEquals(Phase.INTRO_ONE, repo.state.value.phase)
     }

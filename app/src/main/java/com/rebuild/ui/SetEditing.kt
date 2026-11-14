@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.rebuild.domain.Action
+import com.rebuild.domain.AppState
 import com.rebuild.domain.Exercise
 import com.rebuild.domain.LoadingType
 import com.rebuild.domain.Measure
@@ -511,3 +512,42 @@ internal fun customMeasureTitle(measure: Measure): String = when (measure) {
 }
 
 internal fun parseRest(text: String): Int? = text.trim().toIntOrNull()?.takeIf { it in REST_SECONDS_RANGE }
+
+/** Loads above this, with no history to compare against, are worth a second look before saving. */
+private const val FIRST_LOAD_CEILING_KG = 250.0
+private const val FIRST_LOAD_CEILING_LB = 550.0
+private const val FIRST_LOAD_CEILING_PLATES = 30.0
+/** Reps above this are rare enough to confirm. */
+private const val UNLIKELY_REPS = 50
+
+/**
+ * A reason to double-check [input] before it is saved, or null when it looks ordinary. Compares the load with the
+ * heaviest earlier set of the same exercise in the same unit: more than twice that is likely a typo. With no history, a
+ * fixed ceiling stands in. Never blocks a save: the lifter confirms and it's kept as typed.
+ */
+internal fun unlikelySetReason(state: AppState, we: WorkoutExercise, input: SetInput): String? {
+    val unit = we.entryLoadUnit
+    val load = if (unit == LoadUnit.PLATES) input.plates?.toDouble() else input.kg
+    val symbol = if (unit == LoadUnit.PLATES) "plates" else unit.massSymbol()
+    if (load != null && load > 0 && we.exercise.loading != LoadingType.ASSISTANCE) {
+        val earlier = state.workouts.asSequence()
+            .flatMap { it.exercises.asSequence() }
+            .filter { it.exercise.id == we.exercise.id }
+            .flatMap { it.sets.asSequence() }
+            .filter { it.loadUnit == unit && !it.warmup }
+            .mapNotNull { it.loadValue }
+            .maxOrNull()
+        val shown = formatKg(load)
+        if (earlier != null && earlier > 0 && load > earlier * 2) {
+            return "$shown $symbol is more than twice your heaviest ${we.exercise.name} so far (${formatKg(earlier)} $symbol)."
+        }
+        val ceiling = when (unit) {
+            LoadUnit.LB -> FIRST_LOAD_CEILING_LB
+            LoadUnit.PLATES -> FIRST_LOAD_CEILING_PLATES
+            else -> FIRST_LOAD_CEILING_KG
+        } / if (we.exercise.perDumbbell) 2 else 1
+        if (earlier == null && load > ceiling) return "$shown $symbol is a lot for ${we.exercise.name}."
+    }
+    if (input.reps > UNLIKELY_REPS) return "${input.reps} reps is a lot for one set."
+    return null
+}
