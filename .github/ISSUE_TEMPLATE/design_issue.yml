@@ -1,0 +1,40 @@
+name: Design / UX issue
+description: Something is confusing, hard to reach, or inconsistent on screen.
+title: "[Design]: "
+labels: ["design", "triage"]
+body:
+  - type: input
+    id: screen
+    attributes:
+      label: Screen
+      placeholder: "Workout, Flat dumbbell bench press, before the first set"
+    validations:
+      required: true
+  - type: textarea
+    id: issue
+    attributes:
+      label: What's wrong
+      description: What you saw, and why it gets in the way, especially mid-workout.
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - "High: causes wrong data or blocks a task"
+        - "Medium: slows down or confuses"
+        - "Low: polish"
+    validations:
+      required: true
+  - type: textarea
+    id: fix
+    attributes:
+      label: Suggested fix
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Required. Note the theme and text size used.
+    validations:
+      required: true
