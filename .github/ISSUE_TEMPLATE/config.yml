@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: User guide
+    url: https://github.com/kidusm001/rebuild-android/blob/main/docs/user-guide.md
+    about: How each screen works. Check here before filing a question.

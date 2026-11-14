@@ -1,0 +1,81 @@
+name: Bug report
+description: Something in Rebuild doesn't work as it should.
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please don't attach a backup file or anything with personal data; describe the data instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Today and start Upper
+        2. Log a set of 20 kg × 10
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Today
+        - Workout logging
+        - Rest timer / notifications
+        - History and charts
+        - Plan and routines
+        - Body measurements
+        - Backup and restore
+        - Settings
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: data-loss
+    attributes:
+      label: Was any data lost or changed?
+      options:
+        - "No"
+        - "Yes: logged data is missing or wrong"
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: More → About, or the release you installed.
+      placeholder: "0.1.18"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and Android version
+      placeholder: "Pixel 7, Android 15"
+    validations:
+      required: true
+  - type: checkboxes
+    id: display
+    attributes:
+      label: Display settings in use
+      options:
+        - label: Dark theme
+        - label: Large text (above 100%)
+        - label: Landscape or tablet
+        - label: TalkBack
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or screen recording
+      description: Drag images or a video here.

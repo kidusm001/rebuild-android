@@ -1,0 +1,51 @@
+name: Feature request
+description: Suggest an improvement or a new feature.
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Rebuild stays offline, with no account and no analytics. Ideas that need a server or tracking are out of scope.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the situation in training where the app falls short today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How you imagine it working. Sketches and screenshots welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Today
+        - Workout logging
+        - Rest timer / notifications
+        - History and charts
+        - Plan and routines
+        - Body measurements
+        - Backup and restore
+        - Settings
+        - Other
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Fit with the product
+      options:
+        - label: Works fully offline, with no account
+          required: true
+        - label: I've read [PRODUCT.md](https://github.com/kidusm001/rebuild-android/blob/main/PRODUCT.md) and this fits its principles
