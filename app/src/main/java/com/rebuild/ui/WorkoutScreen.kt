@@ -181,7 +181,7 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
         onBack = { guarded(LEAVE_BACK, onBack) },
         compactWhenKeyboard = true,
         actions = {
-            TextButton(onClick = { guarded(LEAVE_FINISH) { finishing = true } }, enabled = !env.runner.busy) { Text("Finish") }
+            SecondaryButton(onClick = { guarded(LEAVE_FINISH) { finishing = true } }, enabled = !env.runner.busy) { Text("Finish") }
             IconButton(onClick = { menuOpen = true }) {
                 RebuildIcon(R.drawable.ic_ellipsis_vertical, contentDescription = "More workout actions")
             }
@@ -587,7 +587,7 @@ private fun ExerciseFocus(
                 // Secondary actions read as one compact list with aligned icons, below the sets they relate to.
                 Column {
                     // Before the target is met the rail is the way to move on; the Target done panel offers Next.
-                    SecondaryTextButton(onClick = { details = !details }, icon = R.drawable.ic_clipboard_list,
+                    SecondaryButton(onClick = { details = !details }, icon = R.drawable.ic_clipboard_list,
                         modifier = Modifier.fillMaxWidth().testTag("exercise-details")) {
                         Text(
                             when {
@@ -671,7 +671,7 @@ internal fun ExerciseNoteField(env: AppEnv, workoutId: String, we: WorkoutExerci
     if (!editing && note == we.notes) {
         if (note.isNotBlank()) Text(note, modifier = Modifier.testTag("exercise-note-content"))
         val action = if (note.isBlank()) "Add exercise note" else "Edit exercise note"
-        SecondaryTextButton(onClick = { editing = true },
+        SecondaryButton(onClick = { editing = true },
             icon = if (note.isBlank()) R.drawable.ic_notebook_pen else R.drawable.ic_pencil,
             modifier = Modifier.testTag("edit-exercise-note").semantics {
             contentDescription = "$action for ${we.exercise.name}"
@@ -695,7 +695,7 @@ internal fun ExerciseNoteField(env: AppEnv, workoutId: String, we: WorkoutExerci
     LaunchedEffect(editing) { if (editing) focus.requestFocus() }
     ErrorText(error)
     if (note != we.notes) {
-        TextButton(
+        SecondaryButton(
             onClick = {
                 error = null
                 env.runner.run(Action.ExerciseNote(workoutId, we.id, note), onError = { error = it }) {
@@ -706,7 +706,7 @@ internal fun ExerciseNoteField(env: AppEnv, workoutId: String, we: WorkoutExerci
             enabled = !env.runner.busy
         ) { Text("Save note") }
     }
-    TextButton(onClick = { drafts.clear(we.id); editing = false }, enabled = !env.runner.busy) { Text("Cancel note edit") }
+    SecondaryButton(onClick = { drafts.clear(we.id); editing = false }, enabled = !env.runner.busy) { Text("Cancel note edit") }
 }
 
 @Composable
@@ -919,7 +919,7 @@ internal fun FinishWorkoutDialog(
                         modifier = Modifier.testTag("finish-partial-summary")
                     )
                     var showShort by rememberSaveable(workout.id) { mutableStateOf(false) }
-                    SecondaryTextButton(
+                    SecondaryButton(
                         onClick = { showShort = !showShort },
                         icon = if (showShort) R.drawable.ic_chevron_down else R.drawable.ic_chevron_right,
                         modifier = Modifier.testTag("finish-short-toggle")

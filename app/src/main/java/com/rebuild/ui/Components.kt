@@ -1,5 +1,6 @@
 package com.rebuild.ui
 
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.PaddingValues
 import android.content.res.Configuration
@@ -186,23 +187,27 @@ internal fun SectionHeader(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-internal fun SecondaryTextButton(
+internal fun SecondaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     @DrawableRes icon: Int? = null,
     content: @Composable RowScope.() -> Unit
 ) {
-    TextButton(
+    // Every action looks like something to press: a quiet tonal container, below the filled amber primary. Plain
+    // text buttons are kept for dialog actions only.
+    FilledTonalButton(
         onClick = onClick,
-        modifier = modifier.heightIn(min = 48.dp),
+        modifier = modifier.padding(vertical = 4.dp).heightIn(min = 48.dp),
         enabled = enabled,
-        // Starts on the content edge, so a list of these lines up with the text above it.
-        contentPadding = PaddingValues(start = 0.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
-        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+        contentPadding = PaddingValues(start = if (icon != null) 12.dp else 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+        colors = ButtonDefaults.filledTonalButtonColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        )
     ) {
         if (icon != null) {
-            RebuildIcon(icon, contentDescription = null)
+            RebuildIcon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
         }
         content()
@@ -316,9 +321,12 @@ internal fun NumberField(
     onDone: () -> Unit = {},
     filterNumericInput: Boolean = true,
     // Lets a compact row show one shared message below the fields while each field still exposes its own error.
-    errorSemantics: String? = supportingText
+    errorSemantics: String? = supportingText,
+    /** Shown inside the empty field once it's focused, e.g. the target range. */
+    placeholder: String? = null
 ) {
     OutlinedTextField(
+        placeholder = placeholder?.let { { Text(it, maxLines = 1) } },
         value = value,
         onValueChange = { new -> onValueChange(if (filterNumericInput)
             new.filter { it.isDigit() || (decimal && (it == '.' || it == ',')) } else new) },
@@ -446,7 +454,7 @@ internal fun PlatformLimitations(status: PlatformStatus, platform: PlatformActio
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         issues.forEach { (text, label, action) ->
             Text(text, style = MaterialTheme.typography.bodyMedium)
-            SecondaryTextButton(onClick = action, modifier = Modifier.semantics { contentDescription = label }) { Text(label) }
+            SecondaryButton(onClick = action, modifier = Modifier.semantics { contentDescription = label }) { Text(label) }
         }
         Text(
             "You can still log every set; the timer on screen stays accurate.",

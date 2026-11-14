@@ -396,7 +396,7 @@ internal fun GroupDialog(env: AppEnv, workout: Workout, we: WorkoutExercise, gro
                 }
             }
             if (entry.stages.size < MAX_GROUP_STAGES) {
-                SecondaryTextButton(onClick = { addingStageId = newId() }, enabled = !env.runner.busy,
+                SecondaryButton(onClick = { addingStageId = newId() }, enabled = !env.runner.busy,
                     icon = R.drawable.ic_plus, modifier = Modifier.testTag("add-missed-stage")) {
                     Text("Add a missed ${followUpLabel(group.method).lowercase()}")
                 }

@@ -1,5 +1,8 @@
 package com.rebuild.ui
 
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -101,18 +104,22 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                     }
                 }
                 if (remaining > 0) {
-                    TextButton(
+                    OutlinedButton(
                         onClick = { adjust(30_000) },
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.4f)),
                         enabled = !env.runner.busy,
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
+                        contentPadding = PaddingValues(horizontal = 12.dp),
                         modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Add 30 seconds" }
                     ) { Text("+30 s") }
                 }
                 // Skipping ends this rest for good, so it's a labelled button rather than a bare icon beside Options.
-                TextButton(
+                OutlinedButton(
                     onClick = { env.runner.run(Action.SkipRest) },
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.4f)),
                     enabled = !env.runner.busy,
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
+                    contentPadding = PaddingValues(horizontal = 12.dp),
                     modifier = Modifier.heightIn(min = 48.dp).semantics {
                         contentDescription = if (remaining > 0) "Skip rest" else "Dismiss rest"
                     }

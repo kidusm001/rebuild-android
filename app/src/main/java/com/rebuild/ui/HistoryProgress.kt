@@ -201,7 +201,7 @@ internal fun RecordsSection(records: List<RepRecord>, unit: LoadUnit, exercise: 
                 modifier = Modifier.testTag("record-${record.reps}")
             )
         }
-        if (records.any { it.superseded }) SecondaryTextButton(onClick = { all = !all }, modifier = Modifier.testTag("records-all")) {
+        if (records.any { it.superseded }) SecondaryButton(onClick = { all = !all }, modifier = Modifier.testTag("records-all")) {
             val beaten = records.count { it.superseded }
             Text(if (all) "Hide beaten records" else "Show ${countLabel(beaten, "beaten record")}")
         }

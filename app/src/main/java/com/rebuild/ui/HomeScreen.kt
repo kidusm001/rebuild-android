@@ -1,5 +1,6 @@
 package com.rebuild.ui
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.remember
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.platform.LocalContext
@@ -182,7 +183,7 @@ internal fun HomeScreen(env: AppEnv, onOpenWorkout: () -> Unit, onNavigate: (Str
                                 Spacer(Modifier.width(8.dp))
                                 Text("Start empty workout")
                             }
-                            SecondaryTextButton(onClick = { onNavigate(Routes.ROUTINES) }, icon = R.drawable.ic_library,
+                            SecondaryButton(onClick = { onNavigate(Routes.ROUTINES) }, icon = R.drawable.ic_library,
                                 modifier = Modifier.testTag("open-routines")) {
                                 Text(if (state.routines.isEmpty()) "Your routines" else "Start one of your routines")
                             }
@@ -593,10 +594,11 @@ private fun ActiveSessionCard(env: AppEnv, workout: Workout, onResume: () -> Uni
                     modifier = Modifier.heightIn(min = 48.dp)) { Text("Finish") }
                 // Discard sits at the far edge, so a thumb aimed at Finish never lands on it.
                 Spacer(Modifier.weight(1f))
-                TextButton(
+                OutlinedButton(
                     onClick = { discarding = true },
                     enabled = !env.runner.busy,
-                    colors = ButtonDefaults.textButtonColors(contentColor = colors.error),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.error),
+                    border = BorderStroke(1.dp, colors.error.copy(alpha = 0.5f)),
                     modifier = Modifier.heightIn(min = 48.dp)
                 ) { Text("Discard") }
             }

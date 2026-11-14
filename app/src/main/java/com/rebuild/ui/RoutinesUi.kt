@@ -295,9 +295,9 @@ internal fun RoutineDetailScreen(
             }
             notice?.let { NoticeLine(it) { notice = null } }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SecondaryTextButton(onClick = { onNavigate(Routes.editRoutine(routine.id)) }, enabled = !env.runner.busy,
+                SecondaryButton(onClick = { onNavigate(Routes.editRoutine(routine.id)) }, enabled = !env.runner.busy,
                     icon = R.drawable.ic_pencil, modifier = Modifier.testTag("routine-edit")) { Text("Edit routine") }
-                SecondaryTextButton(onClick = { deleting = true }, enabled = !env.runner.busy, icon = R.drawable.ic_x,
+                SecondaryButton(onClick = { deleting = true }, enabled = !env.runner.busy, icon = R.drawable.ic_x,
                     modifier = Modifier.testTag("routine-delete")) { Text("Delete") }
             }
 
@@ -326,7 +326,7 @@ internal fun RoutineDetailScreen(
                         ).joinToString(" · "),
                         trailing = if (!differs) null else {
                             {
-                                TextButton(
+                                SecondaryButton(
                                     onClick = { updating = copy.id },
                                     enabled = !env.runner.busy,
                                     modifier = Modifier.heightIn(min = 48.dp).testTag("routine-update-${copy.id}")
@@ -1188,7 +1188,7 @@ private fun UndoLine(text: String, onUndo: () -> Unit, onDismiss: () -> Unit) {
     Row(Modifier.fillMaxWidth().testTag("routine-undo"), verticalAlignment = Alignment.CenterVertically) {
         Text(text, style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite })
-        TextButton(onClick = onUndo, modifier = Modifier.heightIn(min = 48.dp).testTag("routine-undo-button")) { Text("Undo") }
+        SecondaryButton(onClick = onUndo, modifier = Modifier.heightIn(min = 48.dp).testTag("routine-undo-button")) { Text("Undo") }
         IconButton(onClick = onDismiss) { RebuildIcon(R.drawable.ic_x, contentDescription = "Dismiss message") }
     }
 }

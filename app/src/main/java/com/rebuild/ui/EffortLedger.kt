@@ -229,7 +229,7 @@ internal fun EffortLedger(env: AppEnv, workout: Workout, we: WorkoutExercise, on
             }
         }
         if (folded > 0 || expanded) {
-            SecondaryTextButton(onClick = { expanded = !expanded }, modifier = Modifier.testTag("previous-expand")) {
+            SecondaryButton(onClick = { expanded = !expanded }, modifier = Modifier.testTag("previous-expand")) {
                 Text(if (expanded) "Show fewer from last time" else "Show all ${previousEfforts.size} from last time")
             }
         }

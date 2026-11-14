@@ -633,9 +633,9 @@ internal fun EntryOptions(
         }
     }
     if (!we.optional) {
-        SecondaryTextButton(onClick = onAdjust, enabled = !busy, icon = R.drawable.ic_pencil) { Text("Adjust today") }
+        SecondaryButton(onClick = onAdjust, enabled = !busy, icon = R.drawable.ic_pencil) { Text("Adjust today") }
         when {
-            we.skipped -> SecondaryTextButton(onClick = { skip(false) }, enabled = !busy, icon = R.drawable.ic_undo_2,
+            we.skipped -> SecondaryButton(onClick = { skip(false) }, enabled = !busy, icon = R.drawable.ic_undo_2,
                 modifier = Modifier.testTag("undo-skip-option")) { Text("Undo skip") }
             we.belowTarget() && we.openGroup() != null -> Text(
                 "Finish the ${we.openGroup()!!.method.title.lowercase()} in progress before skipping this exercise.",
@@ -647,13 +647,13 @@ internal fun EntryOptions(
                 style = MaterialTheme.typography.bodySmall, color = muted,
                 modifier = Modifier.padding(start = 12.dp)
             )
-            we.belowTarget() -> SecondaryTextButton(onClick = { skip(true) }, enabled = !busy,
+            we.belowTarget() -> SecondaryButton(onClick = { skip(true) }, enabled = !busy,
                 icon = R.drawable.ic_skip_forward, modifier = Modifier.testTag("skip-today")) {
                 Text("Skip today · target stays")
             }
         }
     } else {
-        SecondaryTextButton(onClick = onEditGoal, enabled = !busy, icon = R.drawable.ic_pencil,
+        SecondaryButton(onClick = onEditGoal, enabled = !busy, icon = R.drawable.ic_pencil,
             modifier = Modifier.testTag("edit-goal")) { Text("Goal and rest") }
         // Only an occurrence still on its phase's week has future workouts to save to.
         val template = env.state.scheduledRoutine(workout.phase, workout.templateId)
@@ -665,11 +665,11 @@ internal fun EntryOptions(
                     modifier = Modifier.padding(start = 12.dp).testTag("addition-in-plan")
                 )
             } else {
-                SecondaryTextButton(onClick = onSaveToPlan, enabled = !busy, icon = R.drawable.ic_clipboard_list,
+                SecondaryButton(onClick = onSaveToPlan, enabled = !busy, icon = R.drawable.ic_clipboard_list,
                     modifier = Modifier.testTag("save-addition")) { Text("Save to ${template.name} plan…") }
             }
         }
-        SecondaryTextButton(onClick = onRemove, enabled = !busy, icon = R.drawable.ic_x,
+        SecondaryButton(onClick = onRemove, enabled = !busy, icon = R.drawable.ic_x,
             modifier = Modifier.testTag("remove-entry")) { Text("Remove from this workout") }
     }
     ErrorText(error)

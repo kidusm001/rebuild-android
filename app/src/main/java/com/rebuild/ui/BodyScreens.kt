@@ -251,7 +251,7 @@ internal fun BodyweightScreen(env: AppEnv, onBack: () -> Unit) {
     var range by rememberSaveable { mutableStateOf(ChartRange.M3) }
 
     ScreenScaffold(title = "Bodyweight", onBack = onBack, actions = {
-        TextButton(onClick = { logging = true }, modifier = Modifier.heightIn(min = 48.dp).testTag("weight-log")) {
+        SecondaryButton(onClick = { logging = true }, modifier = Modifier.heightIn(min = 48.dp).testTag("weight-log")) {
             Text("Log")
         }
     }) {
@@ -368,7 +368,7 @@ internal fun MeasurementsScreen(env: AppEnv, onBack: () -> Unit, onMeasure: () -
     val today = localDateOf(env.clock())
     var editingSites by rememberSaveable { mutableStateOf(false) }
     ScreenScaffold(title = "Measurements", onBack = onBack, actions = {
-        TextButton(onClick = { editingSites = true }, modifier = Modifier.heightIn(min = 48.dp).testTag("edit-sites")) {
+        SecondaryButton(onClick = { editingSites = true }, modifier = Modifier.heightIn(min = 48.dp).testTag("edit-sites")) {
             Text("Sites")
         }
     }) {
@@ -667,7 +667,7 @@ internal fun ColumnScope.BodyOverview(env: AppEnv, onWeight: () -> Unit, onMeasu
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { logging = true }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                 .testTag("body-log-weight")) { Text("Log weight") }
-            if (weeks.isNotEmpty()) TextButton(onClick = onWeight, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+            if (weeks.isNotEmpty()) SecondaryButton(onClick = onWeight, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                 .testTag("body-weight-trend")) { Text("Trend and weigh-ins") }
         }
         SectionHeader("Measurements")
@@ -690,7 +690,7 @@ internal fun ColumnScope.BodyOverview(env: AppEnv, onWeight: () -> Unit, onMeasu
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (state.measurementDue(today)) OutlinedButton(onClick = onMeasure,
                 modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("body-measure")) { Text("Measure this week") }
-            TextButton(onClick = onMeasurements, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+            SecondaryButton(onClick = onMeasurements, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                 .testTag("body-measurements")) { Text("All measurements") }
         }
     }
@@ -714,7 +714,7 @@ internal fun ColumnScope.TodayBodyRows(env: AppEnv, onWeight: () -> Unit, onMeas
             onClick = onWeight,
             modifier = Modifier.testTag("today-bodyweight"),
             trailing = {
-                TextButton(onClick = { logging = true }, modifier = Modifier.heightIn(min = 48.dp).testTag("today-log-weight")) {
+                SecondaryButton(onClick = { logging = true }, modifier = Modifier.heightIn(min = 48.dp).testTag("today-log-weight")) {
                     Text(if (todays == null) "Log" else "Add")
                 }
             }

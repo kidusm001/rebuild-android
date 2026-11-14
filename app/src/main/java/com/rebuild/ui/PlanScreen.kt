@@ -86,6 +86,8 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
     val takenOff = state.removedTemplates(viewPhase)
 
     ScreenScaffold(title = "Plan") {
+        Text("Preview a phase", style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp))
         // Every phase stays whole and in sight: the chips wrap to a second line rather than scroll off the edge.
         FlowRow(
             modifier = Modifier.padding(horizontal = 16.dp),
@@ -117,7 +119,7 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f).testTag("plan-phase-status")
                     )
-                    TextButton(
+                    SecondaryButton(
                         onClick = { onNavigate(Routes.PHASE) },
                         modifier = Modifier.heightIn(min = 48.dp).testTag("plan-change-phase")
                             .semantics { contentDescription = "Change current phase" }
@@ -128,9 +130,9 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SecondaryTextButton(onClick = { onNavigate(Routes.ROUTINES) }, icon = R.drawable.ic_library,
+                SecondaryButton(onClick = { onNavigate(Routes.ROUTINES) }, icon = R.drawable.ic_library,
                     modifier = Modifier.testTag("plan-routines")) { Text("Your routines") }
-                SecondaryTextButton(onClick = { onNavigate(Routes.EXERCISES) }, icon = R.drawable.ic_search) {
+                SecondaryButton(onClick = { onNavigate(Routes.EXERCISES) }, icon = R.drawable.ic_search) {
                     Text("Browse exercises")
                 }
             }
@@ -210,7 +212,7 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
                             ) {
                                 Text(name, style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                                TextButton(
+                                SecondaryButton(
                                     onClick = {
                                         restoreError = null
                                         env.runner.run(Action.SetPlanSlotRemoved(viewPhase, slot.id, false),
@@ -224,7 +226,7 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
                         }
                     }
                     restoreError?.takeIf { it.first == occurrence.id }?.let { ErrorText(it.second) }
-                    SecondaryTextButton(
+                    SecondaryButton(
                         onClick = { addingTo = occurrence.id },
                         enabled = !env.runner.busy,
                         icon = R.drawable.ic_plus,
@@ -257,7 +259,7 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
                                 Text(weekdayName(template.weekday), style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            TextButton(
+                            SecondaryButton(
                                 onClick = {
                                     weekError = null
                                     if (week.none { it.weekday == template.weekday }) {
@@ -427,6 +429,8 @@ private fun WeeklyTotals(target: Int, baseline: Int, upper: Int) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             TotalLine("Advisory upper", upper)
         }
+        Text("Advisory upper is the most weekly sets worth doing: a ceiling, not a goal.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
