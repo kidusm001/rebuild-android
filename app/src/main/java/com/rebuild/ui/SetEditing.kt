@@ -101,7 +101,10 @@ internal fun SetFields(
     unit: LoadUnit = LoadUnit.KG,
     // Dialogs stack the fields to show the message inside the failing one; live entry keeps its row and
     // shows the same message once below it.
-    stackOnError: Boolean = true
+    stackOnError: Boolean = true,
+    // The target, shown inside the empty Reps and RIR fields, so it stays in view while the keyboard is open.
+    repsHint: String? = null,
+    rirHint: String? = null
 ) {
     if (exercise.loading == LoadingType.BODYWEIGHT) {
         Text(
@@ -125,10 +128,10 @@ internal fun SetFields(
                 decimal = mass, filterNumericInput = mass, showMessage = stackOnError)
         }
         SetNumberField(reps, onReps, "Reps", SetField.REPS, failure, validationAttempt,
-            modifier.testTag("$tagPrefix-reps"), decimal = false, showMessage = stackOnError)
+            modifier.testTag("$tagPrefix-reps"), decimal = false, showMessage = stackOnError, placeholder = repsHint)
         SetNumberField(
             rir, onRir, "RIR", SetField.RIR, failure, validationAttempt, modifier.testTag("$tagPrefix-rir"),
-            imeAction = ImeAction.Done, onDone = onDone, showMessage = stackOnError
+            imeAction = ImeAction.Done, onDone = onDone, showMessage = stackOnError, placeholder = rirHint
         )
     }
     if (failure != null && stackOnError) {
@@ -152,7 +155,7 @@ private fun SetNumberField(
     value: String, onValue: (String) -> Unit, label: String, field: SetField,
     failure: SetValidation.Invalid?, validationAttempt: Int, modifier: Modifier,
     decimal: Boolean = true, imeAction: ImeAction = ImeAction.Next, onDone: () -> Unit = {},
-    filterNumericInput: Boolean = true, showMessage: Boolean = true
+    filterNumericInput: Boolean = true, showMessage: Boolean = true, placeholder: String? = null
 ) {
     val focus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
     val bring = androidx.compose.runtime.remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
@@ -160,7 +163,8 @@ private fun SetNumberField(
     NumberField(value, onValue, label,
         modifier.focusRequester(focus).bringIntoViewRequester(bring),
         decimal = decimal, isError = message != null, supportingText = message?.takeIf { showMessage },
-        imeAction = imeAction, onDone = onDone, filterNumericInput = filterNumericInput, errorSemantics = message)
+        imeAction = imeAction, onDone = onDone, filterNumericInput = filterNumericInput, errorSemantics = message,
+        placeholder = placeholder)
     LaunchedEffect(validationAttempt) {
         if (message != null) {
             focus.requestFocus()

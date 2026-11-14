@@ -172,7 +172,8 @@ private fun ColumnScope.NoFinishedWorkouts(onOpenToday: () -> Unit) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Button(onClick = onOpenToday) { Text("Go to Today") }
+        // Nothing here competes with it, so it needn't be the loud primary.
+        SecondaryButton(onClick = onOpenToday, icon = R.drawable.ic_arrow_right) { Text("Go to Today") }
     }
 }
 
@@ -347,7 +348,7 @@ internal fun WorkoutDetailScreen(env: AppEnv, workout: Workout, onBack: () -> Un
                     // A finished workout can seed a library routine; the workout itself never changes.
                     if (workout.finishedAt != null && workout.exercises.isNotEmpty()) {
                         val full = env.state.routines.size >= MAX_ROUTINES
-                        SecondaryTextButton(onClick = { leave(Routes.routineFrom(workout.id)) },
+                        SecondaryButton(onClick = { leave(Routes.routineFrom(workout.id)) },
                             enabled = !full && !env.runner.busy, icon = R.drawable.ic_library,
                             modifier = Modifier.testTag("save-as-routine")) { Text("Save as routine") }
                         if (full) Text(
@@ -407,7 +408,7 @@ internal fun WorkoutDetailScreen(env: AppEnv, workout: Workout, onBack: () -> Un
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     HorizontalDivider()
                     notice?.let { NoticeLine(it) { notice = null } }
-                    SecondaryTextButton(
+                    SecondaryButton(
                         onClick = { addingExercise = true },
                         enabled = !env.runner.busy,
                         icon = R.drawable.ic_plus,
@@ -614,7 +615,7 @@ private fun HistoryExerciseNote(
         LaunchedEffect(open) { if (open) focus.requestFocus() }
         ErrorText(error)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(
+            SecondaryButton(
                 onClick = {
                     error = null
                     env.runner.run(Action.ExerciseNote(workoutId, we.id, note), onError = { error = it }) {
@@ -624,7 +625,7 @@ private fun HistoryExerciseNote(
                 },
                 enabled = note != we.notes && !env.runner.busy
             ) { Text("Save note") }
-            TextButton(
+            SecondaryButton(
                 onClick = { drafts.clear(we.id); error = null; onOpenChange(false) },
                 enabled = !env.runner.busy
             ) { Text("Cancel note edit") }
@@ -657,7 +658,7 @@ private fun WorkoutNote(env: AppEnv, workout: Workout, drafts: NoteDrafts) {
             )
             ErrorText(error)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(
+                SecondaryButton(
                     onClick = {
                         error = null
                         env.runner.run(Action.WorkoutNote(workout.id, note), onError = { error = it }) {
@@ -667,7 +668,7 @@ private fun WorkoutNote(env: AppEnv, workout: Workout, drafts: NoteDrafts) {
                     },
                     enabled = note != workout.notes && !env.runner.busy
                 ) { Text("Save note") }
-                TextButton(
+                SecondaryButton(
                     onClick = {
                         drafts.clear(WORKOUT_NOTE_KEY)
                         error = null
@@ -687,9 +688,9 @@ private fun WorkoutNote(env: AppEnv, workout: Workout, drafts: NoteDrafts) {
                 Text("Workout note", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(workout.notes, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.testTag("workout-note-text"))
             }
-            SecondaryTextButton(onClick = { startEditing() }, icon = R.drawable.ic_pencil) { Text("Edit workout note") }
+            SecondaryButton(onClick = { startEditing() }, icon = R.drawable.ic_pencil) { Text("Edit workout note") }
         } else {
-            SecondaryTextButton(onClick = { startEditing() }, icon = R.drawable.ic_notebook_pen) { Text("Add workout note") }
+            SecondaryButton(onClick = { startEditing() }, icon = R.drawable.ic_notebook_pen) { Text("Add workout note") }
         }
     }
 }

@@ -537,7 +537,7 @@ internal fun MeasuredEntryPanel(
                 modifier = Modifier.weight(1f).testTag("entry-context")
             )
             if (extra && phase == WatchPhase.NONE) {
-                TextButton(onClick = onCancelExtra, modifier = Modifier.heightIn(min = 48.dp).testTag("cancel-extra")) {
+                SecondaryButton(onClick = onCancelExtra, modifier = Modifier.heightIn(min = 48.dp).testTag("cancel-extra")) {
                     Text("Cancel")
                 }
             }
@@ -687,14 +687,14 @@ internal fun MeasuredEntryPanel(
         env.state.restTimer == null && watch?.running != true
 
     @Composable fun Discard() {
-        SecondaryTextButton(onClick = { discardError = null; discardingStep = ownWatch?.step }, enabled = !busy,
+        SecondaryButton(onClick = { discardError = null; discardingStep = ownWatch?.step }, enabled = !busy,
             icon = R.drawable.ic_x, modifier = Modifier.testTag("discard-stopwatch")) {
             Text("Discard $noun")
         }
     }
 
     @Composable fun CardioRest() {
-        SecondaryTextButton(
+        SecondaryButton(
             onClick = {
                 entryForm.error = null
                 env.runner.run(Action.StartRest(newId(), workout.id, we.id, env.clock()),
@@ -707,7 +707,7 @@ internal fun MeasuredEntryPanel(
     }
 
     @Composable fun UseMeasured() {
-        SecondaryTextButton(onClick = { form.typedFor = NOT_TYPED; form.invalid = null }, enabled = !busy,
+        SecondaryButton(onClick = { form.typedFor = NOT_TYPED; form.invalid = null }, enabled = !busy,
             icon = R.drawable.ic_undo_2, modifier = Modifier.testTag("use-measured-time")) {
             Text("Use the measured ${formatDuration(measuredSeconds ?: 0)}")
         }
@@ -730,7 +730,7 @@ internal fun MeasuredEntryPanel(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (name != null && other.workoutId == workout.id) {
-                    SecondaryTextButton(onClick = { onGoTo(other.exerciseId) }, icon = R.drawable.ic_arrow_right,
+                    SecondaryButton(onClick = { onGoTo(other.exerciseId) }, icon = R.drawable.ic_arrow_right,
                         modifier = Modifier.testTag("go-to-stopwatch-entry")) { Text("Go to $name") }
                 }
             }
@@ -959,7 +959,7 @@ internal fun StopwatchBar(env: AppEnv, watch: Stopwatch, onOpen: (() -> Unit)?) 
                 ) { RebuildIcon(R.drawable.ic_play, contentDescription = "Resume stopwatch") }
             }
             if (onOpen != null) {
-                TextButton(onClick = onOpen, modifier = Modifier.heightIn(min = 48.dp).testTag("bar-open-workout")) {
+                SecondaryButton(onClick = onOpen, modifier = Modifier.heightIn(min = 48.dp).testTag("bar-open-workout")) {
                     Text("Open")
                 }
             }

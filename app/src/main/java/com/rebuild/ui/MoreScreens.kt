@@ -1,5 +1,7 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -69,6 +71,20 @@ internal fun MoreScreen(env: AppEnv, onNavigate: (String) -> Unit) {
                     ?: "No backup yet") + "\nOffline, no account. Data stays on this phone.",
                 R.drawable.ic_archive_restore
             ) { onNavigate(Routes.BACKUP) }
+            // With logged training and no current backup, the one copy is on this phone: say so plainly.
+            if (state.workouts.isNotEmpty() && (state.lastBackupAt == null || unsaved)) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.testTag("more-backup-warning")) {
+                    Text(
+                        if (state.lastBackupAt == null) "Not backed up. Losing this phone loses your history."
+                        else "Recent workouts aren't in your backup yet.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    SecondaryButton(onClick = { onNavigate(Routes.BACKUP) }, icon = R.drawable.ic_archive_restore) {
+                        Text("Back up now")
+                    }
+                }
+            }
             SectionHeader("Rest alerts")
             PlatformLimitations(env.status, env.platform, showAllClear = true)
             if (version != null) Text(
@@ -89,7 +105,7 @@ internal fun MoreScreen(env: AppEnv, onNavigate: (String) -> Unit) {
 private fun LiftingUnitRow(env: AppEnv) {
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.testTag("more-lifting-unit")) {
-        Text("Lifting weights", style = MaterialTheme.typography.bodyLarge)
+        Text("Default weight unit", style = MaterialTheme.typography.bodyLarge)
         Text("Your next sets on every exercise. Logged sets keep their unit; plate machines keep plates.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         LoadUnitSelector(env.state.liftingUnit.loadUnit, listOf(LoadUnit.KG, LoadUnit.LB), enabled = !env.runner.busy) {

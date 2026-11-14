@@ -185,7 +185,7 @@ internal fun SetLedger(
             }
         }
         if (folded > 0 || expanded) {
-            SecondaryTextButton(onClick = { expanded = !expanded }, modifier = Modifier.testTag("previous-expand")) {
+            SecondaryButton(onClick = { expanded = !expanded }, modifier = Modifier.testTag("previous-expand")) {
                 Text(if (expanded) "Show fewer sets from last time" else "Show all ${previousEntries.size} sets from last time")
             }
         }

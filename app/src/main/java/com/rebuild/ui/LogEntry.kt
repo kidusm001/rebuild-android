@@ -308,7 +308,9 @@ internal fun EntryPanel(
         Column(modifier) {
             SetFields(we.exercise, draft.kg, { draft.kg = it }, draft.reps, { draft.reps = it }, draft.rir,
                 { draft.rir = it }, { log() }, "entry", draft.validation, draft.validationAttempt, showRirHint = false,
-                unit = we.entryLoadUnit, stackOnError = false)
+                unit = we.entryLoadUnit, stackOnError = false,
+                repsHint = if (we.minReps != null && we.maxReps != null) "${we.minReps}–${we.maxReps}" else null,
+                rirHint = we.targetRir?.toString())
         }
     }
 
@@ -342,7 +344,7 @@ internal fun EntryPanel(
     }
 
     @Composable fun ShortPause() {
-        SecondaryTextButton(
+        SecondaryButton(
             onClick = { env.runner.run(Action.StartShortPause(workout.id, we.id, SHORT_PAUSE_SECONDS, env.clock()),
                 onError = { draft.error = it }) },
             enabled = !env.runner.busy,
@@ -439,7 +441,7 @@ internal fun EntryPanel(
                 if (open?.method == SetMethod.REST_PAUSE) ShortPause()
                 if (large && showWarmup) warmupChip(Modifier)
                 if ((extra || (dropping && draft.extra)) && open == null) {
-                    TextButton(onClick = { draft.extra = false; draft.drop = false; onCarry(DropCarry.NONE) },
+                    SecondaryButton(onClick = { draft.extra = false; draft.drop = false; onCarry(DropCarry.NONE) },
                         modifier = Modifier.heightIn(min = 48.dp).testTag("cancel-extra")) { Text("Cancel") }
                 }
             }
@@ -515,7 +517,7 @@ private fun EntryContext(
             modifier = Modifier.weight(1f).testTag("entry-context")
         )
         if ((extra || (dropping && draft.extra)) && !open) {
-            TextButton(onClick = { draft.extra = false; draft.drop = false; onCancel() },
+            SecondaryButton(onClick = { draft.extra = false; draft.drop = false; onCancel() },
                 modifier = Modifier.heightIn(min = 48.dp).testTag("cancel-extra")) {
                 Text("Cancel")
             }
@@ -579,12 +581,12 @@ internal fun TargetMetPanel(
         }
         @Composable fun Extra(modifier: Modifier) {
             // Quiet text actions: going further on this exercise never rivals Next.
-            TextButton(onClick = onExtra, modifier = modifier.heightIn(min = 48.dp).testTag("extra-set")) {
+            SecondaryButton(onClick = onExtra, modifier = modifier.heightIn(min = 48.dp).testTag("extra-set")) {
                 Text(extraLabel, maxLines = 1)
             }
         }
         @Composable fun Drop(modifier: Modifier) {
-            if (dropLabel != null) TextButton(onClick = onDrop, modifier = modifier.heightIn(min = 48.dp).testTag("drop-set")) {
+            if (dropLabel != null) SecondaryButton(onClick = onDrop, modifier = modifier.heightIn(min = 48.dp).testTag("drop-set")) {
                 Text(dropLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }

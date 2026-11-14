@@ -202,7 +202,7 @@ internal fun WorkoutReceipt(env: AppEnv, workout: Workout, onView: () -> Unit, o
                 supporting = weighIn?.let { "${massText(it.value, it.unit)} at ${formatTime(it.at)}" } ?: "Not logged today",
                 modifier = Modifier.testTag("receipt-bodyweight"),
                 trailing = if (weighIn != null) null else {
-                    { TextButton(onClick = { loggingWeight = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Log") } }
+                    { SecondaryButton(onClick = { loggingWeight = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Log") } }
                 }
             )
             @Composable fun View(modifier: Modifier) = OutlinedButton(onClick = onView,

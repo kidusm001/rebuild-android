@@ -1,5 +1,8 @@
 package com.rebuild.ui
 
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import com.rebuild.domain.takesLoad
 import com.rebuild.domain.loadUnitOptions
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -88,7 +91,7 @@ internal fun ExerciseLibraryScreen(
                     Text(exerciseMetadata(exercise))
                     Text(loadingDescription(exercise, exercise.preferredLoadUnit))
                     Text("To use it, add it to a workout or a routine.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (exercise.custom) SecondaryTextButton(onClick = { editingMetadata = exercise.id }) {
+                    if (exercise.custom) SecondaryButton(onClick = { editingMetadata = exercise.id }) {
                         Text("Edit equipment and muscle")
                     }
                     if (exercise.takesLoad) {
@@ -218,7 +221,7 @@ private fun ExerciseLibraryContent(
                         Modifier.testTag("library-filter-type")) { chosenMeasure = it }
                 }
                 if (muscle != null || equipment != null || chosenMeasure != null) {
-                    SecondaryTextButton(onClick = { query = ""; muscle = null; equipment = null; chosenMeasure = null }) {
+                    SecondaryButton(onClick = { query = ""; muscle = null; equipment = null; chosenMeasure = null }) {
                         Text("Reset filters")
                     }
                 }
@@ -239,7 +242,7 @@ private fun ExerciseLibraryContent(
             ) {
                 Text(countLabel(results.size, "exercise"), style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                SecondaryTextButton(onClick = onAdd, icon = R.drawable.ic_plus) { Text("Add custom exercise") }
+                SecondaryButton(onClick = onAdd, icon = R.drawable.ic_plus) { Text("Add custom exercise") }
             }
             HorizontalDivider()
         }
@@ -249,7 +252,7 @@ private fun ExerciseLibraryContent(
                 Text("Try another name or add a custom exercise.", style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (query.isNotEmpty() || muscle != null || equipment != null || chosenMeasure != null) {
-                    SecondaryTextButton(onClick = { query = ""; muscle = null; equipment = null; chosenMeasure = null }) {
+                    SecondaryButton(onClick = { query = ""; muscle = null; equipment = null; chosenMeasure = null }) {
                         Text("Reset filters")
                     }
                 }
@@ -339,13 +342,19 @@ internal fun LoadUnitSelector(
     enabled: Boolean = true,
     onSelect: (LoadUnit) -> Unit
 ) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        options.forEach { option ->
-            FilterChip(selected = unit == option, onClick = { onSelect(option) }, enabled = enabled,
-                label = { Text(if (option == LoadUnit.PLATES) "Plates per stack" else unitName(option)) },
-                modifier = Modifier.testTag("unit-${option.name}")
+    // One choice from a small set: a Material segmented button, not loose chips.
+    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+        options.forEachIndexed { index, option ->
+            SegmentedButton(
+                selected = unit == option,
+                onClick = { onSelect(option) },
+                enabled = enabled,
+                shape = SegmentedButtonDefaults.itemShape(index, options.size),
+                label = { Text(if (option == LoadUnit.PLATES) "Plates" else unitName(option), maxLines = 1) },
+                modifier = Modifier.heightIn(min = 48.dp).testTag("unit-${option.name}")
                     .semantics { contentDescription = if (option == LoadUnit.LB) "Pounds" else if (option == LoadUnit.KG)
-                        "Kilograms" else "Plates per stack" })
+                        "Kilograms" else "Plates per stack" }
+            )
         }
     }
 }
