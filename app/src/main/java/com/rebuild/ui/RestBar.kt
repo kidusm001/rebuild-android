@@ -1,5 +1,6 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.graphics.Color
 import com.rebuild.ui.theme.Numerals
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.ui.geometry.Size
@@ -99,7 +100,7 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
             color = colors.primaryContainer,
             contentColor = colors.onPrimaryContainer,
             shape = if (compact) CircleShape else MaterialTheme.shapes.large,
-            shadowElevation = 6.dp,
+            shadowElevation = 0.dp,
             modifier = Modifier.fillMaxWidth().testTag("rest-bar")
         ) {
             Row(
@@ -114,7 +115,7 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                             drawRoundRect(fillColor, Offset(inset, y), Size(track * progress, h), CornerRadius(h / 2))
                         }
                     }
-                    .padding(start = 20.dp, end = 6.dp, top = if (compact) 0.dp else 6.dp, bottom = if (compact) 0.dp else 6.dp),
+                    .padding(start = 20.dp, end = 6.dp, top = if (compact) 0.dp else 10.dp, bottom = if (compact) 0.dp else 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
@@ -129,19 +130,18 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                     // Short windows and large text keep the bar to one line, so it never squeezes the entry: the
                     // countdown stays whole and the alert limitation moves to Options (and to TalkBack).
                     // Compact: the countdown alone, in numerals, so it is never the part that gets squeezed out.
-                    if (compact) Text(time, style = MaterialTheme.typography.headlineSmall.copy(fontFamily = Numerals),
+                    if (compact) Text("$word $time", style = MaterialTheme.typography.titleLarge.copy(fontFamily = Numerals),
                         maxLines = 1, softWrap = false,
                         modifier = Modifier.semantics {
                             contentDescription = "$word $time" + (limitation?.let { ", $it" } ?: "")
                         })
                     else {
-                        Text((word + note).uppercase(), style = overlineStyle(),
-                            modifier = Modifier.semantics { contentDescription = word + note })
+                        Text(word + note, style = overlineStyle())
                         Text(time, style = MaterialTheme.typography.displayMedium)
                     }
                 }
                 val quiet = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = colors.onPrimaryContainer.copy(alpha = 0.12f),
+                    containerColor = Color.White.copy(alpha = 0.38f),
                     contentColor = colors.onPrimaryContainer
                 )
                 // Skip ends the rest: ink on amber, the strongest control on the pill.

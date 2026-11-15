@@ -1,5 +1,8 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.composed
+import androidx.compose.material3.contentColorFor
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.graphicsLayer
@@ -171,13 +174,14 @@ internal fun Modifier.readableWidth(): Modifier =
 /** Scrollable screen body with standard padding, capped at a readable width. */
 @Composable
 internal fun ColumnScope.ScrollBody(content: @Composable ColumnScope.() -> Unit) {
+    val scroll = rememberScrollState()
     Column(
         Modifier
             .weight(1f)
             .fillMaxWidth()
             .yieldsToFixedControls()
-            .fadingEdges()
-            .verticalScroll(rememberScrollState()),
+            .fadingEdges(scroll, if (LocalDensity.current.fontScale > 1.3f) 48.dp else 32.dp)
+            .verticalScroll(scroll),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Column(
@@ -340,8 +344,15 @@ internal fun NumberField(
     /** Shown inside the empty field once it's focused, e.g. the target range. */
     placeholder: String? = null,
     /** The value's type: the set entry passes a large numeral style. */
-    valueStyle: TextStyle = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum")
+    valueStyle: TextStyle = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum"),
+    /** A numeric tile (live set entry): label always on top, the value large beneath, an em dash when empty. */
+    tile: Boolean = false
 ) {
+    if (tile) {
+        NumberTile(value, onValueChange, label, modifier, decimal, isError, supportingText, imeAction, onDone,
+            filterNumericInput, errorSemantics, valueStyle)
+        return
+    }
     // A filled tile, not an outlined form box: tone separates it, and focus draws a 2 dp ring.
     var focused by remember { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
@@ -627,7 +638,10 @@ internal fun TonalCard(
     shape: androidx.compose.ui.graphics.Shape = MaterialTheme.shapes.medium,
     content: @Composable () -> Unit
 ) {
-    Surface(color = color, shape = shape, modifier = modifier.fillMaxWidth(), content = content)
+    // A plain clipped background, not a Surface: a card is no accessibility node of its own.
+    Box(modifier.fillMaxWidth().clip(shape).background(color)) {
+        CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides contentColorFor(color)) { content() }
+    }
 }
 
 /** Where a session stands, as one segment per exercise: done, current or still to do. */
@@ -671,7 +685,7 @@ internal fun StatTile(
     val colors = MaterialTheme.colorScheme
     Column(
         modifier
-            .clip(MaterialTheme.shapes.small)
+            .clip(MaterialTheme.shapes.medium)
             .background(if (emphasized) colors.secondaryContainer else colors.surfaceContainerHigh)
             .clearAndSetSemantics { contentDescription = spoken }
             .padding(horizontal = 14.dp, vertical = 12.dp)
@@ -729,19 +743,23 @@ internal fun TonalChip(
  * Content scrolling past the top or bottom of a page fades out over 24 dp instead of being sliced by a hard edge
  * (under a fixed title above, or the floating rest pill below). Drawing only: layout and semantics are unchanged.
  */
-internal fun Modifier.fadingEdges(edge: androidx.compose.ui.unit.Dp = 24.dp): Modifier = this
-    .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
-    .drawWithContent {
+internal fun Modifier.fadingEdges(
+    scroll: androidx.compose.foundation.ScrollState,
+    edge: androidx.compose.ui.unit.Dp = 32.dp
+): Modifier = composed {
+    // Painted over the content in the page colour, with no offscreen layer, so accessibility still sees every row.
+    val page = MaterialTheme.colorScheme.surface
+    drawWithContent {
         drawContent()
-        val fade = edge.toPx().coerceAtMost(size.height / 4)
-        drawRect(
-            androidx.compose.ui.graphics.Brush.verticalGradient(
-                0f to Color.Transparent, fade / size.height to Color.Black,
-                1f - fade / size.height to Color.Black, 1f to Color.Transparent
-            ),
-            blendMode = androidx.compose.ui.graphics.BlendMode.DstIn
-        )
+        val top = if (scroll.canScrollBackward) edge.toPx().coerceAtMost(size.height / 4) else 0f
+        val bottom = if (scroll.canScrollForward) edge.toPx().coerceAtMost(size.height / 4) else 0f
+        if (top > 0f) drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(
+            listOf(page, page.copy(alpha = 0f)), startY = 0f, endY = top), size = size.copy(height = top))
+        if (bottom > 0f) drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(
+            listOf(page.copy(alpha = 0f), page), startY = size.height - bottom, endY = size.height),
+            topLeft = androidx.compose.ui.geometry.Offset(0f, size.height - bottom), size = size.copy(height = bottom))
     }
+}
 
 /** Small, bold, tracked caps for overlines (status, tile captions); the original case is what screen readers hear. */
 @Composable
@@ -760,6 +778,8 @@ internal fun GroupedActionRow(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     @DrawableRes trailing: Int = R.drawable.ic_chevron_right,
+    /** Spoken name, kept even when the row is scrolled almost out of view and its text is clipped. */
+    label: String? = null,
     content: @Composable RowScope.() -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
@@ -770,6 +790,7 @@ internal fun GroupedActionRow(
             .clip(groupShape(index, lastIndex))
             .background(colors.surfaceContainerLowest)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .then(if (label != null) Modifier.semantics { contentDescription = label } else Modifier)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -779,5 +800,70 @@ internal fun GroupedActionRow(
         }
         androidx.compose.material3.ProvideTextStyle(MaterialTheme.typography.labelLarge) { content() }
         RebuildIcon(trailing, contentDescription = null, tint = colors.onSurfaceVariant, modifier = Modifier.size(18.dp))
+    }
+}
+
+@Composable
+private fun NumberTile(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier,
+    decimal: Boolean,
+    isError: Boolean,
+    supportingText: String?,
+    imeAction: ImeAction,
+    onDone: () -> Unit,
+    filterNumericInput: Boolean,
+    errorSemantics: String?,
+    valueStyle: TextStyle
+) {
+    var focused by remember { mutableStateOf(false) }
+    val colors = MaterialTheme.colorScheme
+    val ring = when {
+        isError -> colors.error
+        focused -> colors.primary
+        else -> Color.Transparent
+    }
+    // The caller's modifier (tag, focus, weight) goes on the field itself, so it is the node that takes text.
+    run {
+        androidx.compose.foundation.text.BasicTextField(
+            value = value,
+            onValueChange = { new -> onValueChange(if (filterNumericInput)
+                new.filter { it.isDigit() || (decimal && (it == '.' || it == ',')) } else new) },
+            singleLine = true,
+            textStyle = valueStyle.copy(color = colors.onSurface),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(colors.primary),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number,
+                imeAction = imeAction
+            ),
+            keyboardActions = KeyboardActions(onDone = { onDone() }),
+            modifier = modifier
+                .heightIn(min = 72.dp)
+                .onFocusChanged { focused = it.isFocused }
+                .semantics {
+                    contentDescription = label
+                    if (isError && errorSemantics != null) error(errorSemantics)
+                },
+            decorationBox = { inner ->
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.small)
+                        .background(if (focused) colors.surfaceContainerLowest else colors.surfaceContainerHigh)
+                        .border(2.dp, ring, MaterialTheme.shapes.small)
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                ) {
+                    // The label is always the overline, so empty and filled tiles share one anatomy.
+                    Text(label, style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant,
+                        maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    Box {
+                        if (value.isEmpty() && !focused) Text("—", style = valueStyle, color = colors.onSurfaceVariant.copy(alpha = 0.5f))
+                        inner()
+                    }
+                }
+            }
+        )
     }
 }

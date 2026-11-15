@@ -69,7 +69,7 @@ internal fun MoreScreen(env: AppEnv, onNavigate: (String) -> Unit) {
                 }
             }
             SectionHeader("Units")
-            LiftingUnitRow(env)
+            TonalCard { Box(Modifier.padding(16.dp)) { LiftingUnitRow(env) } }
             SectionHeader("Your data")
             val unsaved = state.revision > (state.lastBackupRevision ?: -1)
             MoreRow(
@@ -81,21 +81,25 @@ internal fun MoreScreen(env: AppEnv, onNavigate: (String) -> Unit) {
             ) { onNavigate(Routes.BACKUP) }
             // With logged training and no current backup, the one copy is on this phone: say so plainly.
             if (state.workouts.isNotEmpty() && (state.lastBackupAt == null || unsaved)) {
-                TonalCard(color = MaterialTheme.colorScheme.errorContainer) {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp),
+                // A calm card: the warning is in the icon and the words, not a loud red slab.
+                TonalCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.padding(16.dp).testTag("more-backup-warning")) {
-                        Text(
-                            if (state.lastBackupAt == null) "Not backed up. Losing this phone loses your history."
-                            else "Recent workouts aren't in your backup yet.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                        Button(
-                            onClick = { onNavigate(Routes.BACKUP) },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = MaterialTheme.colorScheme.onError),
-                            modifier = Modifier.heightIn(min = 48.dp)
-                        ) { Text("Back up now") }
+                        Box(Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.errorContainer),
+                            contentAlignment = Alignment.Center) {
+                            RebuildIcon(R.drawable.ic_archive_restore, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(20.dp))
+                        }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                if (state.lastBackupAt == null) "Not backed up. Losing this phone loses your history."
+                                else "Recent workouts aren't in your backup yet.",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Button(onClick = { onNavigate(Routes.BACKUP) }, modifier = Modifier.heightIn(min = 48.dp)) {
+                                Text("Back up now")
+                            }
+                        }
                     }
                 }
             }

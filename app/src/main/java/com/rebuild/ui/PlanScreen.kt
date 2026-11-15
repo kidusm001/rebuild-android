@@ -90,8 +90,7 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
     val takenOff = state.removedTemplates(viewPhase)
 
     ScreenScaffold(title = "Plan") {
-        Text("PREVIEW A PHASE", style = overlineStyle(),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Text("Preview a phase", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp))
         // Every phase stays whole and in sight: the chips wrap to a second line rather than scroll off the edge.
         FlowRow(
@@ -119,8 +118,8 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
             TonalCard { Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        (if (viewPhase == current) "Current phase" else "Not your current phase").uppercase(),
-                        style = overlineStyle(),
+                        if (viewPhase == current) "Current phase" else "Not your current phase",
+                        style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f).testTag("plan-phase-status")
                     )

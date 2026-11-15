@@ -185,10 +185,10 @@ private fun ColumnScope.NoFinishedWorkouts(onOpenToday: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Box(Modifier.size(80.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
+        Box(Modifier.size(80.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh),
             contentAlignment = Alignment.Center) {
             RebuildIcon(R.drawable.ic_history, contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(36.dp))
+                tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(36.dp))
         }
         Text("No finished workouts yet", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
         Text(

@@ -281,6 +281,8 @@ fun RebuildApp(
                         val base = when {
                             // The navigation bar paints its own tone; around a floating rest pill the canvas shows.
                             bottomNav -> MaterialTheme.colorScheme.surface
+                            // On the workout the pill floats on the dock's tone, so dock and pill read as one base.
+                            timer != null && route == Routes.WORKOUT -> MaterialTheme.colorScheme.surfaceContainer
                             timer != null -> MaterialTheme.colorScheme.surface
                             else -> MaterialTheme.colorScheme.surfaceContainerHighest
                         }

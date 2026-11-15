@@ -514,6 +514,7 @@ private fun ExerciseFocus(
         }
     }
 
+    val bodyScroll = rememberScrollState()
     DockedLayout(
         dockShare = {
             when {
@@ -534,7 +535,8 @@ private fun ExerciseFocus(
                     .onSizeChanged { workspaceViewport = it.height }
                     .onFocusChanged { workspaceFocused = it.hasFocus }
                     .focusGroup()
-                    .verticalScroll(rememberScrollState())
+                    .fadingEdges(bodyScroll, if (density.fontScale > 1.3f) 48.dp else 32.dp)
+                    .verticalScroll(bodyScroll)
                     .padding(horizontal = 20.dp, vertical = 12.dp)
                     // Without the dock, the last rows scroll clear of the gesture area.
                     .then(if (pinned) Modifier else Modifier.navigationBarsPadding()),
@@ -607,6 +609,7 @@ private fun ExerciseFocus(
                     GroupedActionRow(onClick = { details = !details }, icon = R.drawable.ic_clipboard_list,
                         index = 0, lastIndex = 1,
                         trailing = if (details) R.drawable.ic_chevron_up else R.drawable.ic_chevron_down,
+                        label = if (details) "Hide options" else "Target and options",
                         modifier = Modifier.testTag("exercise-details")) {
                         Text(
                             when {

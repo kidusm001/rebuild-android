@@ -307,12 +307,13 @@ private fun RowToday(row: LedgerRow, exercise: Exercise, extra: Boolean, stacked
 private fun TodayCell(set: LoggedSet, label: String, extra: Boolean, exercise: Exercise, stacked: Boolean,
     onEdit: (LoggedSet) -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier.heightIn(min = 48.dp).then(if (stacked) Modifier.fillMaxWidth() else Modifier)
-            .clip(RoundedCornerShape(8.dp))
+        modifier.heightIn(min = 56.dp).then(if (stacked) Modifier.fillMaxWidth() else Modifier)
+            .clip(MaterialTheme.shapes.small)
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
             .clickable(onClickLabel = "Edit $label") { onEdit(set) }
             .semantics(mergeDescendants = true) { contentDescription = "$label: ${setText(set, exercise).spokenUnits()}" }
             .testTag("set-row")
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
@@ -328,8 +329,11 @@ private fun TodayCell(set: LoggedSet, label: String, extra: Boolean, exercise: E
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        RebuildIcon(R.drawable.ic_pencil, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(18.dp))
+        Box(Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            contentAlignment = Alignment.Center) {
+            RebuildIcon(R.drawable.ic_pencil, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(16.dp))
+        }
     }
 }
 
@@ -343,7 +347,6 @@ private fun StackedRow(
     today: @Composable () -> Unit
 ) {
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Text(title, style = MaterialTheme.typography.labelLarge, modifier = Modifier.clearAndSetSemantics {})
         if (previous != null && exercise != null) {
             val (ordinal, entry) = previous

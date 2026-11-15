@@ -318,7 +318,9 @@ internal fun EntryPanel(
                 unit = we.entryLoadUnit, stackOnError = false,
                 // At large text the target line above already says it; tiles keep one-line labels and equal heights.
                 repsHint = if (!large && we.minReps != null && we.maxReps != null) "${we.minReps}–${we.maxReps}" else null,
-                rirHint = we.targetRir?.takeIf { !large }?.toString(), prominent = true)
+                rirHint = we.targetRir?.takeIf { !large }?.toString(),
+                // A short landscape window keeps compact fields so the whole entry fits above the keyboard.
+                prominent = !landscape)
         }
     }
 
