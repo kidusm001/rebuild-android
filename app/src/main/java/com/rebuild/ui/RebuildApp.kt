@@ -280,7 +280,7 @@ fun RebuildApp(
                         // the keyboard, so nothing light or empty ever shows under a dark screen.
                         val base = when {
                             bottomNav -> MaterialTheme.colorScheme.surfaceContainer
-                            timer != null -> MaterialTheme.colorScheme.secondaryContainer
+                            timer != null -> MaterialTheme.colorScheme.surface
                             else -> MaterialTheme.colorScheme.surfaceContainerHighest
                         }
                         Column(

@@ -595,7 +595,7 @@ internal fun ScheduleRoutineDialog(
                 SectionHeader("Phase")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Phase.entries.forEach { option ->
-                        FilterChip(
+                        TonalChip(
                             selected = option == phase,
                             onClick = { phase = option; conflict = null },
                             label = { Text(phaseShort(option)) },

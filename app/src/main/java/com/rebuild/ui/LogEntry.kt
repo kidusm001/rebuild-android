@@ -1,5 +1,11 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.navigationBarsPadding
 import android.content.res.Configuration
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -310,7 +316,7 @@ internal fun EntryPanel(
                 { draft.rir = it }, { log() }, "entry", draft.validation, draft.validationAttempt, showRirHint = false,
                 unit = we.entryLoadUnit, stackOnError = false,
                 repsHint = if (we.minReps != null && we.maxReps != null) "${we.minReps}–${we.maxReps}" else null,
-                rirHint = we.targetRir?.toString())
+                rirHint = we.targetRir?.toString(), prominent = true)
         }
     }
 
@@ -532,7 +538,7 @@ private fun WarmupChip(selected: Boolean, onToggle: () -> Unit, modifier: Modifi
 
 @Composable
 private fun ToggleChip(label: String, selected: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
-    FilterChip(
+    TonalChip(
         selected = selected,
         onClick = onToggle,
         label = { Text(label, maxLines = 1) },
@@ -559,17 +565,25 @@ internal fun TargetMetPanel(
 ) {
     val large = LocalDensity.current.fontScale > 1.3f
     EnterOnce { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            RebuildIcon(R.drawable.ic_check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        // A green status pill: a done target reads as a fact, not a celebration.
+        Row(
+            Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.tertiaryContainer)
+                .padding(start = 10.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            RebuildIcon(R.drawable.ic_check, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                modifier = Modifier.size(20.dp))
             Text(
                 message,
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite }
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
             )
         }
         @Composable fun Primary(modifier: Modifier) {
             if (onNext != null && nextName != null) {
-                Button(onClick = onNext, modifier = modifier.heightIn(min = 56.dp).testTag("next-exercise")) {
+                Button(onClick = onNext, modifier = modifier.heightIn(min = 60.dp).testTag("next-exercise")) {
                     Text("Next: $nextName", maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             } else {
@@ -640,13 +654,14 @@ internal fun LogDock(
     content: @Composable ColumnScope.(viewportHeight: Int) -> Unit
 ) {
     var viewport by remember { mutableIntStateOf(0) }
+    // A sheet risen from the bottom edge: rounded top corners and tone, no rule above it.
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         modifier = modifier.fillMaxWidth().testTag("log-dock")
     ) {
         // The dock paints behind the gesture area in its own color; its controls stay above it.
         Column(Modifier.navigationBarsPadding()) {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Column(
                 Modifier
                     .readableWidth()
@@ -654,8 +669,8 @@ internal fun LogDock(
                     .onFocusChanged { onFocusChange(it.hasFocus) }
                     .focusGroup()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) { content(viewport) }
         }
     }

@@ -1,5 +1,9 @@
 package com.rebuild.ui
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -94,7 +98,7 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Phase.entries.forEach { phase ->
-                FilterChip(
+                TonalChip(
                     selected = phase == viewPhase,
                     onClick = {
                         viewPhase = phase
@@ -111,7 +115,7 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
             }
         }
         ScrollBody {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            TonalCard { Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         if (viewPhase == current) "Current phase" else "Not your current phase",
@@ -125,10 +129,10 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
                             .semantics { contentDescription = "Change current phase" }
                     ) { Text("Change") }
                 }
-                Text(viewPhase.title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
+                Text(viewPhase.title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
                 Text(phasePrescription(viewPhase), style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            } }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SecondaryButton(onClick = { onNavigate(Routes.ROUTINES) }, icon = R.drawable.ic_library,
                     modifier = Modifier.testTag("plan-routines")) { Text("Your routines") }
@@ -416,18 +420,18 @@ private fun EditMark() {
 private fun WeeklyTotals(target: Int, baseline: Int, upper: Int) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionHeader("Weekly working sets")
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.medium)
-                .background(MaterialTheme.colorScheme.surfaceContainer)
-                .padding(horizontal = 12.dp, vertical = 4.dp)
-        ) {
-            TotalLine("This phase", target, strong = true)
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            TotalLine("Established baseline", baseline)
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            TotalLine("Advisory upper", upper)
+        // Three numbers side by side; with large text they stack so each stays whole.
+        @Composable fun Tiles(modifier: (Boolean) -> Modifier) {
+            StatTile("$target", "This phase", modifier(true), emphasized = true, spoken = "This phase, $target")
+            StatTile("$baseline", "Baseline", modifier(false), spoken = "Established baseline, $baseline")
+            StatTile("$upper", "Advisory upper", modifier(false), spoken = "Advisory upper, $upper")
+        }
+        if (LocalDensity.current.fontScale > 1.3f) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Tiles { Modifier.fillMaxWidth() } }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.height(IntrinsicSize.Min)) {
+                Tiles { Modifier.weight(1f).fillMaxHeight() }
+            }
         }
         Text("Advisory upper is the most weekly sets worth doing: a ceiling, not a goal.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

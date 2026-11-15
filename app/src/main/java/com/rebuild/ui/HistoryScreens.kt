@@ -1,5 +1,9 @@
 package com.rebuild.ui
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.text.style.TextAlign
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -165,15 +169,25 @@ private val HISTORY_TABS = listOf("Workouts", "Exercises", "Body")
 
 @Composable
 private fun ColumnScope.NoFinishedWorkouts(onOpenToday: () -> Unit) {
-    ScrollBody {
-        Text("No finished workouts yet", style = MaterialTheme.typography.titleMedium)
+    // Centred in the upper part of the page, with an icon, so the empty page reads as intentional.
+    Column(
+        Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp, vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(Modifier.size(80.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
+            contentAlignment = Alignment.Center) {
+            RebuildIcon(R.drawable.ic_history, contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(36.dp))
+        }
+        Text("No finished workouts yet", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
         Text(
             "Finish a workout from Today and its sets, notes and exercise charts appear here.",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
-        // Nothing here competes with it, so it needn't be the loud primary.
-        SecondaryButton(onClick = onOpenToday, icon = R.drawable.ic_arrow_right) { Text("Go to Today") }
+        Button(onClick = onOpenToday, modifier = Modifier.padding(top = 8.dp).heightIn(min = 48.dp)) { Text("Go to Today") }
     }
 }
 

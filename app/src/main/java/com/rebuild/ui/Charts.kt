@@ -70,7 +70,7 @@ enum class ChartRange(val label: String, val months: Long?) {
 internal fun RangeChips(selected: ChartRange, onSelect: (ChartRange) -> Unit, modifier: Modifier = Modifier) {
     LazyRow(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items(ChartRange.entries) { range ->
-            FilterChip(
+            TonalChip(
                 selected = range == selected,
                 onClick = { onSelect(range) },
                 label = { Text(range.label) },

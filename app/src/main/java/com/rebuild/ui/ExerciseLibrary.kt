@@ -294,7 +294,7 @@ private fun <T> FilterDropdown(
 ) {
     var open by rememberSaveable { mutableStateOf(false) }
     Box {
-        FilterChip(
+        TonalChip(
             selected = value != null,
             onClick = { open = true },
             label = { Text(if (value == null) allLabel else title(value)) },

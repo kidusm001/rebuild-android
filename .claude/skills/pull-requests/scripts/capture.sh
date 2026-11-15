@@ -12,9 +12,11 @@ mkdir -p "$out"
 "$adb" get-state >/dev/null
 [ "$theme" = dark ] && "$adb" shell cmd uimode night yes >/dev/null
 [ "$scale" != 1.0 ] && "$adb" shell settings put system font_scale "$scale"
+# Put back only what this capture changed, so a caller's own theme or text size survives.
 restore() {
-  "$adb" shell cmd uimode night no >/dev/null || true
-  "$adb" shell settings put system font_scale 1.0 || true
+  [ "$theme" = dark ] && { "$adb" shell cmd uimode night no >/dev/null || true; }
+  [ "$scale" != 1.0 ] && { "$adb" shell settings put system font_scale 1.0 || true; }
+  return 0
 }
 trap restore EXIT
 sleep 2

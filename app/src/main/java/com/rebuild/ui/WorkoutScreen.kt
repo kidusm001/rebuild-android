@@ -1,5 +1,8 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.foundation.shape.CircleShape
 import com.rebuild.domain.loadUnitChoices
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -233,7 +236,6 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
             StopwatchStrip(workout, watch) { select(watch.exerciseId) }
         }
         notice?.let { NoticeLine(it) { notice = null } }
-        HorizontalDivider()
         if (focused == null) {
             EmptyWorkoutBody(onAdd = { adding = true }, enabled = !env.runner.busy,
                 modifier = Modifier.weight(1f).yieldsToFixedControls())
@@ -359,15 +361,15 @@ private fun ExercisePill(
         watch != null -> ", stopwatch effort not logged"
         else -> ""
     }
-    val shape = MaterialTheme.shapes.small
+    val shape = CircleShape
     val large = LocalDensity.current.fontScale > 1.3f
     Box(
         Modifier
             .heightIn(min = 48.dp)
             .widthIn(max = if (large) 280.dp else 208.dp)
             .clip(shape)
-            .background(if (selected) colors.secondaryContainer else Color.Transparent)
-            .border(1.dp, if (selected) colors.primary else colors.outlineVariant, shape)
+            // Filled, never outlined: the current exercise is the amber-tinted pill, the rest sit on tone.
+            .background(if (selected) colors.secondaryContainer else colors.surfaceContainerHigh)
             .selectable(selected = selected, role = Role.Tab, onClick = onClick)
             .semantics {
                 contentDescription = "Exercise ${index + 1} of $count: ${we.exercise.name}, " +
@@ -551,6 +553,10 @@ private fun ExerciseFocus(
                                     RebuildIcon(R.drawable.ic_sliders_horizontal, contentDescription = null,
                                         modifier = Modifier.size(18.dp))
                                 },
+                                shape = CircleShape,
+                                border = null,
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
                                 modifier = Modifier.heightIn(min = 48.dp).testTag("choose-load-unit")
                                     .semantics { contentDescription = "Load unit: ${unitName(we.entryLoadUnit)}" }
                             )

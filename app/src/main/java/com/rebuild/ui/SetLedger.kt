@@ -1,5 +1,8 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
@@ -274,10 +277,12 @@ private fun RowToday(row: LedgerRow, exercise: Exercise, extra: Boolean, stacked
             modifier = modifier.then(if (stacked) Modifier.fillMaxWidth() else Modifier))
         null -> if (row.state == LedgerState.NEXT || row.state == LedgerState.PLANNED) {
             val next = row.state == LedgerState.NEXT
-            val color = if (next) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
             Box(
                 modifier.heightIn(min = 44.dp).then(if (stacked) Modifier.fillMaxWidth() else Modifier)
-                    .dashedOutline(color)
+                    // A filled slot, not a dashed wireframe: amber-tinted for the next set, neutral for later ones.
+                    .clip(MaterialTheme.shapes.small)
+                    .background(if (next) MaterialTheme.colorScheme.secondaryContainer
+                        else MaterialTheme.colorScheme.surfaceContainerHigh)
                     .clearAndSetSemantics {
                         contentDescription = "Set ${row.ordinal}: ${if (next) "up next" else "planned"}, not logged yet"
                     }
@@ -285,7 +290,8 @@ private fun RowToday(row: LedgerRow, exercise: Exercise, extra: Boolean, stacked
                 contentAlignment = Alignment.CenterStart
             ) {
                 // The dashed outline already says nothing is logged; the label only says which row is next.
-                if (next) Text("Up next", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                if (next) Text("Up next", style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer)
                 else Text("Not logged", style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -311,7 +317,8 @@ private fun TodayCell(set: LoggedSet, label: String, extra: Boolean, exercise: E
         Column(Modifier.weight(1f)) {
             Text(
                 if (stacked) "Today: ${loadRepsText(set, exercise)}" else loadRepsText(set, exercise),
-                style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum"),
+                // The logged set is the number this screen exists for: condensed and large.
+                style = MaterialTheme.typography.displaySmall.copy(fontSize = 24.sp, lineHeight = 28.sp),
                 fontWeight = if (set.warmup) FontWeight.Normal else FontWeight.SemiBold
             )
             Text(

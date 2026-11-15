@@ -144,7 +144,7 @@ internal fun DurationPickerDialog(
                     { "%02d".format(SECOND_STOPS[it]) }) { secondsIndex = it }
                 Text(" s", style = MaterialTheme.typography.titleMedium)
             }
-            @Composable fun Chip(choice: Int) = FilterChip(
+            @Composable fun Chip(choice: Int) = TonalChip(
                 selected = total == choice,
                 onClick = {
                     minutes = choice / 60

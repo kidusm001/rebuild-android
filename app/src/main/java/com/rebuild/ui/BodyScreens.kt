@@ -215,7 +215,7 @@ internal fun BodyweightDialog(env: AppEnv, existing: BodyweightEntry?, onDismiss
 private fun MassUnitChips(unit: MassUnit, onSelect: (MassUnit) -> Unit) {
     FlowRow(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         MassUnit.entries.forEach { option ->
-            FilterChip(selected = option == unit, onClick = { onSelect(option) }, label = { Text(option.symbol) },
+            TonalChip(selected = option == unit, onClick = { onSelect(option) }, label = { Text(option.symbol) },
                 modifier = Modifier.testTag("mass-${option.name}")
                     .semantics { contentDescription = if (option == MassUnit.KG) "Kilograms" else "Pounds" })
         }
@@ -227,7 +227,7 @@ private fun MassUnitChips(unit: MassUnit, onSelect: (MassUnit) -> Unit) {
 private fun LengthUnitChips(unit: LengthUnit, onSelect: (LengthUnit) -> Unit) {
     FlowRow(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         LengthUnit.entries.forEach { option ->
-            FilterChip(selected = option == unit, onClick = { onSelect(option) }, label = { Text(option.symbol) },
+            TonalChip(selected = option == unit, onClick = { onSelect(option) }, label = { Text(option.symbol) },
                 modifier = Modifier.testTag("length-${option.name}")
                     .semantics { contentDescription = if (option == LengthUnit.CM) "Centimetres" else "Inches" })
         }

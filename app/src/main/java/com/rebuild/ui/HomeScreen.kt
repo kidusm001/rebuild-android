@@ -1,5 +1,6 @@
 package com.rebuild.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.remember
 import androidx.compose.material3.IconButton
@@ -198,9 +199,8 @@ internal fun HomeScreen(env: AppEnv, onOpenWorkout: () -> Unit, onNavigate: (Str
 @Composable
 private fun SessionSurface(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
         shape = MaterialTheme.shapes.medium,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = modifier.fillMaxWidth(),
         content = content
     )
@@ -230,9 +230,9 @@ private fun SessionTitle(eyebrow: String?, name: String, summary: String, eyebro
         if (eyebrow != null) Text(
             eyebrow,
             style = MaterialTheme.typography.labelLarge,
-            color = if (eyebrowState) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            color = if (eyebrowState) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Text(name, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
+        Text(name, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
         Text(summary, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -310,8 +310,8 @@ private fun ScheduledSessionCard(
     SessionSurface {
         // The "+N more" row carries its own 48dp of air, so the card closes tighter below it.
         val bottom = if (targets.size > SESSION_PREVIEW) 4.dp else 16.dp
-        Column(Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = bottom),
-            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.padding(start = 20.dp, top = 20.dp, end = 20.dp, bottom = bottom + 4.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)) {
             SessionTitle(
                 reason, template.name,
                 (plannedSummary(env.state, targets) + if (hasReps) " · about ${phase.targetRir} RIR" else "").keepSeparators()
@@ -326,11 +326,10 @@ private fun ScheduledSessionCard(
                 enabled = !env.runner.busy,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 48.dp)
+                    .heightIn(min = 56.dp)
                     .testTag(tag)
             ) { PlayLabel("Start ${template.name}") }
             if (targets.isNotEmpty()) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 PreviewRows(targets, key = "planned-${template.id}") { i, target ->
                     val name = env.exercise(target.exerciseId)?.name ?: target.exerciseId
                     val measure = env.state.measureOf(target.exerciseId)
@@ -371,7 +370,8 @@ private fun TodayNotices(env: AppEnv, now: Long, onNavigate: (String) -> Unit) {
     var dismissedAlert by remember { mutableStateOf(prefs.getString(DISMISSED_ALERT_KEY, null)) }
     val shownAlert = alert?.takeIf { it.first != dismissedAlert }
     if (!backupDue && shownAlert == null) return
-    Column(Modifier.testTag("today-notices")) {
+    TonalCard(color = MaterialTheme.colorScheme.surfaceContainer) { Column(Modifier.padding(start = 16.dp, end = 4.dp,
+        top = 4.dp, bottom = 4.dp).testTag("today-notices")) {
         if (backupDue) NoticeRow(
             R.drawable.ic_archive_restore,
             state.lastBackupAt?.let { "Last backup ${shortDate(localDateOf(it))} · changes since" }
@@ -396,7 +396,7 @@ private fun TodayNotices(env: AppEnv, now: Long, onNavigate: (String) -> Unit) {
                     tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
             }
         }
-    }
+    } }
 }
 
 @Composable
@@ -484,9 +484,9 @@ private fun WeekChecklistSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Column(Modifier.testTag("week-checklist")) {
+        Column(Modifier.testTag("week-checklist"), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             checklist.routines.forEachIndexed { i, routine ->
-                if (i > 0) HorizontalDivider()
+                val last = checklist.routines.lastIndex
                 val template = routine.template
                 val isDone = routine.status == RoutineStatus.DONE
                 val week = checklist.routines.map { it.template }
@@ -500,17 +500,21 @@ private fun WeekChecklistSection(
                     },
                     trailing = if (onStart == null || template.id == featured) null else {
                         {
-                            OutlinedButton(
+                            SecondaryButton(
                                 onClick = { onStart(template) },
                                 enabled = !env.runner.busy,
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
-                                modifier = Modifier.heightIn(min = 48.dp).semantics {
+                                modifier = Modifier.semantics {
                                     contentDescription = "${if (isDone) "Repeat" else "Start"} ${template.name} ($day)"
                                 }
                             ) { Text(if (isDone) "Repeat" else "Start") }
                         }
                     },
-                    modifier = Modifier.testTag("week-row-${template.id}")
+                    // One grouped list: rounded ends, tight inner corners, 2 dp gaps instead of dividers.
+                    modifier = Modifier
+                        .clip(groupShape(i, last))
+                        .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                        .padding(horizontal = 16.dp)
+                        .testTag("week-row-${template.id}")
                 )
             }
         }
@@ -546,13 +550,27 @@ private fun ActiveSessionCard(env: AppEnv, workout: Workout, onResume: () -> Uni
     val resumeAt = opensAt(env.state, workout)
     val watch = env.state.stopwatch?.takeIf { it.workoutId == workout.id }
     SessionSurface(Modifier.testTag("active-banner")) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             SessionTitle(
                 "In progress · started ${formatTime(workout.startedAt)}",
                 workout.name,
                 ((if (workout.extra) "Outside the plan" else phaseShort(workout.phase)) + " · ${workoutLoggedText(workout)}").keepSeparators(),
                 eyebrowState = true
             )
+            if (workout.exercises.size > 1) {
+                val doneCount = workout.exercises.count { it.goalMet() }
+                SessionTrack(
+                    workout.exercises.map {
+                        when {
+                            it.goalMet() -> TrackState.DONE
+                            it.id == resumeAt?.id -> TrackState.CURRENT
+                            else -> TrackState.PENDING
+                        }
+                    },
+                    description = "$doneCount of ${workout.exercises.size} exercises done",
+                    modifier = Modifier.testTag("session-track")
+                )
+            }
             if (!workout.extra && env.state.scheduledRoutine(workout.phase, workout.templateId) == null) Text(
                 OFF_WEEK_NOTE,
                 style = MaterialTheme.typography.bodySmall,
@@ -564,7 +582,7 @@ private fun ActiveSessionCard(env: AppEnv, workout: Workout, onResume: () -> Uni
                     onClick = onResume,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 48.dp)
+                        .heightIn(min = 56.dp)
                 ) { PlayLabel("Resume workout") }
                 val openSet = resumeAt?.openGroup()
                 val watchHere = watch?.takeIf { it.exerciseId == resumeAt?.id }
@@ -580,25 +598,23 @@ private fun ActiveSessionCard(env: AppEnv, workout: Workout, onResume: () -> Uni
                 }
             }
             if (workout.exercises.isNotEmpty()) {
-                HorizontalDivider(color = colors.outlineVariant)
                 PreviewRows(workout.exercises, key = "active-${workout.id}") { i, we ->
                     SessionExerciseRow(i, workout.exercises.size, we, opensHere = we.id == resumeAt?.id)
                 }
             }
-            HorizontalDivider(color = colors.outlineVariant)
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedButton(onClick = { finishing = true }, enabled = !env.runner.busy,
-                    modifier = Modifier.heightIn(min = 48.dp)) { Text("Finish") }
-                // Discard sits at the far edge, so a thumb aimed at Finish never lands on it.
+                SecondaryButton(onClick = { finishing = true }, enabled = !env.runner.busy, icon = R.drawable.ic_check) {
+                    Text("Finish")
+                }
+                // Discard sits at the far edge, so a thumb aimed at Finish never lands on it; quiet red text.
                 Spacer(Modifier.weight(1f))
-                OutlinedButton(
+                TextButton(
                     onClick = { discarding = true },
                     enabled = !env.runner.busy,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.error),
-                    border = BorderStroke(1.dp, colors.error.copy(alpha = 0.5f)),
+                    colors = ButtonDefaults.textButtonColors(contentColor = colors.error),
                     modifier = Modifier.heightIn(min = 48.dp)
                 ) { Text("Discard") }
             }

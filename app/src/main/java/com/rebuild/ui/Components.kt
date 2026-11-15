@@ -1,5 +1,14 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.border
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TextField
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.PaddingValues
@@ -114,8 +123,9 @@ internal fun ScreenScaffold(
                 // A top-level destination names itself large; a pushed screen keeps a compact title beside Back.
                 Text(
                     title,
-                    style = if (onBack == null) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp, vertical = if (onBack == null) 8.dp else 0.dp)
+                    style = if (onBack == null) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f).padding(start = if (onBack == null) 12.dp else 8.dp, end = 8.dp,
+                        top = if (onBack == null) 16.dp else 0.dp, bottom = if (onBack == null) 4.dp else 0.dp)
                         .semantics { heading() }
                 )
                 if (iconOnlyActions || LocalDensity.current.fontScale <= 1.3f) {
@@ -129,9 +139,9 @@ internal fun ScreenScaffold(
                     verticalAlignment = Alignment.CenterVertically, content = actions)
             }
             if (subtitle != null && (!compactWhenKeyboard || !WindowInsets.isImeVisible)) Text(
-                subtitle, style = MaterialTheme.typography.bodySmall,
+                subtitle, style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 8.dp).testTag("screen-subtitle")
+                modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 4.dp).testTag("screen-subtitle")
             )
         } }
         content()
@@ -169,8 +179,8 @@ internal fun ColumnScope.ScrollBody(content: @Composable ColumnScope.() -> Unit)
             Modifier
                 .widthIn(max = MAX_CONTENT_WIDTH)
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
             content = content
         )
     }
@@ -180,9 +190,9 @@ internal fun ColumnScope.ScrollBody(content: @Composable ColumnScope.() -> Unit)
 internal fun SectionHeader(text: String, modifier: Modifier = Modifier) {
     Text(
         text,
-        style = MaterialTheme.typography.titleSmall,
+        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
         color = MaterialTheme.colorScheme.onSurface,
-        modifier = modifier.padding(top = 8.dp).semantics { heading() }
+        modifier = modifier.padding(top = 12.dp).semantics { heading() }
     )
 }
 
@@ -323,19 +333,37 @@ internal fun NumberField(
     // Lets a compact row show one shared message below the fields while each field still exposes its own error.
     errorSemantics: String? = supportingText,
     /** Shown inside the empty field once it's focused, e.g. the target range. */
-    placeholder: String? = null
+    placeholder: String? = null,
+    /** The value's type: the set entry passes a large numeral style. */
+    valueStyle: TextStyle = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum")
 ) {
-    OutlinedTextField(
-        placeholder = placeholder?.let { { Text(it, maxLines = 1) } },
+    // A filled tile, not an outlined form box: tone separates it, and focus draws a 2 dp ring.
+    var focused by remember { mutableStateOf(false) }
+    val colors = MaterialTheme.colorScheme
+    val ring = when {
+        isError -> colors.error
+        focused -> colors.primary
+        else -> Color.Transparent
+    }
+    TextField(
+        placeholder = placeholder?.let { { Text(it, maxLines = 1, style = valueStyle) } },
         value = value,
         onValueChange = { new -> onValueChange(if (filterNumericInput)
             new.filter { it.isDigit() || (decimal && (it == '.' || it == ',')) } else new) },
         label = { Text(label, maxLines = 2) },
         singleLine = true,
-        textStyle = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum"),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MaterialTheme.colorScheme.secondary,
-            focusedLabelColor = MaterialTheme.colorScheme.secondary
+        textStyle = valueStyle,
+        shape = MaterialTheme.shapes.small,
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = colors.surfaceContainerLowest,
+            unfocusedContainerColor = colors.surfaceContainerHigh,
+            errorContainerColor = colors.surfaceContainerHigh,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            errorIndicatorColor = Color.Transparent,
+            disabledIndicatorColor = Color.Transparent,
+            focusedLabelColor = colors.onSurfaceVariant,
+            unfocusedLabelColor = colors.onSurfaceVariant
         ),
         isError = isError,
         supportingText = supportingText?.let { { Text(it) } },
@@ -344,7 +372,9 @@ internal fun NumberField(
             imeAction = imeAction
         ),
         keyboardActions = KeyboardActions(onDone = { onDone() }),
-        modifier = if (isError && errorSemantics != null) modifier.semantics { error(errorSemantics) } else modifier
+        modifier = (if (isError && errorSemantics != null) modifier.semantics { error(errorSemantics) } else modifier)
+            .onFocusChanged { focused = it.isFocused }
+            .border(2.dp, ring, MaterialTheme.shapes.small)
     )
 }
 
@@ -451,10 +481,17 @@ internal fun PlatformLimitations(status: PlatformStatus, platform: PlatformActio
         if (showAllClear) Text("Rest alerts can be delivered on time.", style = MaterialTheme.typography.bodyMedium)
         return
     }
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        issues.forEach { (text, label, action) ->
-            Text(text, style = MaterialTheme.typography.bodyMedium)
-            SecondaryButton(onClick = action, modifier = Modifier.semantics { contentDescription = label }) { Text(label) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // One card per limitation: what's wrong, and the remedy beside it.
+        issues.forEachIndexed { i, (text, label, action) ->
+            Column(
+                Modifier.fillMaxWidth().clip(groupShape(i, issues.lastIndex))
+                    .background(MaterialTheme.colorScheme.surfaceContainerLowest).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(text, style = MaterialTheme.typography.bodyMedium)
+                SecondaryButton(onClick = action, modifier = Modifier.semantics { contentDescription = label }) { Text(label) }
+            }
         }
         Text(
             "You can still log every set; the timer on screen stays accurate.",
@@ -509,7 +546,7 @@ internal fun OrderBadge(number: Int, met: Boolean = false, emphasized: Boolean =
     val colors = MaterialTheme.colorScheme
     val background = when {
         met -> colors.tertiaryContainer
-        emphasized -> colors.primary
+        emphasized -> colors.primaryContainer
         else -> colors.surfaceContainerHighest
     }
     // Grows with the text so the number never clips at large font sizes.
@@ -523,7 +560,7 @@ internal fun OrderBadge(number: Int, met: Boolean = false, emphasized: Boolean =
             Text(
                 "$number",
                 style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
-                color = if (emphasized) colors.onPrimary else colors.onSurfaceVariant,
+                color = if (emphasized) colors.onPrimaryContainer else colors.onSurfaceVariant,
                 maxLines = 1
             )
         }
@@ -573,4 +610,110 @@ internal fun EnterOnce(modifier: Modifier = Modifier, content: @Composable () ->
         modifier = modifier,
         enter = fadeIn(tween(220)) + slideInVertically(tween(220, easing = EaseOutQuart)) { it / 6 }
     ) { content() }
+}
+
+/** A card: a lighter (light theme) or raised (dark theme) tonal container, never outlined. */
+@Composable
+internal fun TonalCard(
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.surfaceContainerLowest,
+    shape: androidx.compose.ui.graphics.Shape = MaterialTheme.shapes.medium,
+    content: @Composable () -> Unit
+) {
+    Surface(color = color, shape = shape, modifier = modifier.fillMaxWidth(), content = content)
+}
+
+/** Where a session stands, as one segment per exercise: done, current or still to do. */
+internal enum class TrackState { DONE, CURRENT, PENDING }
+
+/**
+ * A segmented bar, one segment per exercise. Done segments are green, the current one is signal amber, the rest
+ * neutral; [description] carries the same facts for screen readers, so colour is never the only signal.
+ */
+@Composable
+internal fun SessionTrack(states: List<TrackState>, description: String, modifier: Modifier = Modifier) {
+    if (states.isEmpty()) return
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier.fillMaxWidth().height(6.dp).clearAndSetSemantics { contentDescription = description },
+        horizontalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        states.forEach { state ->
+            Box(
+                Modifier.weight(1f).fillMaxHeight().clip(CircleShape).background(
+                    when (state) {
+                        TrackState.DONE -> colors.tertiary
+                        TrackState.CURRENT -> colors.primaryContainer
+                        TrackState.PENDING -> colors.outlineVariant
+                    }
+                )
+            )
+        }
+    }
+}
+
+/** A number the reader looks for, large and condensed, over a short caption. */
+@Composable
+internal fun StatTile(
+    value: String,
+    caption: String,
+    modifier: Modifier = Modifier,
+    emphasized: Boolean = false,
+    spoken: String = "$value $caption"
+) {
+    val colors = MaterialTheme.colorScheme
+    Column(
+        modifier
+            .clip(MaterialTheme.shapes.small)
+            .background(if (emphasized) colors.secondaryContainer else colors.surfaceContainerHigh)
+            .clearAndSetSemantics { contentDescription = spoken }
+            .padding(horizontal = 14.dp, vertical = 12.dp)
+    ) {
+        Text(value, style = MaterialTheme.typography.displaySmall,
+            color = if (emphasized) colors.onSecondaryContainer else colors.onSurface, maxLines = 1)
+        Text(caption, style = MaterialTheme.typography.labelMedium,
+            color = if (emphasized) colors.onSecondaryContainer else colors.onSurfaceVariant)
+    }
+}
+
+/** A grouped list's row shape: 20 dp outer corners on the first and last rows, 4 dp where rows meet. */
+internal fun groupShape(index: Int, lastIndex: Int): androidx.compose.ui.graphics.Shape {
+    val outer = 20.dp
+    val inner = 4.dp
+    return androidx.compose.foundation.shape.RoundedCornerShape(
+        topStart = if (index == 0) outer else inner, topEnd = if (index == 0) outer else inner,
+        bottomStart = if (index == lastIndex) outer else inner, bottomEnd = if (index == lastIndex) outer else inner
+    )
+}
+
+/**
+ * A filter or toggle chip filled with tone instead of outlined: neutral when off, amber-tinted with a check when on.
+ */
+@Composable
+internal fun TonalChip(
+    selected: Boolean,
+    onClick: () -> Unit,
+    label: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    leadingIcon: (@Composable () -> Unit)? = null,
+    trailingIcon: (@Composable () -> Unit)? = null
+) {
+    androidx.compose.material3.FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = label,
+        modifier = modifier,
+        enabled = enabled,
+        leadingIcon = leadingIcon,
+        trailingIcon = trailingIcon,
+        shape = MaterialTheme.shapes.small,
+        border = null,
+        colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            labelColor = MaterialTheme.colorScheme.onSurface,
+            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
+        )
+    )
 }

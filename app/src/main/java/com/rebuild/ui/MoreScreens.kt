@@ -1,5 +1,10 @@
 package com.rebuild.ui
 
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.setValue
@@ -40,24 +45,26 @@ internal fun MoreScreen(env: AppEnv, onNavigate: (String) -> Unit) {
     ScreenScaffold(title = "More") {
         ScrollBody {
             SectionHeader("Training")
-            Column {
+            // One grouped list: rounded ends, 2 dp gaps instead of dividers.
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 val custom = state.exercises.count { it.custom }
                 MoreRow("Exercises", countLabel(state.exercises.size, "exercise") +
-                    if (custom > 0) " · $custom custom" else "", R.drawable.ic_dumbbell) { onNavigate(Routes.EXERCISES) }
-                HorizontalDivider()
+                    if (custom > 0) " · $custom custom" else "", R.drawable.ic_dumbbell, Modifier.grouped(0, 3)) {
+                    onNavigate(Routes.EXERCISES)
+                }
                 MoreRow(
                     "Routines",
                     if (state.routines.isEmpty()) "None saved yet"
                     else countLabel(state.routines.size, "routine"),
                     R.drawable.ic_library,
-                    Modifier.testTag("more-routines")
+                    Modifier.grouped(1, 3).testTag("more-routines")
                 ) { onNavigate(Routes.ROUTINES) }
-                HorizontalDivider()
-                MoreRow("Training phase", state.phase?.title ?: "Not chosen", R.drawable.ic_sliders_horizontal) {
+                MoreRow("Training phase", state.phase?.title ?: "Not chosen", R.drawable.ic_sliders_horizontal,
+                    Modifier.grouped(2, 3)) {
                     onNavigate(Routes.PHASE)
                 }
-                HorizontalDivider()
-                MoreRow("Training guidance", "Warm-ups, rest, phases and progression", R.drawable.ic_book_open) {
+                MoreRow("Training guidance", "Warm-ups, rest, phases and progression", R.drawable.ic_book_open,
+                    Modifier.grouped(3, 3)) {
                     onNavigate(Routes.HELP)
                 }
             }
@@ -69,19 +76,26 @@ internal fun MoreScreen(env: AppEnv, onNavigate: (String) -> Unit) {
                 "Backup and restore",
                 (state.lastBackupAt?.let { "Last backup ${formatDate(it)}" + if (unsaved) " · newer changes not included" else "" }
                     ?: "No backup yet") + "\nOffline, no account. Data stays on this phone.",
-                R.drawable.ic_archive_restore
+                R.drawable.ic_archive_restore,
+                Modifier.grouped(0, 0)
             ) { onNavigate(Routes.BACKUP) }
             // With logged training and no current backup, the one copy is on this phone: say so plainly.
             if (state.workouts.isNotEmpty() && (state.lastBackupAt == null || unsaved)) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.testTag("more-backup-warning")) {
-                    Text(
-                        if (state.lastBackupAt == null) "Not backed up. Losing this phone loses your history."
-                        else "Recent workouts aren't in your backup yet.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    SecondaryButton(onClick = { onNavigate(Routes.BACKUP) }, icon = R.drawable.ic_archive_restore) {
-                        Text("Back up now")
+                TonalCard(color = MaterialTheme.colorScheme.errorContainer) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.padding(16.dp).testTag("more-backup-warning")) {
+                        Text(
+                            if (state.lastBackupAt == null) "Not backed up. Losing this phone loses your history."
+                            else "Recent workouts aren't in your backup yet.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Button(
+                            onClick = { onNavigate(Routes.BACKUP) },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError),
+                            modifier = Modifier.heightIn(min = 48.dp)
+                        ) { Text("Back up now") }
                     }
                 }
             }
@@ -130,7 +144,14 @@ private fun MoreRow(
         modifier = modifier,
         supporting = supporting,
         onClick = onClick,
-        leading = { RebuildIcon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        // The icon sits in a tonal circle, like a system settings list.
+        leading = {
+            Box(Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                contentAlignment = Alignment.Center) {
+                RebuildIcon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(20.dp))
+            }
+        },
         trailing = {
             RebuildIcon(R.drawable.ic_chevron_right, contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
@@ -295,3 +316,8 @@ internal fun HelpScreen(onBack: () -> Unit) {
         }
     }
 }
+
+/** A row of a grouped list: [lastIndex] 0 makes a single rounded card. */
+@Composable
+private fun Modifier.grouped(index: Int, lastIndex: Int): Modifier =
+    clip(groupShape(index, lastIndex)).background(MaterialTheme.colorScheme.surfaceContainerLowest).padding(horizontal = 16.dp)

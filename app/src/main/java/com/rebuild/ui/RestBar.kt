@@ -1,5 +1,10 @@
 package com.rebuild.ui
 
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.BorderStroke
@@ -75,22 +80,42 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
         env.runner.run(restChange(timer, timer.deadline + deltaMs, env.clock()))
     }
 
-    Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.testTag("rest-bar")) {
-        Column(Modifier.padding(start = 16.dp, end = 8.dp, top = if (compact) 0.dp else 8.dp,
-            bottom = if (compact) 0.dp else 8.dp)) {
-            val limitation = when {
-                !env.status.notificationsAllowed -> "alerts off"
-                !env.status.exactAlarmsAllowed -> "alerts may be late"
-                env.status.batteryRestricted -> "battery limits alerts"
-                else -> null
-            }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    val colors = MaterialTheme.colorScheme
+    val progress = if (total != null && remaining > 0) (remainingMs / (total * 1000f)).coerceIn(0f, 1f) else 0f
+    val drained = colors.onPrimaryContainer.copy(alpha = 0.10f)
+    val limitation = when {
+        !env.status.notificationsAllowed -> "alerts off"
+        !env.status.exactAlarmsAllowed -> "alerts may be late"
+        env.status.batteryRestricted -> "battery limits alerts"
+        else -> null
+    }
+    // A floating signal-amber pill above the navigation. Its own fill is the progress: the part of the rest already
+    // spent is shaded and grows from the right as the rest drains. Decorative; the countdown is what's spoken.
+    Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = if (compact) 4.dp else 8.dp)) {
+        Surface(
+            color = colors.primaryContainer,
+            contentColor = colors.onPrimaryContainer,
+            shape = if (compact) CircleShape else MaterialTheme.shapes.large,
+            shadowElevation = 6.dp,
+            modifier = Modifier.fillMaxWidth().testTag("rest-bar")
+        ) {
+            Row(
+                Modifier
+                    .drawBehind {
+                        if (total != null && remaining > 0) {
+                            val spent = size.width * (1f - progress)
+                            drawRect(drained, topLeft = Offset(size.width - spent, 0f), size = Size(spent, size.height))
+                        }
+                    }
+                    .padding(start = 20.dp, end = 6.dp, top = if (compact) 0.dp else 6.dp, bottom = if (compact) 0.dp else 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
                 // The number a resting lifter looks for is the largest thing on the bar.
                 Column(
                     Modifier.weight(1f).testTag("rest-status")
                         .semantics(mergeDescendants = true) { if (remaining == 0) liveRegion = LiveRegionMode.Polite }
                 ) {
-                    // An alert limitation is part of the status line; Options explains it and opens settings.
                     val word = if (pause) "Pause" else "Rest"
                     val note = limitation?.let { " · $it" } ?: ""
                     val time = if (remaining > 0) formatRest(remaining) else "Done"
@@ -99,27 +124,30 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                     if (compact) Text("$word $time", style = MaterialTheme.typography.titleMedium, maxLines = 1,
                         modifier = Modifier.semantics { if (limitation != null) contentDescription = "$word $time, $limitation" })
                     else {
-                        Text(word + note, style = MaterialTheme.typography.labelMedium)
-                        Text(time, style = MaterialTheme.typography.headlineMedium)
+                        Text((word + note).uppercase(), style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.semantics { contentDescription = word + note })
+                        Text(time, style = MaterialTheme.typography.displayMedium)
                     }
                 }
+                val quiet = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = colors.onPrimaryContainer.copy(alpha = 0.12f),
+                    contentColor = colors.onPrimaryContainer
+                )
                 if (remaining > 0) {
-                    OutlinedButton(
+                    FilledTonalButton(
                         onClick = { adjust(30_000) },
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.4f)),
                         enabled = !env.runner.busy,
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
-                        contentPadding = PaddingValues(horizontal = 12.dp),
+                        colors = quiet,
+                        contentPadding = PaddingValues(horizontal = 14.dp),
                         modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Add 30 seconds" }
                     ) { Text("+30 s") }
                 }
                 // Skipping ends this rest for good, so it's a labelled button rather than a bare icon beside Options.
-                OutlinedButton(
+                FilledTonalButton(
                     onClick = { env.runner.run(Action.SkipRest) },
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.4f)),
                     enabled = !env.runner.busy,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
-                    contentPadding = PaddingValues(horizontal = 12.dp),
+                    colors = quiet,
+                    contentPadding = PaddingValues(horizontal = 14.dp),
                     modifier = Modifier.heightIn(min = 48.dp).semantics {
                         contentDescription = if (remaining > 0) "Skip rest" else "Dismiss rest"
                     }
@@ -128,17 +156,6 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                     RebuildIcon(R.drawable.ic_ellipsis_vertical, contentDescription = "Rest options")
                 }
             }
-            if (total != null && remaining > 0 && !compactLandscape) {
-                LinearProgressIndicator(
-                    progress = { (remainingMs / (total * 1000f)).coerceIn(0f, 1f) },
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.16f),
-                    drawStopIndicator = {},
-                    // The countdown is the accessible equivalent; expanded progress semantics overlap the controls.
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, end = 8.dp).clearAndSetSemantics {}
-                )
-            }
-
         }
     }
 
