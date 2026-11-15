@@ -493,8 +493,8 @@ internal fun TargetEditorFields(
             CheckRow("I understand: allow $sets sets", allowAboveCap, onAllowAboveCap, modifier = Modifier.testTag("allow-above-cap"))
         }
     }
-    NumberField(rest, onRest, if (measure == Measure.CARDIO) "Rest when you start one (seconds)" else "Rest between sets (seconds)",
-        Modifier.fillMaxWidth(), decimal = false, imeAction = ImeAction.Done)
+    DurationPickerField(rest, onRest, if (measure == Measure.CARDIO) "Rest when you start one" else "Rest between sets",
+        Modifier.fillMaxWidth().testTag("exercise-rest"))
     if (addingCustom) {
         CustomExerciseDialog(env, onDismiss = { addingCustom = false }, measure = measure) {
             addingCustom = false

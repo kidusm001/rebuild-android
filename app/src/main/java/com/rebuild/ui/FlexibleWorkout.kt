@@ -309,8 +309,8 @@ internal fun GoalFields(
             NumberField(maxText, onMax, "Reps to", Modifier.weight(1f).testTag("goal-max"), decimal = false)
         }
     }
-    NumberField(restText, onRest, "Rest between sets (seconds)", Modifier.fillMaxWidth().testTag("goal-rest"),
-        decimal = false, imeAction = ImeAction.Done, supportingText = restHint, onDone = onDone)
+    DurationPickerField(restText, onRest, "Rest between sets", Modifier.fillMaxWidth().testTag("goal-rest"),
+        supportingText = restHint)
 }
 
 /**

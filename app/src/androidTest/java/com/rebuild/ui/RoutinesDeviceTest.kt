@@ -114,6 +114,14 @@ class RoutinesDeviceTest {
     private fun assertSaved(repo: AppRepository) =
         assertEquals("The saved snapshot must be exactly what the app shows", SnapshotCodec.decode(store.json), repo.state.value)
 
+    /** Chooses a rest with the duration picker's one-tap choice and confirms it. */
+    private fun pickRest(seconds: Int) {
+        rule.onNodeWithTag("goal-rest").performScrollTo().performClick()
+        rule.onNodeWithTag("duration-quick-$seconds").performScrollTo().performClick()
+        rule.onNodeWithTag("duration-set").performClick()
+        rule.waitForIdle()
+    }
+
     private fun editable(tag: String) =
         rule.onNodeWithTag(tag).fetchSemanticsNode().config[SemanticsProperties.EditableText].text
 
@@ -242,7 +250,7 @@ class RoutinesDeviceTest {
         assertEquals("", editable("goal-sets"))
         assertEquals("", editable("goal-min"))
         assertEquals("", editable("goal-max"))
-        assertEquals("90", editable("goal-rest"))
+        assertEquals("1:30", editable("goal-rest"))
         rule.onNodeWithText("Suggested 1:30 · default").assertExists()
         rule.onNodeWithTag("draft-targets-save").assertTextContains("Add to routine").performClick()
         rule.onNodeWithText("Enter working sets from 1 to", substring = true).assertIsDisplayed()
@@ -269,7 +277,7 @@ class RoutinesDeviceTest {
         rule.onNodeWithTag("goal-sets").performTextReplacement("2")
         rule.onNodeWithTag("goal-min").performTextReplacement("10")
         rule.onNodeWithTag("goal-max").performTextReplacement("12")
-        rule.onNodeWithTag("goal-rest").performTextReplacement("60")
+        pickRest(60)
         rule.onNodeWithTag("draft-targets-save").performClick()
         rule.waitForIdle()
         hideKeyboard()
@@ -521,7 +529,7 @@ class RoutinesDeviceTest {
         assertDialogShows("Cable face pull")
         assertEquals("", editable("goal-sets"))
         assertEquals("", editable("goal-min"))
-        assertEquals("90", editable("goal-rest"))
+        assertEquals("1:30", editable("goal-rest"))
         rule.onNodeWithTag("goal-sets").performTextReplacement("2")
         rule.onNodeWithTag("goal-min").performTextReplacement("12")
         rule.onNodeWithTag("goal-max").performTextReplacement("20")

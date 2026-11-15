@@ -110,6 +110,14 @@ class FlexibleWorkoutDeviceTest {
     private fun assertSaved(repo: AppRepository) =
         assertEquals("The saved snapshot must be exactly what the app shows", SnapshotCodec.decode(store.json), repo.state.value)
 
+    /** Chooses a rest with the duration picker's one-tap choice and confirms it. */
+    private fun pickRest(seconds: Int) {
+        rule.onNodeWithTag("goal-rest").performScrollTo().performClick()
+        rule.onNodeWithTag("duration-quick-$seconds").performScrollTo().performClick()
+        rule.onNodeWithTag("duration-set").performClick()
+        rule.waitForIdle()
+    }
+
     private fun editable(tag: String) =
         rule.onNodeWithTag(tag).fetchSemanticsNode().config[SemanticsProperties.EditableText].text
 
@@ -672,7 +680,7 @@ class FlexibleWorkoutDeviceTest {
         rule.onNodeWithTag("edit-goal").performScrollTo().performClick()
         assertDialogShows("Goal and rest · Cable face pull")
         assertEquals("", editable("goal-sets"))
-        assertEquals("90", editable("goal-rest"))
+        assertEquals("1:30", editable("goal-rest"))
         rule.onNodeWithText("Suggested 1:30 · default", useUnmergedTree = true).assertExists()
         rule.onNodeWithTag("goal-sets").performTextReplacement("3")
         rule.onNodeWithTag("goal-min").performTextReplacement("12")
@@ -695,7 +703,7 @@ class FlexibleWorkoutDeviceTest {
         assertEquals("3", editable("goal-sets"))
         assertEquals("12", editable("goal-min"))
         assertEquals("15", editable("goal-max"))
-        assertEquals("90", editable("goal-rest"))
+        assertEquals("1:30", editable("goal-rest"))
         rule.onNodeWithTag("plan-addition-save").performClick()
         rule.waitUntil(5_000) { repo.state.value.planAdditions.isNotEmpty() }
         rule.waitForIdle()
@@ -827,7 +835,7 @@ class FlexibleWorkoutDeviceTest {
         pick("face pull", "face-pull")
         assertDialogShows("Add to Upper")
         assertEquals("", editable("goal-sets"))
-        assertEquals("90", editable("goal-rest"))
+        assertEquals("1:30", editable("goal-rest"))
         rule.onNodeWithText("Suggested 1:30 · default", useUnmergedTree = true).assertExists()
         // Targets are required for the plan: nothing is saved until they are entered.
         rule.onNodeWithTag("plan-addition-save").performClick()
@@ -836,8 +844,7 @@ class FlexibleWorkoutDeviceTest {
         rule.onNodeWithTag("goal-sets").performTextReplacement("2")
         rule.onNodeWithTag("goal-min").performTextReplacement("12")
         rule.onNodeWithTag("goal-max").performTextReplacement("20")
-        // Done on the last field saves, like the button.
-        rule.onNodeWithTag("goal-rest").performScrollTo().performImeAction()
+        rule.onNodeWithTag("plan-addition-save").performClick()
         rule.waitUntil(5_000) { repo.state.value.planAdditions.isNotEmpty() }
         rule.waitForIdle()
         val addition = repo.state.value.planAdditions.single()
@@ -898,17 +905,9 @@ class FlexibleWorkoutDeviceTest {
         // Without the keyboard the dialog's actions are whole, outside the scrolling body.
         assertWhole("goal-save")
 
-        // Like every dialog, the window pans for the keyboard: the field being typed stays whole above it, and
-        // Done on this last field saves, so the keyboard alone finishes the dialog.
-        rule.onNodeWithTag("goal-rest").performScrollTo().performClick()
-        waitForSettledIme()
-        val imeTop = imeTopOnScreen()
-        val rest = onScreen("goal-rest")
-        Log.i("RebuildFlexible", "goal dialog with IME: imeTop=$imeTop ime=$imeBottom target=$imeTarget rest=$rest")
-        assertTrue("The field being typed in stays above the keyboard: $rest vs $imeTop", rest.bottom <= imeTop + 1)
-        assertTrue("The field being typed in stays on screen: $rest", rest.top >= 0)
-        rule.onNodeWithTag("goal-rest").performTextReplacement("120")
-        rule.onNodeWithTag("goal-rest").performImeAction()
+        // The rest is chosen with the duration wheels, not typed, so it never needs the keyboard.
+        pickRest(120)
+        rule.onNodeWithTag("goal-save").performClick()
         rule.waitUntil(5_000) { active(repo).exercises.single().restSeconds == 120 }
         assertNull(active(repo).exercises.single().targetSets)
         assertSaved(repo)
@@ -960,7 +959,7 @@ class FlexibleWorkoutDeviceTest {
     }
 
     @Test
-    fun landscapeGoalDialogKeepsTheFieldBeingTypedVisibleAndDoneSaves() {
+    fun landscapeGoalDialogPicksARestAndSaves() {
         val repo = repository {
             execute(Action.StartExtraWorkout(FIXED_NOW))
             execute(Action.AddWorkoutExercise(requireNotNull(state.value.activeWorkoutId), "added-face-pull", "face-pull"))
@@ -970,17 +969,10 @@ class FlexibleWorkoutDeviceTest {
         rule.onNodeWithText("Resume workout").performScrollTo().performClick()
         details()
         rule.onNodeWithTag("edit-goal").performScrollTo().performClick()
-        rule.onNodeWithTag("goal-rest").performScrollTo().performClick()
-        waitForSettledIme()
-        val imeTop = imeTopOnScreen()
-        val rest = onScreen("goal-rest")
-        Log.i("RebuildFlexible", "landscape goal dialog with IME: imeTop=$imeTop ime=$imeBottom rest=$rest")
-        // Too short to resize, the dialog pans: the field being typed in stays on screen above the keyboard.
-        assertTrue("The field being typed in stays above the keyboard: $rest vs $imeTop",
-            rest.top >= 0f && rest.bottom <= imeTop + 1)
-        rule.onNodeWithTag("goal-rest").performTextReplacement("75")
-        rule.onNodeWithTag("goal-rest").performImeAction()
-        rule.waitUntil(5_000) { active(repo).exercises.single().restSeconds == 75 }
+        // In landscape the wheels and choices fit the short dialog too.
+        pickRest(60)
+        rule.onNodeWithTag("goal-save").performClick()
+        rule.waitUntil(5_000) { active(repo).exercises.single().restSeconds == 60 }
         rule.waitForIdle()
         rule.onNodeWithTag("goal-save").assertDoesNotExist()
         assertNull(active(repo).exercises.single().targetSets)
