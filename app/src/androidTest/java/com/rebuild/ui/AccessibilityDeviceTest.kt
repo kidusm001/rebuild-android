@@ -213,6 +213,7 @@ class AccessibilityDeviceTest {
         }
         rule.setContent { RebuildApp(repo, FakePlatform(), clock = { FIXED_NOW }) }
         rule.onNodeWithText("History").performClick()
+        rule.onNodeWithTag("history-workouts").performScrollToNode(hasText("Upper A"))
         rule.onNodeWithText("Upper A").performClick()
         rule.onNodeWithContentDescription("Bench press, ", substring = true).assertExists()
         rule.onNodeWithContentDescription("Options for Bench press").performClick()
@@ -273,6 +274,7 @@ class AccessibilityDeviceTest {
         rule.onRoot().tryPerformAccessibilityChecks()
         captureEvidence("week-checklist")
         rule.onNodeWithText("History").performClick()
+        rule.onNodeWithTag("history-workouts").performScrollToNode(hasText("Lower A"))
         rule.onNodeWithText("Lower A").performClick()
         rule.onNodeWithTag("week-credit-toggle").performScrollTo()
         rule.onRoot().tryPerformAccessibilityChecks()
@@ -431,6 +433,7 @@ class AccessibilityDeviceTest {
         rule.waitUntil(5_000) { repo.state.value.planRemovals.isEmpty() }
 
         rule.onNodeWithText("History").performClick()
+        rule.onNodeWithTag("history-workouts").performScrollToNode(hasText("Upper"))
         rule.onNodeWithText("Upper", substring = false).performClick()
         val list = rule.onNode(hasScrollToIndexAction())
         list.performScrollToNode(hasTestTag("history-options-forgotten-face-pull"))
@@ -550,6 +553,7 @@ class AccessibilityDeviceTest {
             RebuildApp(repo, FakePlatform(), clock = { FIXED_NOW }, monotonic = { Monotonic(7, "this-process", elapsed) })
         }
         rule.onNodeWithText("History").performClick()
+        rule.onNodeWithTag("history-workouts").performScrollToNode(hasText(EXTRA_WORKOUT_NAME))
         rule.onNode(hasText(EXTRA_WORKOUT_NAME) and hasAnyAncestor(hasScrollToIndexAction())).performClick()
         rule.onNodeWithContentDescription("Options for Treadmill").performScrollTo().performClick()
         rule.onNodeWithContentDescription("Add missed effort for Treadmill").performClick()

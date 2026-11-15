@@ -21,7 +21,9 @@ import androidx.compose.ui.unit.sp
 // Filled actions are ink in light and amber in dark; signal amber (primaryContainer) is always a fill with ink on it,
 // never a lone edge on the light canvas.
 internal val Light = lightColorScheme(
-    primary = Color(0xFF1C1915),
+    // Amber-ink: text, focus and selection controls. Main actions are signal-amber fills (primaryContainer); see
+    // the app's Button in Components.kt.
+    primary = Color(0xFF7A4D00),
     onPrimary = Color(0xFFFFFFFF),
     primaryContainer = Color(0xFFFFB224),
     onPrimaryContainer = Color(0xFF231500),
@@ -53,9 +55,8 @@ internal val Light = lightColorScheme(
 )
 
 internal val Dark = darkColorScheme(
-    // Filled actions are bone on dark, the inverse of light's ink, so amber stays the rest and selection signal.
-    primary = Color(0xFFEDE6DD),
-    onPrimary = Color(0xFF1C1915),
+    primary = Color(0xFFFFB94A),
+    onPrimary = Color(0xFF2A1800),
     primaryContainer = Color(0xFFFFB224),
     onPrimaryContainer = Color(0xFF231500),
     secondary = Color(0xFFD4C5AC),

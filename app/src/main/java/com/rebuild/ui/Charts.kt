@@ -1,5 +1,11 @@
 package com.rebuild.ui
 
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -140,12 +146,14 @@ internal fun ChartReadout(value: String, detail: String, touched: Boolean, modif
     Row(modifier.fillMaxWidth().semantics { hideFromAccessibility() }.testTag("chart-readout"),
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Column(Modifier.weight(1f)) {
-            Text(value, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+            Text(value, style = MaterialTheme.typography.displaySmall.copy(fontSize = 28.sp, lineHeight = 32.sp), maxLines = 1)
             Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1)
         }
         if (!touched) Text("Touch to read", style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp).clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(horizontal = 10.dp, vertical = 4.dp))
     }
 }
 
@@ -199,6 +207,9 @@ internal fun TrendChart(
     val span = (high - low).takeIf { it > 0 } ?: 1.0
     val days = (to.toEpochDay() - from.toEpochDay()).coerceAtLeast(1)
     val colors = MaterialTheme.colorScheme
+    val stroke = accentText()
+    val fill = colors.primaryContainer
+    val cardColor = colors.surfaceContainerLowest
     val axisStyle = MaterialTheme.typography.labelSmall
     val chartHeight = 180.dp
     val density = LocalDensity.current
@@ -213,14 +224,14 @@ internal fun TrendChart(
             points.map { pad + (width - pad * 2) * ((it.date.toEpochDay() - from.toEpochDay()).toFloat() / days) }
         }
     }
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    ChartCard(modifier) {
         // With a single point there is nothing else to read, so no "Touch to read".
         if (read != null) ChartReadout(read.first, read.second, touched = selection.value != null || points.size < 2)
         if (unitLabel != null) Text(unitLabel, style = axisStyle, color = colors.onSurfaceVariant,
-            modifier = Modifier.width(40.dp).clearAndSetSemantics {}, textAlign = TextAlign.End)
+            modifier = Modifier.width(40.dp).clearAndSetSemantics { hideFromAccessibility() }, textAlign = TextAlign.End)
         Row {
             Column(
-                Modifier.height(chartHeight).width(48.dp).padding(end = 8.dp).clearAndSetSemantics {},
+                Modifier.height(chartHeight).width(48.dp).padding(end = 8.dp).clearAndSetSemantics { hideFromAccessibility() },
                 verticalArrangement = if (ticks.size > 1) Arrangement.SpaceBetween else Arrangement.Center,
                 horizontalAlignment = Alignment.End
             ) {
@@ -242,36 +253,36 @@ internal fun TrendChart(
                     fun x(d: LocalDate) = pad + w * ((d.toEpochDay() - start.toEpochDay()).toFloat() / shownDays)
                     fun y(v: Double) = pad + h * (1f - ((v - low) / span).toFloat())
                     ticks.forEach { t ->
-                        drawLine(colors.outlineVariant, Offset(0f, y(t)), Offset(size.width, y(t)), strokeWidth = 1.dp.toPx(),
-                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 8f)))
+                        drawLine(colors.outlineVariant.copy(alpha = 0.7f), Offset(0f, y(t)), Offset(size.width, y(t)),
+                            strokeWidth = 1.dp.toPx())
                     }
                     if (marked != null) drawLine(colors.outline, Offset(x(marked.date), 0f), Offset(x(marked.date), size.height),
                         strokeWidth = 1.dp.toPx())
                     shownRaw.forEach { p ->
-                        drawCircle(colors.onSurfaceVariant.copy(alpha = 0.75f), radius = 3.5.dp.toPx(), center = Offset(x(p.date), y(p.value)),
+                        drawCircle(colors.onSurfaceVariant.copy(alpha = 0.55f), radius = 3.dp.toPx(), center = Offset(x(p.date), y(p.value)),
                             style = Stroke(width = 1.5.dp.toPx()))
                     }
                     shownLine.forEach { segment ->
-                        if (segment.size > 1) {
-                            val path = Path().apply {
-                                segment.forEachIndexed { i, p ->
-                                    if (i == 0) moveTo(x(p.date), y(p.value)) else lineTo(x(p.date), y(p.value))
-                                }
-                            }
-                            drawPath(path, colors.primary, style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round,
-                                join = StrokeJoin.Round))
+                        val pts = segment.map { Offset(x(it.date), y(it.value)) }
+                        if (pts.size > 1) {
+                            val line = smoothPath(pts)
+                            // A soft amber wash under the line, fading to the card.
+                            val area = smoothPath(pts).apply { lineTo(pts.last().x, size.height); lineTo(pts.first().x, size.height); close() }
+                            drawPath(area, Brush.verticalGradient(listOf(fill.copy(alpha = 0.35f), fill.copy(alpha = 0f))))
+                            drawPath(line, stroke, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
                         }
-                        segment.forEach { p -> drawCircle(colors.primary, radius = 4.dp.toPx(), center = Offset(x(p.date), y(p.value))) }
+                        pts.forEach { drawCircle(stroke, radius = 2.5.dp.toPx(), center = it) }
                     }
-                    if (marked != null) {
-                        val c = Offset(x(marked.date), y(marked.value))
-                        drawCircle(colors.surface, radius = 7.dp.toPx(), center = c)
-                        drawCircle(colors.primary, radius = 7.dp.toPx(), center = c, style = Stroke(width = 2.5.dp.toPx()))
+                    val ring = marked ?: points.lastOrNull()?.takeIf { start == from }
+                    if (ring != null) {
+                        val c = Offset(x(ring.date), y(ring.value))
+                        drawCircle(cardColor, radius = 7.dp.toPx(), center = c)
+                        drawCircle(stroke, radius = 7.dp.toPx(), center = c, style = Stroke(width = 3.dp.toPx()))
                     }
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(start = 48.dp).clearAndSetSemantics {}, horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(Modifier.fillMaxWidth().padding(start = 48.dp).clearAndSetSemantics { hideFromAccessibility() }, horizontalArrangement = Arrangement.SpaceBetween) {
             // Start, middle and end, so a week in between can be read off the axis.
             Text(dayMonthYear(from), style = axisStyle, color = colors.onSurfaceVariant)
             if (days >= 14) Text(dayMonthYear(from.plusDays(days / 2)), style = axisStyle, color = colors.onSurfaceVariant)
@@ -283,13 +294,29 @@ internal fun TrendChart(
 /** A legend in words and shape: "○ Weigh-ins  ● Weekly average". */
 @Composable
 internal fun ChartLegend(vararg items: Pair<String, Boolean>) {
-    Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.clearAndSetSemantics {}) {
+    Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.clearAndSetSemantics { hideFromAccessibility() }) {
         items.forEach { (label, filled) ->
             Text((if (filled) "● " else "○ ") + label, style = MaterialTheme.typography.labelMedium,
-                color = if (filled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                color = if (filled) accentText() else MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 private val shortDate = java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy")
 internal fun dayMonthYear(date: LocalDate): String = shortDate.format(date)
+
+/** A smooth line through [pts] (monotone-ish cubic: control points at the horizontal midpoints, so it never overshoots in x). */
+internal fun smoothPath(pts: List<Offset>): Path = Path().apply {
+    moveTo(pts.first().x, pts.first().y)
+    for (i in 1 until pts.size) {
+        val a = pts[i - 1]; val b = pts[i]; val mx = (a.x + b.x) / 2
+        cubicTo(mx, a.y, mx, b.y, b.x, b.y)
+    }
+}
+
+/** Charts sit in a card: the same tone as the rest of the app's content cards. */
+@Composable
+internal fun ChartCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainerLowest)
+        .padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+}

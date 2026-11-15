@@ -17,7 +17,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -217,7 +216,7 @@ internal fun EffortLedger(env: AppEnv, workout: Workout, we: WorkoutExercise, on
                         Text(
                             row.ordinal.toString(),
                             style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
-                            color = if (current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (current) accentText() else MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = if (current) FontWeight.Bold else FontWeight.Medium,
                             modifier = Modifier.width(28.dp).clearAndSetSemantics {}
                         )
@@ -311,7 +310,7 @@ private fun TodayEffort(row: EffortRow, we: WorkoutExercise, label: String, stac
         return
     }
     val next = row.state == EffortRowState.NEXT
-    val color = if (next) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+    val color = if (next) accentText() else MaterialTheme.colorScheme.outline
     Box(
         modifier.heightIn(min = 44.dp)
             .dashedOutline(color)
@@ -322,7 +321,7 @@ private fun TodayEffort(row: EffortRow, we: WorkoutExercise, label: String, stac
         contentAlignment = Alignment.CenterStart
     ) {
         if (next) Column {
-            Text("Up next", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text("Up next", style = MaterialTheme.typography.labelLarge, color = accentText())
             Text("not logged", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else Text("Not logged", style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant)

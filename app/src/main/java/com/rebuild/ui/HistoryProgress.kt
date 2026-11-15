@@ -95,7 +95,6 @@ internal fun WorkoutCalendar(env: AppEnv, onOpen: (Workout) -> Unit) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        HorizontalDivider(Modifier.padding(top = 8.dp))
     }
 }
 
@@ -108,7 +107,7 @@ private fun CalendarDay(date: LocalDate, today: LocalDate, workouts: List<Workou
         Modifier
             .size(44.dp)
             .clip(CircleShape)
-            .background(if (trained) colors.primary else colors.surface.copy(alpha = 0f))
+            .background(if (trained) colors.primaryContainer else colors.surface.copy(alpha = 0f))
             .then(if (date == today && !trained) Modifier.border(1.5.dp, colors.outline, CircleShape) else Modifier)
             .then(if (trained) Modifier.clickable(onClickLabel = "Open ${workouts!!.first().name}") { onOpen(workouts.first()) }
                 else Modifier)
@@ -117,9 +116,9 @@ private fun CalendarDay(date: LocalDate, today: LocalDate, workouts: List<Workou
         verticalArrangement = Arrangement.Center
     ) {
         Text(date.dayOfMonth.toString(), style = MaterialTheme.typography.labelLarge,
-            color = if (trained) colors.onPrimary else if (date > today) colors.outline else colors.onSurface)
+            color = if (trained) colors.onPrimaryContainer else if (date > today) colors.outline else colors.onSurface)
         if (workouts != null && workouts.size > 1) Text("×${workouts.size}", style = MaterialTheme.typography.labelSmall,
-            color = colors.onPrimary)
+            color = colors.onPrimaryContainer)
     }
 }
 
@@ -164,7 +163,7 @@ internal fun WeeklyMuscleSets(env: AppEnv) {
                 Box(Modifier.weight(1f).height(12.dp).clip(MaterialTheme.shapes.extraSmall)
                     .background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
                     Box(Modifier.fillMaxWidth(sets / most.toFloat()).height(12.dp).clip(MaterialTheme.shapes.extraSmall)
-                        .background(MaterialTheme.colorScheme.primary))
+                        .background(MaterialTheme.colorScheme.primaryContainer))
                 }
                 Spacer(Modifier.width(12.dp))
                 Text(sets.toString(), style = MaterialTheme.typography.labelLarge, modifier = Modifier.width(28.dp),
@@ -173,7 +172,6 @@ internal fun WeeklyMuscleSets(env: AppEnv) {
         }
         if (rows.isNotEmpty()) Text("Normal working sets · warm-ups excluded · primary muscle only",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        HorizontalDivider(Modifier.padding(top = 8.dp))
     }
 }
 
@@ -192,16 +190,15 @@ internal fun RecordsSection(records: List<RepRecord>, unit: LoadUnit, exercise: 
         Text("Heaviest working set at each rep count, as lifted.", style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
         shown.forEachIndexed { i, record ->
-            if (i > 0) HorizontalDivider()
             ListRow(
                 headline = "${countLabel(record.reps, "rep")} · ${loadText(record.set.amount, record.set.loadUnit,
                     record.set.plates, exercise)}",
                 supporting = shortDate(LocalDate.parse(record.workout.startDate)) + if (record.superseded) " · beaten at more reps" else "",
                 onClick = { onOpen(record.workout) },
-                modifier = Modifier.testTag("record-${record.reps}")
+                modifier = Modifier.groupedRow(i, shown.lastIndex).testTag("record-${record.reps}")
             )
         }
-        if (records.any { it.superseded }) SecondaryButton(onClick = { all = !all }, modifier = Modifier.testTag("records-all")) {
+        if (records.any { it.superseded }) SecondaryButton(onClick = { all = !all }, modifier = Modifier.padding(top = 8.dp).testTag("records-all")) {
             val beaten = records.count { it.superseded }
             Text(if (all) "Hide beaten records" else "Show ${countLabel(beaten, "beaten record")}")
         }

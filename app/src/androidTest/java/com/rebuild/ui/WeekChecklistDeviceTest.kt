@@ -1,5 +1,7 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -106,6 +108,7 @@ class WeekChecklistDeviceTest {
         rule.onNodeWithText("Partial Upper A this week · not counted").assertExists()
 
         rule.onNodeWithText("History").performClick()
+        rule.onNodeWithTag("history-workouts").performScrollToNode(hasText("Upper A"))
         rule.onNodeWithText("Upper A").performClick()
         rule.onNodeWithTag("week-credit-toggle").performScrollTo().assertIsOff().performClick()
         rule.waitUntil(5_000) { repo.state.value.workouts.single { it.id == partial.id }.countedForWeek }
@@ -137,6 +140,7 @@ class WeekChecklistDeviceTest {
         // Monday 00:00 starts a new week from the dates alone: nothing is deleted, reset or carried over.
         now = millis(LocalDateTime.of(2026, 9, 28, 0, 0))
         rule.onNodeWithText("History").performClick()
+        rule.onNodeWithTag("history-workouts").performScrollToNode(hasText("Upper A"))
         rule.onNodeWithText("Upper A").assertExists()
         rule.onNodeWithText("Today").performClick()
         rule.onNodeWithText("Mon 28 Sep – Sun 4 Oct").performScrollTo().assertIsDisplayed()

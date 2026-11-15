@@ -1,5 +1,7 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.os.ParcelFileDescriptor
@@ -513,6 +515,7 @@ class RoutinesDeviceTest {
         assertTrue(workout.countedForWeek)
         launch(repo)
         rule.onNodeWithText("History").performClick()
+        rule.onNodeWithTag("history-workouts").performScrollToNode(hasText("Upper"))
         rule.onNodeWithText("Upper", substring = false).performClick()
         rule.onNode(hasScrollToIndexAction()).performScrollToNode(hasTestTag("save-as-routine"))
         rule.onNodeWithTag("save-as-routine").performClick()

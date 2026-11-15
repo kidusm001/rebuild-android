@@ -1,5 +1,6 @@
 package com.rebuild.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -22,7 +22,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -128,20 +127,21 @@ internal fun SetWithFollowUps(group: WorkEntry.Group, exercise: Exercise, muted:
     note: String = "") {
     val colors = MaterialTheme.colorScheme
     val main = group.mainSet
-    val valueStyle = if (muted) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodyLarge
+    val valueStyle = if (muted) MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum") else ledgerValueStyle()
+    val accent = accentText()
     Column(modifier) {
-        Text(loadRepsText(main, exercise), style = valueStyle.copy(fontFeatureSettings = "tnum"),
-            fontWeight = if (muted) FontWeight.Normal else FontWeight.SemiBold,
+        Text(loadRepsText(main, exercise), style = valueStyle,
+            fontWeight = if (muted) FontWeight.Normal else FontWeight.Bold,
             color = if (muted) colors.onSurfaceVariant else colors.onSurface)
         Text(rirShort(main) + note + if (group.open) " · ${followUpLabel(group.group.method).lowercase()} in progress" else "",
             style = MaterialTheme.typography.bodySmall,
-            color = if (group.open && !muted) colors.primary else colors.onSurfaceVariant)
+            color = if (group.open && !muted) accent else colors.onSurfaceVariant)
         group.followUps.forEach { stage ->
             // Laid out like the set above it: the value, then its RIR beneath, indented after the "↳".
             Column(Modifier.padding(top = 4.dp).testTag("follow-up")) {
                 Text(
                     buildAnnotatedString {
-                        withStyle(SpanStyle(color = if (muted) colors.onSurfaceVariant else colors.primary, fontWeight = FontWeight.Medium)) {
+                        withStyle(SpanStyle(color = if (muted) colors.onSurfaceVariant else accent, fontWeight = FontWeight.SemiBold)) {
                             append("↳ ${followUpLabel(group.group.method)} ")
                         }
                         append(followUpText(stage, main, exercise))
@@ -171,23 +171,24 @@ internal fun GroupRow(
     modifier: Modifier = Modifier
 ) {
     val colors = MaterialTheme.colorScheme
-    val shape = RoundedCornerShape(8.dp)
+    val shape = MaterialTheme.shapes.small
+    // The same row as a single set: card tone, rounded, pencil in a circle. An open set adds an amber ring.
     Row(
         modifier
-            .heightIn(min = 48.dp)
+            .heightIn(min = 56.dp)
             .clip(shape)
-            .then(if (group.open) Modifier.border(1.dp, colors.primary, shape) else Modifier)
+            .background(colors.surfaceContainerLowest)
+            .then(if (group.open) Modifier.border(2.dp, colors.primaryContainer, shape) else Modifier)
             .clickable(onClickLabel = "Edit $label") { onOpen() }
             .semantics(mergeDescendants = true) {
                 contentDescription = groupDescription(label, group, exercise) + if (extra) " Extra set." else ""
             }
             .testTag("group-row")
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         SetWithFollowUps(group, exercise, muted = false, modifier = Modifier.weight(1f), note = if (extra) " · extra" else "")
-        RebuildIcon(R.drawable.ic_pencil, contentDescription = null, tint = colors.onSurfaceVariant,
-            modifier = Modifier.size(18.dp))
+        LoggedRowEditMark()
     }
 }
 
@@ -386,7 +387,7 @@ internal fun GroupDialog(env: AppEnv, workout: Workout, we: WorkoutExercise, gro
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(if (i == 0) "Set" else "↳ $noun $i", style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
-                            color = if (i == 0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
+                            color = if (i == 0) MaterialTheme.colorScheme.onSurfaceVariant else accentText(),
                             modifier = Modifier.width(72.dp))
                         Text(setText(set, exercise), style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum"),
                             modifier = Modifier.weight(1f))

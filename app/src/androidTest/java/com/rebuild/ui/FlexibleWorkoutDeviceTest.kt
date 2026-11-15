@@ -1,5 +1,7 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.os.ParcelFileDescriptor
@@ -341,6 +343,7 @@ class FlexibleWorkoutDeviceTest {
         rule.onNode(hasText("Not done") and hasAnyAncestor(hasTestTag("week-row-intro-upper"))).assertExists()
 
         rule.onNodeWithText("History").performClick()
+        rule.onNodeWithTag("history-workouts").performScrollToNode(hasText("Outside the plan · 1 working set"))
         rule.onNodeWithText("Outside the plan · 1 working set").assertExists()
         rule.onNodeWithText(EXTRA_WORKOUT_NAME).performClick()
         rule.onNodeWithText("Outside the plan").assertExists()
@@ -430,6 +433,7 @@ class FlexibleWorkoutDeviceTest {
         rule.onNodeWithTag("start-empty").performScrollTo().assertIsDisplayed()
 
         rule.onNodeWithText("History").performClick()
+        rule.onNodeWithTag("history-workouts").performScrollToNode(hasText("Outside the plan · 0 working sets, 1 warm-up set"))
         rule.onNodeWithText("Outside the plan · 0 working sets, 1 warm-up set").assertExists()
         rule.onNodeWithText(EXTRA_WORKOUT_NAME).performClick()
         rule.onNodeWithText("0 working sets, 1 warm-up set", substring = true).assertExists()
@@ -477,6 +481,7 @@ class FlexibleWorkoutDeviceTest {
 
         // The choice stays the user's in History: taking it back leaves the workout partial, and it can be redone.
         rule.onNodeWithText("History").performClick()
+        rule.onNodeWithTag("history-workouts").performScrollToNode(hasText("Upper"))
         rule.onNodeWithText("Upper", substring = false).performClick()
         val list = rule.onNode(hasScrollToIndexAction())
         list.performScrollToNode(hasTestTag("week-credit-toggle"))
@@ -756,6 +761,7 @@ class FlexibleWorkoutDeviceTest {
         val workout = before.workouts.single()
         launch(repo)
         rule.onNodeWithText("History").performClick()
+        rule.onNodeWithTag("history-workouts").performScrollToNode(hasText("Upper"))
         rule.onNodeWithText("Upper", substring = false).performClick()
         val list = rule.onNode(hasScrollToIndexAction())
         list.performScrollToNode(hasTestTag("history-add-exercise"))

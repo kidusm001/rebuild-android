@@ -1,5 +1,6 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -75,7 +76,7 @@ internal fun HistoryEffortTable(we: WorkoutExercise, onEdit: (Effort) -> Unit) {
                     "${index + 1}",
                     style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.width(28.dp).clearAndSetSemantics {}
+                    modifier = Modifier.width(28.dp).clearAndSetSemantics { hideFromAccessibility() }
                 )
                 Column(Modifier.weight(1f)) {
                     Text(
@@ -221,8 +222,7 @@ internal fun MeasuredExerciseHistory(env: AppEnv, identity: Identity, exercise: 
             }
             item(key = "sessions-header") { SectionHeader("All sessions") }
             itemsIndexed(sessions.asReversed()) { i, s ->
-                Column {
-                    if (i > 0) HorizontalDivider()
+                Column(Modifier.groupedRow(i, sessions.lastIndex)) {
                     Row(
                         Modifier
                             .fillMaxWidth()

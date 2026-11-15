@@ -48,7 +48,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -228,17 +227,6 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
         val watch = env.state.stopwatch?.takeIf { it.workoutId == workout.id }
         val keyboardUp = WindowInsets.isImeVisible && (landscape || entryFocused)
         if (workout.exercises.isNotEmpty() && !keyboardUp) {
-            if (workout.exercises.size > 1) SessionTrack(
-                workout.exercises.mapIndexed { i, it ->
-                    when {
-                        it.goalMet() -> TrackState.DONE
-                        i == focusedIndex -> TrackState.CURRENT
-                        else -> TrackState.PENDING
-                    }
-                },
-                description = "${workout.exercises.count { it.goalMet() }} of ${workout.exercises.size} exercises done",
-                modifier = Modifier.readableWidth().padding(horizontal = 20.dp).padding(top = 4.dp)
-            )
             ExerciseRail(workout, focusedIndex, watch, onAdd = { adding = true }, addEnabled = !env.runner.busy,
                 onSelect = ::select)
         }
@@ -372,7 +360,8 @@ private fun ExercisePill(
         watch != null -> ", stopwatch effort not logged"
         else -> ""
     }
-    val shape = CircleShape
+    // A tab, not a button: 12 dp corners rather than a full pill.
+    val shape = MaterialTheme.shapes.small
     val large = LocalDensity.current.fontScale > 1.3f
     Box(
         Modifier
@@ -569,7 +558,8 @@ private fun ExerciseFocus(
                                 shape = CircleShape,
                                 border = null,
                                 colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    leadingIconContentColor = MaterialTheme.colorScheme.onSurface),
                                 modifier = Modifier.heightIn(min = 48.dp).testTag("choose-load-unit")
                                     .semantics { contentDescription = "Load unit: ${unitName(we.entryLoadUnit)}" }
                             )

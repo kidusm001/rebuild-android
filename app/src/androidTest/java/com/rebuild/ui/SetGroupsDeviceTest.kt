@@ -1,5 +1,7 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
@@ -299,6 +301,7 @@ class SetGroupsDeviceTest {
         runBlocking { repo.execute(Action.FinishWorkout(FIXED_NOW - 2_400_000)) }
         rule.setContent { RebuildApp(repo, FakePlatform(), clock = { FIXED_NOW }) }
         rule.onNodeWithText("History").performClick()
+        rule.onNodeWithTag("history-workouts").performScrollToNode(hasText("Upper A"))
         rule.onNodeWithText("Upper A").performClick()
         // Five stages are two working sets, each one row: the set, then its drops or pauses as part of it.
         rule.onAllNodesWithTag("working-count")[0].assertTextEquals("Working sets: 2 of 2")
@@ -410,6 +413,7 @@ class SetGroupsDeviceTest {
         }
         rule.setContent { RebuildApp(repo, FakePlatform(), clock = { FIXED_NOW }) }
         rule.onNodeWithText("History").performClick()
+        rule.onNodeWithTag("history-workouts").performScrollToNode(hasText("Upper A"))
         rule.onNodeWithText("Upper A").performClick()
         rule.onAllNodesWithTag("working-count")[0].assertTextContains("Working sets: 3", substring = true)
         rule.onNode(hasTestTag("group-row") and hasContentDescription("Set 3:", substring = true)).performScrollTo().performClick()

@@ -1,5 +1,6 @@
 package com.rebuild.ui
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import com.rebuild.ui.theme.Numerals
 import androidx.compose.material3.FilledTonalButton
@@ -27,7 +28,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -95,11 +95,12 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
     }
     // A floating signal-amber pill above the navigation, with a thin ink progress line along its foot. Decorative; the
     // countdown is what's spoken.
-    Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = if (compact) 4.dp else 8.dp)) {
+    // A full-width amber sheet docked above the navigation: rounded top corners, square bottom, edge to edge.
+    Box(Modifier.fillMaxWidth()) {
         Surface(
             color = colors.primaryContainer,
             contentColor = colors.onPrimaryContainer,
-            shape = if (compact) CircleShape else MaterialTheme.shapes.large,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             shadowElevation = 0.dp,
             modifier = Modifier.fillMaxWidth().testTag("rest-bar")
         ) {
@@ -115,7 +116,7 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                             drawRoundRect(fillColor, Offset(inset, y), Size(track * progress, h), CornerRadius(h / 2))
                         }
                     }
-                    .padding(start = 20.dp, end = 6.dp, top = if (compact) 0.dp else 10.dp, bottom = if (compact) 0.dp else 14.dp),
+                    .padding(start = 20.dp, end = 8.dp, top = if (compact) 2.dp else 12.dp, bottom = if (compact) 2.dp else 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {

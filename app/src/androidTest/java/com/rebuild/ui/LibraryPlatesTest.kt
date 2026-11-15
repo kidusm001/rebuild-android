@@ -1,5 +1,7 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
@@ -179,6 +181,7 @@ class LibraryPlatesTest {
         runBlocking { repo.execute(Action.FinishWorkout(FIXED_NOW + 1000)) }
         rule.waitForIdle()
         rule.onNodeWithText("History", substring = false).performClick()
+        rule.onNodeWithTag("history-workouts").performScrollToNode(hasText("Upper"))
         rule.onNodeWithText("Upper", substring = false).performClick()
         rule.onNodeWithContentDescription("Set 2: 5 plates/stack × 12").performScrollTo().performClick()
         rule.onNodeWithTag("edit-plates").performTextReplacement("6")
@@ -227,6 +230,7 @@ class LibraryPlatesTest {
         }
         launch(repo)
         rule.onNodeWithText("History").performClick()
+        rule.onNodeWithTag("history-workouts").performScrollToNode(hasText("Upper"))
         rule.onNodeWithText("Upper", substring = false).performClick()
         rule.onNodeWithContentDescription("Set 1: 5 kg × 10").performScrollTo().performClick()
         rule.onNodeWithTag("unit-PLATES").performClick()
@@ -401,6 +405,7 @@ class LibraryPlatesTest {
         assertTrue(repo.state.value.activeWorkout!!.exercises.first().sets.isEmpty())
         rule.onNodeWithContentDescription("Back").performClick()
         rule.onNodeWithText("History").performClick()
+        rule.onNodeWithTag("history-workouts").performScrollToNode(hasText("Upper"))
         rule.onNodeWithText("Upper", substring = false).performClick()
         rule.onAllNodesWithContentDescription("Seated cable row, ", substring = true)[0].performScrollTo().performClick()
         rule.onNodeWithText("Weight · kg").assertExists()

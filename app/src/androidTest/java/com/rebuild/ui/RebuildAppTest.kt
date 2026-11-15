@@ -1,5 +1,6 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -459,6 +460,7 @@ class RebuildAppTest {
         }
         launch(repo)
         rule.onNodeWithText("History").performClick()
+        rule.onNodeWithTag("history-workouts").performScrollToNode(hasText("Upper A"))
         rule.onNodeWithText("Upper A").performClick()
         rule.onNodeWithText("Add workout note").performScrollTo().performClick()
         rule.onNodeWithTag("workout-note").performTextInput("Keep this history note")
@@ -506,6 +508,7 @@ class RebuildAppTest {
             }
         }
         rule.onNodeWithText("History").performClick()
+        rule.onNodeWithTag("history-workouts").performScrollToNode(hasText("Upper A"))
         rule.onNodeWithText("Upper A").performClick()
         rule.onNodeWithContentDescription("Options for Bench press").performScrollTo().performClick()
         rule.onNodeWithText("Add missed set").performClick()

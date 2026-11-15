@@ -1,5 +1,6 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.composed
 import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.CompositionLocalProvider
@@ -66,7 +67,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -273,9 +273,10 @@ internal fun AdaptiveDialog(
         onDismissRequest = onDismissRequest,
         title = title,
         text = {
-            KeyboardFirstBack(onDismissRequest) {
+            CompositionLocalProvider(LocalDialogSlot provides DialogSlot.BODY) { KeyboardFirstBack(onDismissRequest) {
                 Column(Modifier.verticalScroll(rememberScrollState()).testTag("dialog-body"),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) { text() }
+            }
             }
         },
         // Material order, dismiss then confirm at the end; they wrap onto a second line only when they don't fit.
@@ -286,8 +287,8 @@ internal fun AdaptiveDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 itemVerticalAlignment = Alignment.CenterVertically
             ) {
-                dismissButton()
-                confirmButton()
+                CompositionLocalProvider(LocalDialogSlot provides DialogSlot.DISMISS) { dismissButton() }
+                CompositionLocalProvider(LocalDialogSlot provides DialogSlot.CONFIRM) { confirmButton() }
             }
         }
     )
@@ -356,9 +357,10 @@ internal fun NumberField(
     // A filled tile, not an outlined form box: tone separates it, and focus draws a 2 dp ring.
     var focused by remember { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
+    val accentRing = accentText()
     val ring = when {
         isError -> colors.error
-        focused -> colors.primary
+        focused -> accentRing
         else -> Color.Transparent
     }
     TextField(
@@ -821,9 +823,10 @@ private fun NumberTile(
 ) {
     var focused by remember { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
+    val accentRing = accentText()
     val ring = when {
         isError -> colors.error
-        focused -> colors.primary
+        focused -> accentRing
         else -> Color.Transparent
     }
     // The caller's modifier (tag, focus, weight) goes on the field itself, so it is the node that takes text.
@@ -834,7 +837,7 @@ private fun NumberTile(
                 new.filter { it.isDigit() || (decimal && (it == '.' || it == ',')) } else new) },
             singleLine = true,
             textStyle = valueStyle.copy(color = colors.onSurface),
-            cursorBrush = androidx.compose.ui.graphics.SolidColor(colors.primary),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(accentRing),
             keyboardOptions = KeyboardOptions(
                 keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number,
                 imeAction = imeAction
@@ -868,3 +871,96 @@ private fun NumberTile(
         )
     }
 }
+
+/** The amber family as text: amber-ink on light surfaces, amber on dark ones. Never used as a fill. */
+@Composable
+internal fun accentText(): Color =
+    if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) MaterialTheme.colorScheme.primaryContainer
+    else MaterialTheme.colorScheme.secondary
+
+/** A logged set's value in the ledger: condensed and large, the same for single sets and sets with drops. */
+@Composable
+internal fun ledgerValueStyle(): TextStyle = MaterialTheme.typography.displaySmall.copy(fontSize = 24.sp, lineHeight = 28.sp)
+
+/**
+ * The container every logged row in the ledger shares: a card-toned rounded row whose edit action is a pencil in a
+ * tonal circle at the end.
+ */
+@Composable
+internal fun LoggedRowEditMark() {
+    Box(Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh),
+        contentAlignment = Alignment.Center) {
+        RebuildIcon(R.drawable.ic_pencil, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.size(16.dp))
+    }
+}
+
+/** Where a [TextButton] is drawn decides its look: dialog actions are pills, screen text buttons stay text. */
+internal enum class DialogSlot { NONE, BODY, DISMISS, CONFIRM }
+internal val LocalDialogSlot = androidx.compose.runtime.staticCompositionLocalOf { DialogSlot.NONE }
+
+/**
+ * The app's text button. On screens it is Material's text button. In a dialog the confirm action is a filled amber
+ * pill (red when the caller colours it as an error), and dismiss and in-dialog actions are tonal pills, so every
+ * modal uses the same button language as the screens.
+ */
+@Composable
+internal fun TextButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    colors: androidx.compose.material3.ButtonColors = ButtonDefaults.textButtonColors(),
+    contentPadding: PaddingValues = ButtonDefaults.TextButtonContentPadding,
+    content: @Composable RowScope.() -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+    val destructive = colors.contentColor == scheme.error
+    when (LocalDialogSlot.current) {
+        // Material's default text colour is primary, an amber fill colour here; on screens it reads as accent text.
+        DialogSlot.NONE -> androidx.compose.material3.TextButton(onClick = onClick, modifier = modifier,
+            enabled = enabled,
+            colors = if (colors.contentColor == scheme.primary) ButtonDefaults.textButtonColors(contentColor = accentText())
+                else colors,
+            contentPadding = contentPadding, content = content)
+        DialogSlot.CONFIRM -> androidx.compose.material3.Button(
+            onClick = onClick, modifier = modifier.heightIn(min = 48.dp), enabled = enabled,
+            colors = if (destructive) ButtonDefaults.buttonColors(containerColor = scheme.error, contentColor = scheme.onError)
+                else signalButtonColors(),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), content = content)
+        DialogSlot.DISMISS, DialogSlot.BODY -> FilledTonalButton(
+            onClick = onClick, modifier = modifier.heightIn(min = 48.dp), enabled = enabled,
+            colors = ButtonDefaults.filledTonalButtonColors(
+                // One step above the dialog's own surfaceContainerHigh, so the pill is visible on it.
+                containerColor = if (destructive) scheme.errorContainer else scheme.surfaceContainerHighest,
+                contentColor = if (destructive) scheme.onErrorContainer else scheme.onSurface),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), content = content)
+    }
+}
+
+/** Main actions: signal amber with ink labels, in both themes. */
+@Composable
+internal fun signalButtonColors() = ButtonDefaults.buttonColors(
+    containerColor = MaterialTheme.colorScheme.primaryContainer,
+    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+)
+
+/**
+ * The app's filled button: every main action (Log set, Next, Resume, Start…) is a signal-amber pill with an ink
+ * label. Callers that pass their own colours (a destructive red, say) keep them.
+ */
+@Composable
+internal fun Button(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    colors: androidx.compose.material3.ButtonColors = signalButtonColors(),
+    contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
+    content: @Composable RowScope.() -> Unit
+) = androidx.compose.material3.Button(onClick = onClick, modifier = modifier, enabled = enabled, colors = colors,
+    contentPadding = contentPadding, content = content)
+
+/** A row of a grouped list: card tone, 20/4 dp corners from [groupShape], a 2 dp gap above all but the first. */
+@Composable
+internal fun Modifier.groupedRow(index: Int, lastIndex: Int): Modifier =
+    padding(top = if (index == 0) 0.dp else 2.dp).clip(groupShape(index, lastIndex))
+        .background(MaterialTheme.colorScheme.surfaceContainerLowest).padding(horizontal = 16.dp)
