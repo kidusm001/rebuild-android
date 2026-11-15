@@ -193,10 +193,9 @@ internal fun MeasuredGoalFields(
         }
         Measure.REPS -> Unit
     }
-    NumberField(text.rest, { text.rest = it },
-        if (measure == Measure.CARDIO) "Rest when you start it (seconds)" else "Rest between sets (seconds)",
-        Modifier.fillMaxWidth().testTag("goal-rest"), decimal = false, imeAction = ImeAction.Done,
-        supportingText = restHint, onDone = onDone)
+    DurationPickerField(text.rest, { text.rest = it },
+        if (measure == Measure.CARDIO) "Rest when you start it" else "Rest between sets",
+        Modifier.fillMaxWidth().testTag("goal-rest"), supportingText = restHint)
 }
 
 /** Minutes and seconds, side by side, or stacked with large text. */

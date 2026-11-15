@@ -162,31 +162,17 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
     )
 
     if (editing) {
-        var seconds by rememberSaveable(timer.id) { mutableStateOf(remaining.toString()) }
-        var error by rememberSaveable(timer.id) { mutableStateOf<String?>(null) }
-        AdaptiveDialog(
-            onDismissRequest = { editing = false },
-            title = { Text("Rest time remaining") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    NumberField(seconds, { seconds = it }, "Seconds from now", decimal = false, imeAction = ImeAction.Done)
-                    ErrorText(error)
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val value = seconds.toIntOrNull()
-                    if (value == null || value !in 0..REST_SECONDS_RANGE.last) {
-                        error = "Enter 0 to 3600 seconds. 0 ends the rest."
-                    } else {
-                        val now = env.clock()
-                        env.runner.run(restChange(timer, now + value * 1000L, now), onError = { error = it }) {
-                            editing = false
-                        }
-                    }
-                }, enabled = !env.runner.busy) { Text("Set") }
-            },
-            dismissButton = { TextButton(onClick = { editing = false }) { Text("Cancel") } }
+        // The platform's minute and second wheels; 0:00 ends the rest.
+        DurationPickerDialog(
+            title = "Rest time remaining",
+            initialSeconds = remaining,
+            maxSeconds = REST_SECONDS_RANGE.last,
+            allowBlank = false,
+            onDismiss = { editing = false },
+            onPick = { picked ->
+                val now = env.clock()
+                env.runner.run(restChange(timer, now + (picked ?: 0) * 1000L, now)) { editing = false }
+            }
         )
     }
 }
