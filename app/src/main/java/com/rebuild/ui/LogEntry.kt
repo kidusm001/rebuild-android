@@ -1,5 +1,6 @@
 package com.rebuild.ui
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
 import androidx.compose.ui.unit.sp
@@ -567,17 +568,19 @@ internal fun TargetMetPanel(
     EnterOnce { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // A green status pill: a done target reads as a fact, not a celebration.
         Row(
-            Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.tertiaryContainer)
-                .padding(start = 10.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
+            Modifier.padding(vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            RebuildIcon(R.drawable.ic_check, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                modifier = Modifier.size(20.dp))
+            Box(Modifier.size(28.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiaryContainer),
+                contentAlignment = Alignment.Center) {
+                RebuildIcon(R.drawable.ic_check, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.size(18.dp))
+            }
             Text(
                 message,
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
             )
         }

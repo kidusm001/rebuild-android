@@ -23,7 +23,7 @@ class ThemeTest {
         }
         val expected = listOf("FFB94A", "2A1800", "FFB224", "231500",
             "D4C5AC", "392F1E", "4A3410", "FFDFA3", "9FD6A6", "0F3A1C", "1F4027", "C8EBCB",
-            "FFB4A9", "680003", "872019", "FFDAD5", "0F0E0D", "EDE6DD", "0F0E0D", "EDE6DD",
+            "FFB4A9", "680003", "5C1D18", "FFDAD5", "0F0E0D", "EDE6DD", "0F0E0D", "EDE6DD",
             "34302C", "CFC5B7", "1D1B19", "171514", "221F1D", "2A2724", "34302C", "958B7E", "3C3833")
         assertEquals(expected.map { (0xFF000000L or it.toLong(16)).toInt() }, actual.map { it.toArgb() })
     }

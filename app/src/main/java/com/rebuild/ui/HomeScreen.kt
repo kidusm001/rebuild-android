@@ -1,5 +1,6 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.remember
@@ -230,7 +231,10 @@ private fun SessionTitle(eyebrow: String?, name: String, summary: String, eyebro
         if (eyebrow != null) Text(
             eyebrow,
             style = MaterialTheme.typography.labelLarge,
-            color = if (eyebrowState) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant
+            // State reads in the amber family in both themes: amber-ink on light, amber on dark.
+            color = if (!eyebrowState) MaterialTheme.colorScheme.onSurfaceVariant
+                else if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.secondary
         )
         Text(name, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
         Text(summary, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

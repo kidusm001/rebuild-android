@@ -228,7 +228,8 @@ private fun TableRow(
 ) {
     Row(
         Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(8.dp))
-            .background(if (highlighted) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent)
+            // The Up next slot carries the highlight itself; the row stays flat so containers never nest.
+            .background(Color.Transparent)
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)

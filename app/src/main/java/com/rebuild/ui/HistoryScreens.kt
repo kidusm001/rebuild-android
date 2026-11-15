@@ -1,5 +1,7 @@
 package com.rebuild.ui
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
@@ -120,7 +122,7 @@ internal fun HistoryScreen(
     ScreenScaffold(title = "History") {
         val tab = pager.currentPage
         val tabs = @Composable {
-            val selected = MaterialTheme.colorScheme.primary
+            val selected = MaterialTheme.colorScheme.onSecondaryContainer
             val unselected = MaterialTheme.colorScheme.onSurfaceVariant
             HISTORY_TABS.forEachIndexed { i, label ->
                 Tab(selected = tab == i, onClick = { scope.launch { pager.animateScrollToPage(i) } },
@@ -130,24 +132,32 @@ internal fun HistoryScreen(
             }
         }
         // The indicator slides with the finger, between the page it leaves and the one it's heading to.
-        val indicatorColor = MaterialTheme.colorScheme.primary
+        val indicatorColor = MaterialTheme.colorScheme.secondaryContainer
         val indicator = @Composable { positions: List<TabPosition> ->
             if (positions.isNotEmpty()) {
                 val fraction = pager.currentPageOffsetFraction
                 val from = positions[pager.currentPage.coerceIn(positions.indices)]
                 val to = positions.getOrNull(pager.currentPage + if (fraction > 0) 1 else -1) ?: from
-                TabRowDefaults.SecondaryIndicator(
-                    Modifier.fillMaxWidth().wrapContentSize(Alignment.BottomStart)
+                // A pill behind the label, inside a tonal track: a segmented control, not an underline.
+                Box(
+                    Modifier.fillMaxSize().wrapContentSize(Alignment.CenterStart)
                         .offset(x = lerp(from.left, to.left, abs(fraction)))
-                        .width(lerp(from.width, to.width, abs(fraction))),
-                    color = indicatorColor
+                        .width(lerp(from.width, to.width, abs(fraction)))
+                        .fillMaxHeight()
+                        .padding(4.dp)
+                        .zIndex(-1f)
+                        .clip(CircleShape)
+                        .background(indicatorColor)
                 )
             }
         }
         // A label never breaks mid-word: at large text the tabs scroll instead of squeezing.
-        if (LocalDensity.current.fontScale > 1.3f) ScrollableTabRow(selectedTabIndex = tab, modifier = Modifier.readableWidth(),
-            edgePadding = 0.dp, indicator = indicator) { tabs() }
-        else TabRow(selectedTabIndex = tab, modifier = Modifier.readableWidth(), indicator = indicator) { tabs() }
+        val track = Modifier.readableWidth().padding(horizontal = 20.dp, vertical = 4.dp).clip(CircleShape)
+        val trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        if (LocalDensity.current.fontScale > 1.3f) ScrollableTabRow(selectedTabIndex = tab, modifier = track,
+            edgePadding = 0.dp, indicator = indicator, divider = {}, containerColor = trackColor) { tabs() }
+        else TabRow(selectedTabIndex = tab, modifier = track, indicator = indicator, divider = {},
+            containerColor = trackColor) { tabs() }
         // A horizontal drag on a chart reads the chart; anywhere else on a page it turns the page.
         HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth().testTag("history-pager"), key = { it },
             verticalAlignment = Alignment.Top) { page ->

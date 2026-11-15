@@ -3,6 +3,7 @@ package com.rebuild.ui
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.PaddingValues
@@ -81,16 +82,17 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
     }
 
     val colors = MaterialTheme.colorScheme
+    val trackColor = colors.onPrimaryContainer.copy(alpha = 0.18f)
+    val fillColor = colors.onPrimaryContainer
     val progress = if (total != null && remaining > 0) (remainingMs / (total * 1000f)).coerceIn(0f, 1f) else 0f
-    val drained = colors.onPrimaryContainer.copy(alpha = 0.10f)
     val limitation = when {
         !env.status.notificationsAllowed -> "alerts off"
         !env.status.exactAlarmsAllowed -> "alerts may be late"
         env.status.batteryRestricted -> "battery limits alerts"
         else -> null
     }
-    // A floating signal-amber pill above the navigation. Its own fill is the progress: the part of the rest already
-    // spent is shaded and grows from the right as the rest drains. Decorative; the countdown is what's spoken.
+    // A floating signal-amber pill above the navigation, with a thin ink progress line along its foot. Decorative; the
+    // countdown is what's spoken.
     Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = if (compact) 4.dp else 8.dp)) {
         Surface(
             color = colors.primaryContainer,
@@ -102,9 +104,13 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
             Row(
                 Modifier
                     .drawBehind {
-                        if (total != null && remaining > 0) {
-                            val spent = size.width * (1f - progress)
-                            drawRect(drained, topLeft = Offset(size.width - spent, 0f), size = Size(spent, size.height))
+                        if (total != null && remaining > 0 && !compact) {
+                            val inset = 20.dp.toPx()
+                            val h = 3.dp.toPx()
+                            val y = size.height - 8.dp.toPx()
+                            val track = size.width - inset * 2
+                            drawRoundRect(trackColor, Offset(inset, y), Size(track, h), CornerRadius(h / 2))
+                            drawRoundRect(fillColor, Offset(inset, y), Size(track * progress, h), CornerRadius(h / 2))
                         }
                     }
                     .padding(start = 20.dp, end = 6.dp, top = if (compact) 0.dp else 6.dp, bottom = if (compact) 0.dp else 6.dp),
@@ -133,6 +139,11 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                     containerColor = colors.onPrimaryContainer.copy(alpha = 0.12f),
                     contentColor = colors.onPrimaryContainer
                 )
+                // Skip ends the rest: ink on amber, the strongest control on the pill.
+                val strong = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = colors.onPrimaryContainer,
+                    contentColor = colors.primaryContainer
+                )
                 if (remaining > 0) {
                     FilledTonalButton(
                         onClick = { adjust(30_000) },
@@ -146,7 +157,7 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                 FilledTonalButton(
                     onClick = { env.runner.run(Action.SkipRest) },
                     enabled = !env.runner.busy,
-                    colors = quiet,
+                    colors = strong,
                     contentPadding = PaddingValues(horizontal = 14.dp),
                     modifier = Modifier.heightIn(min = 48.dp).semantics {
                         contentDescription = if (remaining > 0) "Skip rest" else "Dismiss rest"

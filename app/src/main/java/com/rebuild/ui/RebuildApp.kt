@@ -279,7 +279,8 @@ fun RebuildApp(
                         // The lowest bar paints behind the gesture area in its own color, and every bar rides above
                         // the keyboard, so nothing light or empty ever shows under a dark screen.
                         val base = when {
-                            bottomNav -> MaterialTheme.colorScheme.surfaceContainer
+                            // The navigation bar paints its own tone; around a floating rest pill the canvas shows.
+                            bottomNav -> MaterialTheme.colorScheme.surface
                             timer != null -> MaterialTheme.colorScheme.surface
                             else -> MaterialTheme.colorScheme.surfaceContainerHighest
                         }

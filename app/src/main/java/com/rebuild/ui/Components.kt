@@ -113,6 +113,7 @@ internal fun ScreenScaffold(
         // The header lines up with the centered, width-capped body on wide windows.
         if (!compactLandscape) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) { Column(
             Modifier.widthIn(max = MAX_CONTENT_WIDTH).fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)
+                .padding(start = if (onBack == null) 0.dp else 0.dp)
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 if (onBack != null) {
@@ -346,7 +347,9 @@ internal fun NumberField(
         else -> Color.Transparent
     }
     TextField(
-        placeholder = placeholder?.let { { Text(it, maxLines = 1, style = valueStyle) } },
+        // A hint, never mistaken for a value: lighter and regular weight.
+        placeholder = placeholder?.let { { Text(it, maxLines = 1, style = valueStyle.copy(fontWeight = FontWeight.Normal),
+            color = colors.onSurfaceVariant.copy(alpha = 0.6f)) } },
         value = value,
         onValueChange = { new -> onValueChange(if (filterNumericInput)
             new.filter { it.isDigit() || (decimal && (it == '.' || it == ',')) } else new) },
@@ -707,7 +710,7 @@ internal fun TonalChip(
         enabled = enabled,
         leadingIcon = leadingIcon,
         trailingIcon = trailingIcon,
-        shape = MaterialTheme.shapes.small,
+        shape = CircleShape,
         border = null,
         colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,

@@ -91,10 +91,11 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
 
     ScreenScaffold(title = "Plan") {
         Text("Preview a phase", style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp))
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp))
         // Every phase stays whole and in sight: the chips wrap to a second line rather than scroll off the edge.
         FlowRow(
-            modifier = Modifier.padding(horizontal = 16.dp),
+            modifier = Modifier.padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Phase.entries.forEach { phase ->

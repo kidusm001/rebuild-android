@@ -228,6 +228,17 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
         val watch = env.state.stopwatch?.takeIf { it.workoutId == workout.id }
         val keyboardUp = WindowInsets.isImeVisible && (landscape || entryFocused)
         if (workout.exercises.isNotEmpty() && !keyboardUp) {
+            if (workout.exercises.size > 1) SessionTrack(
+                workout.exercises.mapIndexed { i, it ->
+                    when {
+                        it.goalMet() -> TrackState.DONE
+                        i == focusedIndex -> TrackState.CURRENT
+                        else -> TrackState.PENDING
+                    }
+                },
+                description = "${workout.exercises.count { it.goalMet() }} of ${workout.exercises.size} exercises done",
+                modifier = Modifier.readableWidth().padding(horizontal = 20.dp).padding(top = 4.dp)
+            )
             ExerciseRail(workout, focusedIndex, watch, onAdd = { adding = true }, addEnabled = !env.runner.busy,
                 onSelect = ::select)
         }
@@ -329,7 +340,7 @@ private fun ExerciseRail(
     LaunchedEffect(focusedIndex) { listState.animateScrollToItem(focusedIndex) }
     LazyRow(
         state = listState,
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.readableWidth().selectableGroup().testTag("exercise-picker")
     ) {
@@ -524,7 +535,7 @@ private fun ExerciseFocus(
                     .onFocusChanged { workspaceFocused = it.hasFocus }
                     .focusGroup()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
                     // Without the dock, the last rows scroll clear of the gesture area.
                     .then(if (pinned) Modifier else Modifier.navigationBarsPadding()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
