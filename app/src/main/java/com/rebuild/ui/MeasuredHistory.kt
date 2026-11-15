@@ -222,16 +222,16 @@ internal fun MeasuredExerciseHistory(env: AppEnv, identity: Identity, exercise: 
             }
             item(key = "sessions-header") { SectionHeader("All sessions") }
             itemsIndexed(sessions.asReversed()) { i, s ->
-                Column(Modifier.groupedRow(i, sessions.lastIndex)) {
+                // The label is on the whole card, so even a sliver of its edge is named.
+                Column(Modifier.groupedRow(i, sessions.lastIndex).testTag("measured-session")
+                    .clearAndSetSemantics {
+                        contentDescription = "${formatDate(s.workout.startedAt)}: " +
+                            s.efforts.joinToString("; ") { spokenEffort(it, exercise) }
+                    }) {
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp)
-                            .testTag("measured-session")
-                            .clearAndSetSemantics {
-                                contentDescription = "${formatDate(s.workout.startedAt)}: " +
-                                    s.efforts.joinToString("; ") { spokenEffort(it, exercise) }
-                            },
+                            .padding(vertical = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Text(formatDate(s.workout.startedAt), style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),

@@ -505,8 +505,8 @@ internal fun PlatformLimitations(status: PlatformStatus, platform: PlatformActio
         // One card per limitation: what's wrong, and the remedy beside it.
         issues.forEachIndexed { i, (text, label, action) ->
             Column(
-                Modifier.fillMaxWidth().clip(groupShape(i, issues.lastIndex))
-                    .background(MaterialTheme.colorScheme.surfaceContainerLowest).padding(16.dp),
+                Modifier.fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceContainerLowest, groupShape(i, issues.lastIndex)).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(text, style = MaterialTheme.typography.bodyMedium)
@@ -962,5 +962,8 @@ internal fun Button(
 /** A row of a grouped list: card tone, 20/4 dp corners from [groupShape], a 2 dp gap above all but the first. */
 @Composable
 internal fun Modifier.groupedRow(index: Int, lastIndex: Int): Modifier =
-    padding(top = if (index == 0) 0.dp else 2.dp).clip(groupShape(index, lastIndex))
-        .background(MaterialTheme.colorScheme.surfaceContainerLowest).padding(horizontal = 16.dp)
+    // A shaped background, not a clip: clipping registers the shape as an accessibility node of its own, which on a
+    // row scrolled to a sliver is an unnamed strip. Content sits 16 dp in, so nothing needs clipping.
+    padding(top = if (index == 0) 0.dp else 2.dp)
+        .background(MaterialTheme.colorScheme.surfaceContainerLowest, groupShape(index, lastIndex)).padding(horizontal = 16.dp)
+

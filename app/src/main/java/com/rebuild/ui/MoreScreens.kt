@@ -323,4 +323,4 @@ internal fun HelpScreen(onBack: () -> Unit) {
 /** A row of a grouped list: [lastIndex] 0 makes a single rounded card. */
 @Composable
 private fun Modifier.grouped(index: Int, lastIndex: Int): Modifier =
-    clip(groupShape(index, lastIndex)).background(MaterialTheme.colorScheme.surfaceContainerLowest).padding(horizontal = 16.dp)
+    background(MaterialTheme.colorScheme.surfaceContainerLowest, groupShape(index, lastIndex)).padding(horizontal = 16.dp)

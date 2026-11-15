@@ -513,8 +513,7 @@ private fun WeekChecklistSection(
                     },
                     // One grouped list: rounded ends, tight inner corners, 2 dp gaps instead of dividers.
                     modifier = Modifier
-                        .clip(groupShape(i, last))
-                        .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                        .background(MaterialTheme.colorScheme.surfaceContainerLowest, groupShape(i, last))
                         .padding(horizontal = 16.dp)
                         .testTag("week-row-${template.id}")
                 )

@@ -286,6 +286,8 @@ private fun HistoryWorkoutRow(workout: Workout, onClick: () -> Unit) {
             .fillMaxWidth()
             .heightIn(min = 72.dp)
             .clickable(onClick = onClick)
+            // Its own name, kept even when the row is scrolled to a sliver and its texts are clipped away.
+            .semantics { contentDescription = "${workout.name}, ${formatDate(workout.startedAt)}" }
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -990,9 +992,10 @@ internal fun ExerciseHistoryScreen(
             // When only some sessions counted reps per leg, each of those says so; reps are never converted.
             val mixedPerLeg = sessions.any { it.perLeg } && !sessions.all { it.perLeg }
             itemsIndexed(sessions.asReversed()) { i, s ->
-                Column(Modifier.groupedRow(i, sessions.lastIndex)) {
+                // Merged on the card itself, so a sliver of its edge still reads as the session.
+                Column(Modifier.groupedRow(i, sessions.lastIndex).semantics(mergeDescendants = true) {}) {
                     Row(
-                        Modifier.fillMaxWidth().padding(vertical = 12.dp).semantics(mergeDescendants = true) {},
+                        Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Text(formatDate(s.workout.startedAt), style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
