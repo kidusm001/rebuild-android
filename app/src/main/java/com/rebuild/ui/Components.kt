@@ -1,5 +1,21 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.composed
+import androidx.compose.material3.contentColorFor
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.border
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TextField
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.PaddingValues
@@ -51,7 +67,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -104,6 +119,7 @@ internal fun ScreenScaffold(
         // The header lines up with the centered, width-capped body on wide windows.
         if (!compactLandscape) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) { Column(
             Modifier.widthIn(max = MAX_CONTENT_WIDTH).fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)
+                .padding(start = if (onBack == null) 0.dp else 0.dp)
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 if (onBack != null) {
@@ -114,8 +130,9 @@ internal fun ScreenScaffold(
                 // A top-level destination names itself large; a pushed screen keeps a compact title beside Back.
                 Text(
                     title,
-                    style = if (onBack == null) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp, vertical = if (onBack == null) 8.dp else 0.dp)
+                    style = if (onBack == null) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f).padding(start = if (onBack == null) 12.dp else 8.dp, end = 8.dp,
+                        top = if (onBack == null) 16.dp else 0.dp, bottom = if (onBack == null) 4.dp else 0.dp)
                         .semantics { heading() }
                 )
                 if (iconOnlyActions || LocalDensity.current.fontScale <= 1.3f) {
@@ -129,9 +146,9 @@ internal fun ScreenScaffold(
                     verticalAlignment = Alignment.CenterVertically, content = actions)
             }
             if (subtitle != null && (!compactWhenKeyboard || !WindowInsets.isImeVisible)) Text(
-                subtitle, style = MaterialTheme.typography.bodySmall,
+                subtitle, style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 8.dp).testTag("screen-subtitle")
+                modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 4.dp).testTag("screen-subtitle")
             )
         } }
         content()
@@ -157,20 +174,22 @@ internal fun Modifier.readableWidth(): Modifier =
 /** Scrollable screen body with standard padding, capped at a readable width. */
 @Composable
 internal fun ColumnScope.ScrollBody(content: @Composable ColumnScope.() -> Unit) {
+    val scroll = rememberScrollState()
     Column(
         Modifier
             .weight(1f)
             .fillMaxWidth()
             .yieldsToFixedControls()
-            .verticalScroll(rememberScrollState()),
+            .fadingEdges(scroll, if (LocalDensity.current.fontScale > 1.3f) 48.dp else 32.dp)
+            .verticalScroll(scroll),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Column(
             Modifier
                 .widthIn(max = MAX_CONTENT_WIDTH)
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
             content = content
         )
     }
@@ -180,9 +199,9 @@ internal fun ColumnScope.ScrollBody(content: @Composable ColumnScope.() -> Unit)
 internal fun SectionHeader(text: String, modifier: Modifier = Modifier) {
     Text(
         text,
-        style = MaterialTheme.typography.titleSmall,
+        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
         color = MaterialTheme.colorScheme.onSurface,
-        modifier = modifier.padding(top = 8.dp).semantics { heading() }
+        modifier = modifier.padding(top = 12.dp).semantics { heading() }
     )
 }
 
@@ -254,9 +273,10 @@ internal fun AdaptiveDialog(
         onDismissRequest = onDismissRequest,
         title = title,
         text = {
-            KeyboardFirstBack(onDismissRequest) {
+            CompositionLocalProvider(LocalDialogSlot provides DialogSlot.BODY) { KeyboardFirstBack(onDismissRequest) {
                 Column(Modifier.verticalScroll(rememberScrollState()).testTag("dialog-body"),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) { text() }
+            }
             }
         },
         // Material order, dismiss then confirm at the end; they wrap onto a second line only when they don't fit.
@@ -267,8 +287,8 @@ internal fun AdaptiveDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 itemVerticalAlignment = Alignment.CenterVertically
             ) {
-                dismissButton()
-                confirmButton()
+                CompositionLocalProvider(LocalDialogSlot provides DialogSlot.DISMISS) { dismissButton() }
+                CompositionLocalProvider(LocalDialogSlot provides DialogSlot.CONFIRM) { confirmButton() }
             }
         }
     )
@@ -323,19 +343,47 @@ internal fun NumberField(
     // Lets a compact row show one shared message below the fields while each field still exposes its own error.
     errorSemantics: String? = supportingText,
     /** Shown inside the empty field once it's focused, e.g. the target range. */
-    placeholder: String? = null
+    placeholder: String? = null,
+    /** The value's type: the set entry passes a large numeral style. */
+    valueStyle: TextStyle = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum"),
+    /** A numeric tile (live set entry): label always on top, the value large beneath, an em dash when empty. */
+    tile: Boolean = false
 ) {
-    OutlinedTextField(
-        placeholder = placeholder?.let { { Text(it, maxLines = 1) } },
+    if (tile) {
+        NumberTile(value, onValueChange, label, modifier, decimal, isError, supportingText, imeAction, onDone,
+            filterNumericInput, errorSemantics, valueStyle)
+        return
+    }
+    // A filled tile, not an outlined form box: tone separates it, and focus draws a 2 dp ring.
+    var focused by remember { mutableStateOf(false) }
+    val colors = MaterialTheme.colorScheme
+    val accentRing = accentText()
+    val ring = when {
+        isError -> colors.error
+        focused -> accentRing
+        else -> Color.Transparent
+    }
+    TextField(
+        // A hint, never mistaken for a value: lighter and regular weight.
+        placeholder = placeholder?.let { { Text(it, maxLines = 1, style = valueStyle.copy(fontWeight = FontWeight.Normal),
+            color = colors.onSurfaceVariant.copy(alpha = 0.6f)) } },
         value = value,
         onValueChange = { new -> onValueChange(if (filterNumericInput)
             new.filter { it.isDigit() || (decimal && (it == '.' || it == ',')) } else new) },
         label = { Text(label, maxLines = 2) },
         singleLine = true,
-        textStyle = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum"),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MaterialTheme.colorScheme.secondary,
-            focusedLabelColor = MaterialTheme.colorScheme.secondary
+        textStyle = valueStyle,
+        shape = MaterialTheme.shapes.small,
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = colors.surfaceContainerLowest,
+            unfocusedContainerColor = colors.surfaceContainerHigh,
+            errorContainerColor = colors.surfaceContainerHigh,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            errorIndicatorColor = Color.Transparent,
+            disabledIndicatorColor = Color.Transparent,
+            focusedLabelColor = colors.onSurfaceVariant,
+            unfocusedLabelColor = colors.onSurfaceVariant
         ),
         isError = isError,
         supportingText = supportingText?.let { { Text(it) } },
@@ -344,7 +392,9 @@ internal fun NumberField(
             imeAction = imeAction
         ),
         keyboardActions = KeyboardActions(onDone = { onDone() }),
-        modifier = if (isError && errorSemantics != null) modifier.semantics { error(errorSemantics) } else modifier
+        modifier = (if (isError && errorSemantics != null) modifier.semantics { error(errorSemantics) } else modifier)
+            .onFocusChanged { focused = it.isFocused }
+            .border(2.dp, ring, MaterialTheme.shapes.small)
     )
 }
 
@@ -451,10 +501,17 @@ internal fun PlatformLimitations(status: PlatformStatus, platform: PlatformActio
         if (showAllClear) Text("Rest alerts can be delivered on time.", style = MaterialTheme.typography.bodyMedium)
         return
     }
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        issues.forEach { (text, label, action) ->
-            Text(text, style = MaterialTheme.typography.bodyMedium)
-            SecondaryButton(onClick = action, modifier = Modifier.semantics { contentDescription = label }) { Text(label) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // One card per limitation: what's wrong, and the remedy beside it.
+        issues.forEachIndexed { i, (text, label, action) ->
+            Column(
+                Modifier.fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceContainerLowest, groupShape(i, issues.lastIndex)).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(text, style = MaterialTheme.typography.bodyMedium)
+                SecondaryButton(onClick = action, modifier = Modifier.semantics { contentDescription = label }) { Text(label) }
+            }
         }
         Text(
             "You can still log every set; the timer on screen stays accurate.",
@@ -509,7 +566,7 @@ internal fun OrderBadge(number: Int, met: Boolean = false, emphasized: Boolean =
     val colors = MaterialTheme.colorScheme
     val background = when {
         met -> colors.tertiaryContainer
-        emphasized -> colors.primary
+        emphasized -> colors.primaryContainer
         else -> colors.surfaceContainerHighest
     }
     // Grows with the text so the number never clips at large font sizes.
@@ -523,7 +580,7 @@ internal fun OrderBadge(number: Int, met: Boolean = false, emphasized: Boolean =
             Text(
                 "$number",
                 style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
-                color = if (emphasized) colors.onPrimary else colors.onSurfaceVariant,
+                color = if (emphasized) colors.onPrimaryContainer else colors.onSurfaceVariant,
                 maxLines = 1
             )
         }
@@ -574,3 +631,339 @@ internal fun EnterOnce(modifier: Modifier = Modifier, content: @Composable () ->
         enter = fadeIn(tween(220)) + slideInVertically(tween(220, easing = EaseOutQuart)) { it / 6 }
     ) { content() }
 }
+
+/** A card: a lighter (light theme) or raised (dark theme) tonal container, never outlined. */
+@Composable
+internal fun TonalCard(
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.surfaceContainerLowest,
+    shape: androidx.compose.ui.graphics.Shape = MaterialTheme.shapes.medium,
+    content: @Composable () -> Unit
+) {
+    // A plain clipped background, not a Surface: a card is no accessibility node of its own.
+    Box(modifier.fillMaxWidth().clip(shape).background(color)) {
+        CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides contentColorFor(color)) { content() }
+    }
+}
+
+/** Where a session stands, as one segment per exercise: done, current or still to do. */
+internal enum class TrackState { DONE, CURRENT, PENDING }
+
+/**
+ * A segmented bar, one segment per exercise. Done segments are green, the current one is signal amber, the rest
+ * neutral; [description] carries the same facts for screen readers, so colour is never the only signal.
+ */
+@Composable
+internal fun SessionTrack(states: List<TrackState>, description: String, modifier: Modifier = Modifier) {
+    if (states.isEmpty()) return
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier.fillMaxWidth().height(6.dp).clearAndSetSemantics { contentDescription = description },
+        horizontalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        states.forEach { state ->
+            Box(
+                Modifier.weight(1f).fillMaxHeight().clip(CircleShape).background(
+                    when (state) {
+                        TrackState.DONE -> colors.tertiary
+                        TrackState.CURRENT -> colors.primaryContainer
+                        TrackState.PENDING -> colors.outlineVariant
+                    }
+                )
+            )
+        }
+    }
+}
+
+/** A number the reader looks for, large and condensed, over a short caption. */
+@Composable
+internal fun StatTile(
+    value: String,
+    caption: String,
+    modifier: Modifier = Modifier,
+    emphasized: Boolean = false,
+    spoken: String = "$value $caption"
+) {
+    val colors = MaterialTheme.colorScheme
+    Column(
+        modifier
+            .clip(MaterialTheme.shapes.medium)
+            .background(if (emphasized) colors.secondaryContainer else colors.surfaceContainerHigh)
+            .clearAndSetSemantics { contentDescription = spoken }
+            .padding(horizontal = 14.dp, vertical = 12.dp)
+    ) {
+        // Label on top, value beneath: the same anatomy as the entry tiles.
+        Text(caption, style = MaterialTheme.typography.labelMedium, maxLines = 1,
+            color = if (emphasized) colors.onSecondaryContainer else colors.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.displaySmall,
+            color = if (emphasized) colors.onSecondaryContainer else colors.onSurface, maxLines = 1)
+    }
+}
+
+/** A grouped list's row shape: 20 dp outer corners on the first and last rows, 4 dp where rows meet. */
+internal fun groupShape(index: Int, lastIndex: Int): androidx.compose.ui.graphics.Shape {
+    val outer = 20.dp
+    val inner = 4.dp
+    return androidx.compose.foundation.shape.RoundedCornerShape(
+        topStart = if (index == 0) outer else inner, topEnd = if (index == 0) outer else inner,
+        bottomStart = if (index == lastIndex) outer else inner, bottomEnd = if (index == lastIndex) outer else inner
+    )
+}
+
+/**
+ * A filter or toggle chip filled with tone instead of outlined: neutral when off, amber-tinted with a check when on.
+ */
+@Composable
+internal fun TonalChip(
+    selected: Boolean,
+    onClick: () -> Unit,
+    label: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    leadingIcon: (@Composable () -> Unit)? = null,
+    trailingIcon: (@Composable () -> Unit)? = null
+) {
+    androidx.compose.material3.FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = label,
+        modifier = modifier,
+        enabled = enabled,
+        leadingIcon = leadingIcon,
+        trailingIcon = trailingIcon,
+        shape = CircleShape,
+        border = null,
+        colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            labelColor = MaterialTheme.colorScheme.onSurface,
+            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
+        )
+    )
+}
+
+/**
+ * Content scrolling past the top or bottom of a page fades out over 24 dp instead of being sliced by a hard edge
+ * (under a fixed title above, or the floating rest pill below). Drawing only: layout and semantics are unchanged.
+ */
+internal fun Modifier.fadingEdges(
+    scroll: androidx.compose.foundation.ScrollState,
+    edge: androidx.compose.ui.unit.Dp = 32.dp
+): Modifier = composed {
+    // Painted over the content in the page colour, with no offscreen layer, so accessibility still sees every row.
+    val page = MaterialTheme.colorScheme.surface
+    drawWithContent {
+        drawContent()
+        val top = if (scroll.canScrollBackward) edge.toPx().coerceAtMost(size.height / 4) else 0f
+        val bottom = if (scroll.canScrollForward) edge.toPx().coerceAtMost(size.height / 4) else 0f
+        if (top > 0f) drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(
+            listOf(page, page.copy(alpha = 0f)), startY = 0f, endY = top), size = size.copy(height = top))
+        if (bottom > 0f) drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(
+            listOf(page.copy(alpha = 0f), page), startY = size.height - bottom, endY = size.height),
+            topLeft = androidx.compose.ui.geometry.Offset(0f, size.height - bottom), size = size.copy(height = bottom))
+    }
+}
+
+/** Small, bold, tracked caps for overlines (status, tile captions); the original case is what screen readers hear. */
+@Composable
+internal fun overlineStyle() = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+
+/**
+ * A row of a grouped action list (like system settings): an icon in a tonal circle, the label, and a chevron, on a
+ * card tone with 20/4 dp corners from [groupShape]. Reads as one button.
+ */
+@Composable
+internal fun GroupedActionRow(
+    onClick: () -> Unit,
+    @DrawableRes icon: Int,
+    index: Int,
+    lastIndex: Int,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    @DrawableRes trailing: Int = R.drawable.ic_chevron_right,
+    /** Spoken name, kept even when the row is scrolled almost out of view and its text is clipped. */
+    label: String? = null,
+    content: @Composable RowScope.() -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clip(groupShape(index, lastIndex))
+            .background(colors.surfaceContainerLowest)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .then(if (label != null) Modifier.semantics { contentDescription = label } else Modifier)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(Modifier.size(36.dp).clip(CircleShape).background(colors.surfaceContainerHigh), contentAlignment = Alignment.Center) {
+            RebuildIcon(icon, contentDescription = null, tint = colors.onSurface, modifier = Modifier.size(18.dp))
+        }
+        androidx.compose.material3.ProvideTextStyle(MaterialTheme.typography.labelLarge) { content() }
+        RebuildIcon(trailing, contentDescription = null, tint = colors.onSurfaceVariant, modifier = Modifier.size(18.dp))
+    }
+}
+
+@Composable
+private fun NumberTile(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier,
+    decimal: Boolean,
+    isError: Boolean,
+    supportingText: String?,
+    imeAction: ImeAction,
+    onDone: () -> Unit,
+    filterNumericInput: Boolean,
+    errorSemantics: String?,
+    valueStyle: TextStyle
+) {
+    var focused by remember { mutableStateOf(false) }
+    val colors = MaterialTheme.colorScheme
+    val accentRing = accentText()
+    val ring = when {
+        isError -> colors.error
+        focused -> accentRing
+        else -> Color.Transparent
+    }
+    // The caller's modifier (tag, focus, weight) goes on the field itself, so it is the node that takes text.
+    run {
+        androidx.compose.foundation.text.BasicTextField(
+            value = value,
+            onValueChange = { new -> onValueChange(if (filterNumericInput)
+                new.filter { it.isDigit() || (decimal && (it == '.' || it == ',')) } else new) },
+            singleLine = true,
+            textStyle = valueStyle.copy(color = colors.onSurface),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(accentRing),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number,
+                imeAction = imeAction
+            ),
+            keyboardActions = KeyboardActions(onDone = { onDone() }),
+            modifier = modifier
+                .heightIn(min = 72.dp)
+                .onFocusChanged { focused = it.isFocused }
+                .semantics {
+                    contentDescription = label
+                    if (isError && errorSemantics != null) error(errorSemantics)
+                },
+            decorationBox = { inner ->
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.small)
+                        .background(if (focused) colors.surfaceContainerLowest else colors.surfaceContainerHigh)
+                        .border(2.dp, ring, MaterialTheme.shapes.small)
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                ) {
+                    // The label is always the overline, so empty and filled tiles share one anatomy.
+                    Text(label, style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant,
+                        maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    Box {
+                        if (value.isEmpty() && !focused) Text("—", style = valueStyle, color = colors.onSurfaceVariant.copy(alpha = 0.5f))
+                        inner()
+                    }
+                }
+            }
+        )
+    }
+}
+
+/** The amber family as text: amber-ink on light surfaces, amber on dark ones. Never used as a fill. */
+@Composable
+internal fun accentText(): Color =
+    if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) MaterialTheme.colorScheme.primaryContainer
+    else MaterialTheme.colorScheme.secondary
+
+/** A logged set's value in the ledger: condensed and large, the same for single sets and sets with drops. */
+@Composable
+internal fun ledgerValueStyle(): TextStyle = MaterialTheme.typography.displaySmall.copy(fontSize = 24.sp, lineHeight = 28.sp)
+
+/**
+ * The container every logged row in the ledger shares: a card-toned rounded row whose edit action is a pencil in a
+ * tonal circle at the end.
+ */
+@Composable
+internal fun LoggedRowEditMark() {
+    Box(Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh),
+        contentAlignment = Alignment.Center) {
+        RebuildIcon(R.drawable.ic_pencil, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.size(16.dp))
+    }
+}
+
+/** Where a [TextButton] is drawn decides its look: dialog actions are pills, screen text buttons stay text. */
+internal enum class DialogSlot { NONE, BODY, DISMISS, CONFIRM }
+internal val LocalDialogSlot = androidx.compose.runtime.staticCompositionLocalOf { DialogSlot.NONE }
+
+/**
+ * The app's text button. On screens it is Material's text button. In a dialog the confirm action is a filled amber
+ * pill (red when the caller colours it as an error), and dismiss and in-dialog actions are tonal pills, so every
+ * modal uses the same button language as the screens.
+ */
+@Composable
+internal fun TextButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    colors: androidx.compose.material3.ButtonColors = ButtonDefaults.textButtonColors(),
+    contentPadding: PaddingValues = ButtonDefaults.TextButtonContentPadding,
+    content: @Composable RowScope.() -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+    val destructive = colors.contentColor == scheme.error
+    when (LocalDialogSlot.current) {
+        // Material's default text colour is primary, an amber fill colour here; on screens it reads as accent text.
+        DialogSlot.NONE -> androidx.compose.material3.TextButton(onClick = onClick, modifier = modifier,
+            enabled = enabled,
+            colors = if (colors.contentColor == scheme.primary) ButtonDefaults.textButtonColors(contentColor = accentText())
+                else colors,
+            contentPadding = contentPadding, content = content)
+        DialogSlot.CONFIRM -> androidx.compose.material3.Button(
+            onClick = onClick, modifier = modifier.heightIn(min = 48.dp), enabled = enabled,
+            colors = if (destructive) ButtonDefaults.buttonColors(containerColor = scheme.error, contentColor = scheme.onError)
+                else signalButtonColors(),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), content = content)
+        DialogSlot.DISMISS, DialogSlot.BODY -> FilledTonalButton(
+            onClick = onClick, modifier = modifier.heightIn(min = 48.dp), enabled = enabled,
+            colors = ButtonDefaults.filledTonalButtonColors(
+                // One step above the dialog's own surfaceContainerHigh, so the pill is visible on it.
+                containerColor = if (destructive) scheme.errorContainer else scheme.surfaceContainerHighest,
+                contentColor = if (destructive) scheme.onErrorContainer else scheme.onSurface),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), content = content)
+    }
+}
+
+/** Main actions: signal amber with ink labels, in both themes. */
+@Composable
+internal fun signalButtonColors() = ButtonDefaults.buttonColors(
+    containerColor = MaterialTheme.colorScheme.primaryContainer,
+    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+)
+
+/**
+ * The app's filled button: every main action (Log set, Next, Resume, Start…) is a signal-amber pill with an ink
+ * label. Callers that pass their own colours (a destructive red, say) keep them.
+ */
+@Composable
+internal fun Button(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    colors: androidx.compose.material3.ButtonColors = signalButtonColors(),
+    contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
+    content: @Composable RowScope.() -> Unit
+) = androidx.compose.material3.Button(onClick = onClick, modifier = modifier, enabled = enabled, colors = colors,
+    contentPadding = contentPadding, content = content)
+
+/** A row of a grouped list: card tone, 20/4 dp corners from [groupShape], a 2 dp gap above all but the first. */
+@Composable
+internal fun Modifier.groupedRow(index: Int, lastIndex: Int): Modifier =
+    // A shaped background, not a clip: clipping registers the shape as an accessibility node of its own, which on a
+    // row scrolled to a sliver is an unnamed strip. Content sits 16 dp in, so nothing needs clipping.
+    padding(top = if (index == 0) 0.dp else 2.dp)
+        .background(MaterialTheme.colorScheme.surfaceContainerLowest, groupShape(index, lastIndex)).padding(horizontal = 16.dp)
+

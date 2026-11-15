@@ -14,14 +14,12 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -215,7 +213,7 @@ internal fun BodyweightDialog(env: AppEnv, existing: BodyweightEntry?, onDismiss
 private fun MassUnitChips(unit: MassUnit, onSelect: (MassUnit) -> Unit) {
     FlowRow(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         MassUnit.entries.forEach { option ->
-            FilterChip(selected = option == unit, onClick = { onSelect(option) }, label = { Text(option.symbol) },
+            TonalChip(selected = option == unit, onClick = { onSelect(option) }, label = { Text(option.symbol) },
                 modifier = Modifier.testTag("mass-${option.name}")
                     .semantics { contentDescription = if (option == MassUnit.KG) "Kilograms" else "Pounds" })
         }
@@ -227,7 +225,7 @@ private fun MassUnitChips(unit: MassUnit, onSelect: (MassUnit) -> Unit) {
 private fun LengthUnitChips(unit: LengthUnit, onSelect: (LengthUnit) -> Unit) {
     FlowRow(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         LengthUnit.entries.forEach { option ->
-            FilterChip(selected = option == unit, onClick = { onSelect(option) }, label = { Text(option.symbol) },
+            TonalChip(selected = option == unit, onClick = { onSelect(option) }, label = { Text(option.symbol) },
                 modifier = Modifier.testTag("length-${option.name}")
                     .semantics { contentDescription = if (option == LengthUnit.CM) "Centimetres" else "Inches" })
         }
@@ -332,7 +330,7 @@ private fun WeightSummary(weeks: List<WeightWeek>, unit: MassUnit, today: LocalD
     val previous = shown.getOrNull(shown.size - 2)
     val change = weightChange(shown)
     Column(
-        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainer)
+        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainerLowest)
             .semantics(mergeDescendants = true) {}.padding(16.dp).testTag("weight-summary"),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
@@ -391,8 +389,7 @@ internal fun MeasurementsScreen(env: AppEnv, onBack: () -> Unit, onMeasure: () -
                 }
             }
             itemsIndexed(progress, key = { _, p -> p.site.name }) { i, site ->
-                Column {
-                    if (i > 0) HorizontalDivider()
+                Column(Modifier.groupedRow(i, progress.lastIndex)) {
                     ListRow(
                         headline = site.site.title,
                         supporting = siteSupporting(site),
@@ -548,8 +545,7 @@ internal fun SiteScreen(env: AppEnv, site: BodySite, onBack: () -> Unit) {
             val newestFirst = progress.entries.asReversed()
             itemsIndexed(newestFirst, key = { _, e -> e.id }) { i, entry ->
                 val before = newestFirst.getOrNull(i + 1)
-                Column {
-                    if (i > 0) HorizontalDivider()
+                Column(Modifier.groupedRow(i, newestFirst.lastIndex)) {
                     ListRow(
                         headline = lengthText(entry.value, entry.unit),
                         supporting = dayText(entry.localDate()) + (before?.let {
@@ -570,7 +566,7 @@ internal fun SiteScreen(env: AppEnv, site: BodySite, onBack: () -> Unit) {
 @Composable
 private fun SiteSummary(progress: SiteProgress, today: LocalDate) {
     Column(
-        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainer)
+        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainerLowest)
             .semantics(mergeDescendants = true) {}.padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
@@ -665,7 +661,7 @@ internal fun ColumnScope.BodyOverview(env: AppEnv, onWeight: () -> Unit, onMeasu
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { logging = true }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+            Button(onClick = { logging = true }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                 .testTag("body-log-weight")) { Text("Log weight") }
             if (weeks.isNotEmpty()) SecondaryButton(onClick = onWeight, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                 .testTag("body-weight-trend")) { Text("Trend and weigh-ins") }
@@ -676,19 +672,18 @@ internal fun ColumnScope.BodyOverview(env: AppEnv, onWeight: () -> Unit, onMeasu
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Column {
             progress.forEachIndexed { i, site ->
-                if (i > 0) HorizontalDivider()
                 ListRow(
                     headline = site.site.title,
                     supporting = siteSupporting(site),
                     onClick = { onSite(site.site) },
-                    modifier = Modifier.testTag("body-site-${site.site.name}"),
+                    modifier = Modifier.groupedRow(i, progress.lastIndex).testTag("body-site-${site.site.name}"),
                     trailing = { RebuildIcon(R.drawable.ic_chevron_right, contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                 )
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (state.measurementDue(today)) OutlinedButton(onClick = onMeasure,
+            if (state.measurementDue(today)) Button(onClick = onMeasure,
                 modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("body-measure")) { Text("Measure this week") }
             SecondaryButton(onClick = onMeasurements, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                 .testTag("body-measurements")) { Text("All measurements") }

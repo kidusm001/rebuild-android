@@ -17,7 +17,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -144,7 +143,7 @@ internal fun DurationPickerDialog(
                     { "%02d".format(SECOND_STOPS[it]) }) { secondsIndex = it }
                 Text(" s", style = MaterialTheme.typography.titleMedium)
             }
-            @Composable fun Chip(choice: Int) = FilterChip(
+            @Composable fun Chip(choice: Int) = TonalChip(
                 selected = total == choice,
                 onClick = {
                     minutes = choice / 60

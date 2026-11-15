@@ -11,7 +11,7 @@ import org.junit.Test
 
 class ThemeTest {
     @Test
-    fun allExplicitDarkRolesMatchThe0112BolderAnchor() {
+    fun allExplicitDarkRolesMatchTheInkAndEmberAnchor() {
         val actual = with(Dark) {
             listOf(primary, onPrimary, primaryContainer, onPrimaryContainer,
                 secondary, onSecondary, secondaryContainer, onSecondaryContainer,
@@ -21,10 +21,10 @@ class ThemeTest {
                 surfaceContainerLowest, surfaceContainerLow, surfaceContainer, surfaceContainerHigh,
                 surfaceContainerHighest, outline, outlineVariant)
         }
-        val expected = listOf("FFB94A", "3A2500", "5C3D00", "FFDDA6",
-            "D4C5AC", "392F1E", "5A4318", "FFE3B0", "B9CCAD", "253420", "3B4B34", "D5E8C8",
-            "FFB4A9", "680003", "872019", "FFDAD5", "121010", "EAE1D7", "121010", "EAE1D7",
-            "4C4639", "D0C6B5", "0C0A09", "1C1916", "221E1A", "2D2823", "38322B", "999080", "4C4639")
+        val expected = listOf("FFB94A", "2A1800", "FFB224", "231500",
+            "D4C5AC", "392F1E", "4A3410", "FFDFA3", "9FD6A6", "0F3A1C", "1F4027", "C8EBCB",
+            "FFB4A9", "680003", "5C1D18", "FFDAD5", "0F0E0D", "EDE6DD", "0F0E0D", "EDE6DD",
+            "34302C", "CFC5B7", "1D1B19", "171514", "221F1D", "2A2724", "34302C", "958B7E", "3C3833")
         assertEquals(expected.map { (0xFF000000L or it.toLong(16)).toInt() }, actual.map { it.toArgb() })
     }
 

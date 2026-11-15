@@ -3,27 +3,35 @@
 A lifter uses the phone under bright gym lighting, then in a dim room at home:
 respect system light/dark mode rather than imposing either.
 
-## Design system (0.1.12, "Bolder")
+## Design system ("Ink + Ember")
 
 Everything visual comes from `ui/theme/Theme.kt` and the shared components in
 `ui/Components.kt`; screens never pick their own sizes or colors.
 
-- **Color.** Warm neutrals with a committed amber accent, as Compose sRGB values.
-  Amber carries primary actions, current selection and state, never decoration.
-  Light: surface `#FAF9F7`, primary `#805300` with white labels, selection and the
-  rest bar `#FFE3B0`. Dark: surface `#121010`, primary `#FFB94A` with `#3A2500`
-  labels, selection `#5A4318`. Five surface-container steps separate docks, bars,
-  cards and lists without borders. `ThemeTest` holds every text and control pair at
-  WCAG 4.5:1 (3:1 for outlines) in both themes. A night window background matches
-  the dark surface, so nothing light shows behind system bars.
-- **Type.** One Roboto scale, every role with tabular figures. Titles and numbers are
-  heavy (SemiBold/Bold); body stays regular. Top-level screens name themselves in
-  `headlineSmall`; pushed screens use `titleLarge` beside Back; section headings are
-  always `SectionHeader` (`titleSmall`). The number a user looks for is the largest
-  on its surface: the rest countdown is `headlineMedium`.
-- **Shape.** 8 dp chips and fields, 12 dp cards, 16 dp sheets, 28 dp dialogs.
-- **Spacing.** A 4/8/12/16/24 dp grid; 24 dp between sections, 12 dp within.
-  Content is a centered column capped at 640 dp on wide windows.
+- **Color.** A warm tinted canvas with lighter (light) or raised (dark) cards,
+  separated by tone, never by borders or dividers. Light: canvas `#F3EFE9`, cards
+  `#FFFFFF`. Dark: canvas `#0F0E0D`, cards `#1D1B19`. Signal amber `#FFB224` with
+  ink labels (`#231500`) is the one action and rest color in both themes: main
+  buttons, the rest sheet, selection and today's progress. Amber as text, focus
+  rings and selected controls uses amber-ink `#7A4D00` on light and `#FFB94A` on
+  dark (`accentText()`), because signal amber is only a fill. Selection is
+  `secondaryContainer` everywhere (chips, tabs, segmented controls). `ThemeTest`
+  holds every text and control pair at WCAG 4.5:1 (3:1 for outlines) in both themes.
+- **Type.** Roboto for words, the platform's `sans-serif-condensed` Bold for the
+  numbers a lifter reads at a glance (countdown, set values, entry tiles, stat
+  tiles, chart readouts); every role uses tabular figures. Top-level screens name
+  themselves in `headlineLarge` (32 sp, tight tracking); exercise and session names
+  are `headlineMedium`. Logged sets use `ledgerValueStyle()`.
+- **Shape.** Buttons are full pills; chips, fields, tiles and exercise tabs 12 dp;
+  cards and grouped lists 20 dp (4 dp where grouped rows meet, with 2 dp gaps);
+  docks and the rest sheet 24–28 dp top corners; dialogs 32 dp.
+- **Buttons.** Main actions are signal-amber pills (`Button`). Secondary actions
+  are tonal pills (`SecondaryButton`). Destructive actions are red. In dialogs the
+  confirm action is an amber (or red) pill and dismiss is a tonal pill; plain text
+  buttons appear only outside dialogs for quiet links.
+- **Spacing.** A 4/8/12/16/20/24 dp grid; a 20 dp gutter; 16 dp between sections.
+  Content is a centered column capped at 640 dp on wide windows. Scrolling pages
+  fade at an edge only when there is content beyond it.
 - **Motion.** Only state changes move, in 150–220 ms with ease-out: the ledger grows
   as sets are logged, options expand, a panel that replaces another (Target done)
   rises in once. Android's animation scale, including Remove animations, applies.
@@ -63,8 +71,10 @@ read the set by its own first stage; drops are never plotted. The set's editor l
 "Add a missed drop". Spoken: "Set 2: 42.5 kg per dumbbell × 9 @ 1 RIR, with
 1 drop: 32.5 kg per dumbbell × 7 @ 0 RIR."
 
-The rest bar leads with a small "Rest" label over a large tabular countdown, an
-explicit "+30 s" text action, Skip and Options; −30 s and Set time live in Options.
+The rest bar is a full-width signal-amber sheet docked above the navigation (rounded
+top, square bottom): a small "Rest" label over a large condensed countdown, a tonal
+"+30 s", an ink Skip pill and Options, with a thin progress line along its foot.
+−30 s and Set time (minute and second wheels) live in Options.
 Leaving the app during a rest shows a picture-in-picture countdown and an ongoing
 countdown notification. At text above 130% or in a short landscape window the bar
 folds into one line ("Rest 2:30 · alerts off") so it never takes the workspace.
@@ -113,6 +123,11 @@ working sets per primary muscle, starting on the latest week that has any, then
 the list. Tabs never break a word: at large text they scroll. The tabs are pages: swipe left or right between
 them, and the indicator slides with the finger. A horizontal drag on a chart reads the chart instead, so charts
 keep their touch.
+The calendar, the muscle bars and every chart sit in cards; workouts, exercises,
+records and sessions are grouped lists. Set charts draw each session's best set as
+a straight amber line over a soft fill (other sets are faint dots, the latest point
+is ringed); the bodyweight average is a smooth curve. A finished workout opens on
+Minutes, Working sets and Exercises tiles, then one card per exercise.
 Exercises have a search field; each exercise's page adds **Records**: the
 heaviest working set actually lifted at each rep count up to 15, with ones beaten
 at more reps folded away. No estimated one-rep max.

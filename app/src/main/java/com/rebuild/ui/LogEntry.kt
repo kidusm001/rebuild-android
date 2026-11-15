@@ -1,5 +1,12 @@
 package com.rebuild.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.navigationBarsPadding
 import android.content.res.Configuration
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -18,14 +25,12 @@ import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -309,8 +314,11 @@ internal fun EntryPanel(
             SetFields(we.exercise, draft.kg, { draft.kg = it }, draft.reps, { draft.reps = it }, draft.rir,
                 { draft.rir = it }, { log() }, "entry", draft.validation, draft.validationAttempt, showRirHint = false,
                 unit = we.entryLoadUnit, stackOnError = false,
-                repsHint = if (we.minReps != null && we.maxReps != null) "${we.minReps}–${we.maxReps}" else null,
-                rirHint = we.targetRir?.toString())
+                // At large text the target line above already says it; tiles keep one-line labels and equal heights.
+                repsHint = if (!large && we.minReps != null && we.maxReps != null) "${we.minReps}–${we.maxReps}" else null,
+                rirHint = we.targetRir?.takeIf { !large }?.toString(),
+                // A short landscape window keeps compact fields so the whole entry fits above the keyboard.
+                prominent = !landscape)
         }
     }
 
@@ -532,7 +540,7 @@ private fun WarmupChip(selected: Boolean, onToggle: () -> Unit, modifier: Modifi
 
 @Composable
 private fun ToggleChip(label: String, selected: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
-    FilterChip(
+    TonalChip(
         selected = selected,
         onClick = onToggle,
         label = { Text(label, maxLines = 1) },
@@ -559,17 +567,27 @@ internal fun TargetMetPanel(
 ) {
     val large = LocalDensity.current.fontScale > 1.3f
     EnterOnce { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            RebuildIcon(R.drawable.ic_check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        // A green status pill: a done target reads as a fact, not a celebration.
+        Row(
+            Modifier.padding(vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(Modifier.size(28.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiaryContainer),
+                contentAlignment = Alignment.Center) {
+                RebuildIcon(R.drawable.ic_check, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.size(18.dp))
+            }
             Text(
                 message,
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite }
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
             )
         }
         @Composable fun Primary(modifier: Modifier) {
             if (onNext != null && nextName != null) {
-                Button(onClick = onNext, modifier = modifier.heightIn(min = 56.dp).testTag("next-exercise")) {
+                Button(onClick = onNext, modifier = modifier.heightIn(min = 60.dp).testTag("next-exercise")) {
                     Text("Next: $nextName", maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             } else {
@@ -640,13 +658,14 @@ internal fun LogDock(
     content: @Composable ColumnScope.(viewportHeight: Int) -> Unit
 ) {
     var viewport by remember { mutableIntStateOf(0) }
+    // A sheet risen from the bottom edge: rounded top corners and tone, no rule above it.
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         modifier = modifier.fillMaxWidth().testTag("log-dock")
     ) {
         // The dock paints behind the gesture area in its own color; its controls stay above it.
         Column(Modifier.navigationBarsPadding()) {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Column(
                 Modifier
                     .readableWidth()
@@ -654,8 +673,8 @@ internal fun LogDock(
                     .onFocusChanged { onFocusChange(it.hasFocus) }
                     .focusGroup()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) { content(viewport) }
         }
     }

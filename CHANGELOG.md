@@ -4,6 +4,16 @@ Every version installs over the one before it with the same signing key and keep
 on, release APKs are built and published by [GitHub Actions](.github/workflows/release.yml); notes for each are in
 [docs/releases](docs/releases/).
 
+## 0.2.0 (version code 20)
+- A new look: warm tonal cards instead of outlines and dividers, bold condensed numbers, amber main buttons and pill
+  dialog buttons, in light and dark.
+- The rest timer is a full-width amber sheet with a large countdown; rest times are set with minute and second wheels
+  and one-tap choices.
+- Set entry uses large number tiles with the target in each label; a set with drops reads exactly like any other set.
+- History: charts redesigned with an amber trend line and large readouts, cards for the calendar and muscle bars,
+  grouped lists, and stat tiles on each finished workout.
+- Unlikely loads ask for confirmation before saving; one name per training phase everywhere; clearer Plan and More.
+
 ## 0.1.18 (version code 19)
 - Compose BOM 2026.03.01: no more scroll-into-view animation crash when focusing an entry while the keyboard slides in.
 - Plan screen: weekly working sets totals are explicitly labelled on their rows for accessibility.

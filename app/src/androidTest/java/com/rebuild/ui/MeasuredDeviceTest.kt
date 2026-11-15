@@ -1,5 +1,7 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.os.ParcelFileDescriptor
@@ -801,6 +803,7 @@ class MeasuredDeviceTest {
         }
         launch(repo)
         rule.onNodeWithText("History").performClick()
+        rule.onNodeWithTag("history-workouts").performScrollToNode(hasText(EXTRA_WORKOUT_NAME))
         rule.onNodeWithText(EXTRA_WORKOUT_NAME).performClick()
         rule.onNodeWithContentDescription("Options for Treadmill").performScrollTo().performClick()
         rule.onNodeWithContentDescription("Add missed effort for Treadmill").performClick()

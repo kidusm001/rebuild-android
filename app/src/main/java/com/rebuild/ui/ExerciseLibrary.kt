@@ -1,5 +1,13 @@
 package com.rebuild.ui
 
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -31,7 +39,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -294,7 +301,7 @@ private fun <T> FilterDropdown(
 ) {
     var open by rememberSaveable { mutableStateOf(false) }
     Box {
-        FilterChip(
+        TonalChip(
             selected = value != null,
             onClick = { open = true },
             label = { Text(if (value == null) allLabel else title(value)) },
@@ -342,19 +349,27 @@ internal fun LoadUnitSelector(
     enabled: Boolean = true,
     onSelect: (LoadUnit) -> Unit
 ) {
-    // One choice from a small set: a Material segmented button, not loose chips.
-    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-        options.forEachIndexed { index, option ->
-            SegmentedButton(
-                selected = unit == option,
-                onClick = { onSelect(option) },
-                enabled = enabled,
-                shape = SegmentedButtonDefaults.itemShape(index, options.size),
-                label = { Text(if (option == LoadUnit.PLATES) "Plates" else unitName(option), maxLines = 1) },
-                modifier = Modifier.heightIn(min = 48.dp).testTag("unit-${option.name}")
+    // One choice from a small set: pills in a tonal track; the chosen one is filled ink (amber in dark).
+    val colors = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().clip(CircleShape).background(colors.surfaceContainerHigh).padding(4.dp).selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        options.forEach { option ->
+            val selected = unit == option
+            Box(
+                Modifier.weight(1f).heightIn(min = 48.dp).clip(CircleShape)
+                    .background(if (selected) colors.secondaryContainer else Color.Transparent)
+                    .selectable(selected = selected, enabled = enabled, role = Role.RadioButton) { onSelect(option) }
+                    .testTag("unit-${option.name}")
                     .semantics { contentDescription = if (option == LoadUnit.LB) "Pounds" else if (option == LoadUnit.KG)
-                        "Kilograms" else "Plates per stack" }
-            )
+                        "Kilograms" else "Plates per stack" },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(if (option == LoadUnit.PLATES) "Plates" else unitName(option), maxLines = 1,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (selected) colors.onSecondaryContainer else colors.onSurface)
+            }
         }
     }
 }

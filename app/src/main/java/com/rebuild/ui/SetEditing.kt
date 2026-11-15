@@ -1,5 +1,15 @@
 package com.rebuild.ui
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import com.rebuild.domain.takesLoad
 import com.rebuild.domain.loadUnitOptions
 import androidx.compose.foundation.layout.Arrangement
@@ -14,7 +24,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.focus.focusRequester
@@ -104,8 +113,12 @@ internal fun SetFields(
     stackOnError: Boolean = true,
     // The target, shown inside the empty Reps and RIR fields, so it stays in view while the keyboard is open.
     repsHint: String? = null,
-    rirHint: String? = null
+    rirHint: String? = null,
+    /** The live entry shows its values as large numerals; dialogs keep body text. */
+    prominent: Boolean = false
 ) {
+    val valueStyle = if (prominent) MaterialTheme.typography.displaySmall.copy(fontSize = 28.sp, lineHeight = 32.sp)
+    else MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum")
     if (exercise.loading == LoadingType.BODYWEIGHT) {
         Text(
             "Bodyweight exercise: no weight to enter.",
@@ -125,19 +138,23 @@ internal fun SetFields(
             val mass = unit != LoadUnit.PLATES
             SetNumberField(kg, onKg, label, SetField.KG, failure, validationAttempt,
                 modifier.testTag("$tagPrefix-${if (mass) "kg" else "plates"}"),
-                decimal = mass, filterNumericInput = mass, showMessage = stackOnError)
+                decimal = mass, filterNumericInput = mass, showMessage = stackOnError, valueStyle = valueStyle, tile = prominent)
         }
-        SetNumberField(reps, onReps, "Reps", SetField.REPS, failure, validationAttempt,
-            modifier.testTag("$tagPrefix-reps"), decimal = false, showMessage = stackOnError, placeholder = repsHint)
+        SetNumberField(reps, onReps, repsHint?.let { "Reps · $it" } ?: "Reps", SetField.REPS, failure, validationAttempt,
+            modifier.testTag("$tagPrefix-reps"), decimal = false, showMessage = stackOnError, valueStyle = valueStyle, tile = prominent)
         SetNumberField(
-            rir, onRir, "RIR", SetField.RIR, failure, validationAttempt, modifier.testTag("$tagPrefix-rir"),
-            imeAction = ImeAction.Done, onDone = onDone, showMessage = stackOnError, placeholder = rirHint
+            rir, onRir, rirHint?.let { "RIR · $it" } ?: "RIR", SetField.RIR, failure, validationAttempt, modifier.testTag("$tagPrefix-rir"),
+            imeAction = ImeAction.Done, onDone = onDone, showMessage = stackOnError,
+            valueStyle = valueStyle, tile = prominent
         )
     }
     if (failure != null && stackOnError) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Fields(Modifier.fillMaxWidth()) }
     } else {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { Fields(Modifier.weight(1f)) }
+        // Equal-height tiles, even when one label is longer.
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Fields(Modifier.weight(1f).then(if (prominent) Modifier.fillMaxHeight() else Modifier))
+        }
     }
     // The failing field is focused and carries the error itself, so this visible copy is not a live region.
     if (failure != null && !stackOnError) Text(
@@ -155,7 +172,9 @@ private fun SetNumberField(
     value: String, onValue: (String) -> Unit, label: String, field: SetField,
     failure: SetValidation.Invalid?, validationAttempt: Int, modifier: Modifier,
     decimal: Boolean = true, imeAction: ImeAction = ImeAction.Next, onDone: () -> Unit = {},
-    filterNumericInput: Boolean = true, showMessage: Boolean = true, placeholder: String? = null
+    filterNumericInput: Boolean = true, showMessage: Boolean = true, placeholder: String? = null,
+    valueStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyLarge,
+    tile: Boolean = false
 ) {
     val focus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
     val bring = androidx.compose.runtime.remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
@@ -164,7 +183,7 @@ private fun SetNumberField(
         modifier.focusRequester(focus).bringIntoViewRequester(bring),
         decimal = decimal, isError = message != null, supportingText = message?.takeIf { showMessage },
         imeAction = imeAction, onDone = onDone, filterNumericInput = filterNumericInput, errorSemantics = message,
-        placeholder = placeholder)
+        placeholder = placeholder, valueStyle = valueStyle, tile = tile)
     LaunchedEffect(validationAttempt) {
         if (message != null) {
             focus.requestFocus()

@@ -1,5 +1,19 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.graphics.Path
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.zIndex
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.text.style.TextAlign
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -27,7 +41,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -40,7 +53,6 @@ import androidx.compose.material3.TabPosition
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -116,7 +128,7 @@ internal fun HistoryScreen(
     ScreenScaffold(title = "History") {
         val tab = pager.currentPage
         val tabs = @Composable {
-            val selected = MaterialTheme.colorScheme.primary
+            val selected = MaterialTheme.colorScheme.onSecondaryContainer
             val unselected = MaterialTheme.colorScheme.onSurfaceVariant
             HISTORY_TABS.forEachIndexed { i, label ->
                 Tab(selected = tab == i, onClick = { scope.launch { pager.animateScrollToPage(i) } },
@@ -126,24 +138,32 @@ internal fun HistoryScreen(
             }
         }
         // The indicator slides with the finger, between the page it leaves and the one it's heading to.
-        val indicatorColor = MaterialTheme.colorScheme.primary
+        val indicatorColor = MaterialTheme.colorScheme.secondaryContainer
         val indicator = @Composable { positions: List<TabPosition> ->
             if (positions.isNotEmpty()) {
                 val fraction = pager.currentPageOffsetFraction
                 val from = positions[pager.currentPage.coerceIn(positions.indices)]
                 val to = positions.getOrNull(pager.currentPage + if (fraction > 0) 1 else -1) ?: from
-                TabRowDefaults.SecondaryIndicator(
-                    Modifier.fillMaxWidth().wrapContentSize(Alignment.BottomStart)
+                // A pill behind the label, inside a tonal track: a segmented control, not an underline.
+                Box(
+                    Modifier.fillMaxSize().wrapContentSize(Alignment.CenterStart)
                         .offset(x = lerp(from.left, to.left, abs(fraction)))
-                        .width(lerp(from.width, to.width, abs(fraction))),
-                    color = indicatorColor
+                        .width(lerp(from.width, to.width, abs(fraction)))
+                        .fillMaxHeight()
+                        .padding(4.dp)
+                        .zIndex(-1f)
+                        .clip(CircleShape)
+                        .background(indicatorColor)
                 )
             }
         }
         // A label never breaks mid-word: at large text the tabs scroll instead of squeezing.
-        if (LocalDensity.current.fontScale > 1.3f) ScrollableTabRow(selectedTabIndex = tab, modifier = Modifier.readableWidth(),
-            edgePadding = 0.dp, indicator = indicator) { tabs() }
-        else TabRow(selectedTabIndex = tab, modifier = Modifier.readableWidth(), indicator = indicator) { tabs() }
+        val track = Modifier.readableWidth().padding(horizontal = 20.dp, vertical = 4.dp).clip(CircleShape)
+        val trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        if (LocalDensity.current.fontScale > 1.3f) ScrollableTabRow(selectedTabIndex = tab, modifier = track,
+            edgePadding = 0.dp, indicator = indicator, divider = {}, containerColor = trackColor) { tabs() }
+        else TabRow(selectedTabIndex = tab, modifier = track, indicator = indicator, divider = {},
+            containerColor = trackColor) { tabs() }
         // A horizontal drag on a chart reads the chart; anywhere else on a page it turns the page.
         HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth().testTag("history-pager"), key = { it },
             verticalAlignment = Alignment.Top) { page ->
@@ -165,30 +185,41 @@ private val HISTORY_TABS = listOf("Workouts", "Exercises", "Body")
 
 @Composable
 private fun ColumnScope.NoFinishedWorkouts(onOpenToday: () -> Unit) {
-    ScrollBody {
-        Text("No finished workouts yet", style = MaterialTheme.typography.titleMedium)
+    // Centred in the upper part of the page, with an icon, so the empty page reads as intentional.
+    Column(
+        Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp, vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(Modifier.size(80.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            contentAlignment = Alignment.Center) {
+            RebuildIcon(R.drawable.ic_history, contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(36.dp))
+        }
+        Text("No finished workouts yet", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
         Text(
             "Finish a workout from Today and its sets, notes and exercise charts appear here.",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
-        // Nothing here competes with it, so it needn't be the loud primary.
-        SecondaryButton(onClick = onOpenToday, icon = R.drawable.ic_arrow_right) { Text("Go to Today") }
+        Button(onClick = onOpenToday, modifier = Modifier.padding(top = 8.dp).heightIn(min = 48.dp)) { Text("Go to Today") }
     }
 }
 
 @Composable
 private fun ColumnScope.WorkoutsPage(env: AppEnv, finished: List<Workout>, onNavigate: (String) -> Unit) {
-    LazyBody(spacing = 0.dp) {
-        item(key = "calendar") { WorkoutCalendar(env, onOpen = { onNavigate(Routes.workoutDetail(it.id)) }) }
-        item(key = "muscles") { WeeklyMuscleSets(env) }
+    LazyBody(spacing = 0.dp, modifier = Modifier.testTag("history-workouts")) {
+        item(key = "calendar") {
+            ChartCard(Modifier.padding(bottom = 12.dp)) { WorkoutCalendar(env, onOpen = { onNavigate(Routes.workoutDetail(it.id)) }) }
+        }
+        item(key = "muscles") { ChartCard(Modifier.padding(bottom = 12.dp)) { WeeklyMuscleSets(env) } }
         historyMonths(finished).forEach { (month, workouts) ->
             item(key = "month/$month") {
                 SectionHeader(month, Modifier.padding(top = 8.dp, bottom = 4.dp))
             }
             itemsIndexed(workouts, key = { _, w -> w.id }) { i, workout ->
-                Column {
-                    if (i > 0) HorizontalDivider()
+                Box(Modifier.groupedRow(i, workouts.lastIndex)) {
                     HistoryWorkoutRow(workout) { onNavigate(Routes.workoutDetail(workout.id)) }
                 }
             }
@@ -208,20 +239,26 @@ private fun ColumnScope.ExercisesPage(finished: List<Workout>, onNavigate: (Stri
     val shown = identities.filter { (exercise, _, _) -> query.isBlank() || exercise.name.contains(query.trim(), ignoreCase = true) }
     LazyBody(spacing = 0.dp) {
         item(key = "search") {
-            OutlinedTextField(
+            // A filled pill search field, not an outlined form box.
+            androidx.compose.material3.TextField(
                 query, { query = it },
-                label = { Text("Search your exercises") },
+                placeholder = { Text("Search your exercises") },
                 leadingIcon = { RebuildIcon(R.drawable.ic_search, contentDescription = null) },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).testTag("history-exercise-search")
+                shape = CircleShape,
+                colors = androidx.compose.material3.TextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp).semantics { contentDescription = "Search your exercises" }
+                    .testTag("history-exercise-search")
             )
         }
         if (shown.isEmpty()) item(key = "none") {
             Text("No exercise matches \"${query.trim()}\".", modifier = Modifier.padding(vertical = 12.dp))
         }
         itemsIndexed(shown, key = { _, (exercise, _, _) -> Routes.exerciseHistory(exercise) }) { i, (exercise, sessions, last) ->
-            Column {
-                if (i > 0) HorizontalDivider()
+            Column(Modifier.groupedRow(i, shown.lastIndex)) {
                 ListRow(
                     headline = exercise.name,
                     supporting = "${loadingShort(exercise).replaceFirstChar { it.uppercase() }} · " +
@@ -249,6 +286,8 @@ private fun HistoryWorkoutRow(workout: Workout, onClick: () -> Unit) {
             .fillMaxWidth()
             .heightIn(min = 72.dp)
             .clickable(onClick = onClick)
+            // Its own name, kept even when the row is scrolled to a sliver and its texts are clipped away.
+            .semantics { contentDescription = "${workout.name}, ${formatDate(workout.startedAt)}" }
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -344,6 +383,18 @@ internal fun WorkoutDetailScreen(env: AppEnv, workout: Workout, onBack: () -> Un
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                    // Duration, working sets and exercises at a glance.
+                    val minutes = workout.finishedAt?.let { ((it - workout.startedAt) / 60_000).toInt() }
+                    val working = workout.exercises.sumOf { it.workingCount() }
+                    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (minutes != null) StatTile("$minutes", "Minutes", Modifier.weight(1f).fillMaxHeight(),
+                            spoken = "$minutes minutes")
+                        StatTile("$working", "Working sets", Modifier.weight(1f).fillMaxHeight(), emphasized = true,
+                            spoken = "$working working sets")
+                        StatTile("${workout.exercises.size}", "Exercises", Modifier.weight(1f).fillMaxHeight(),
+                            spoken = "${workout.exercises.size} exercises")
+                    }
                     WeekCredit(env, workout)
                     // A finished workout can seed a library routine; the workout itself never changes.
                     if (workout.finishedAt != null && workout.exercises.isNotEmpty()) {
@@ -363,8 +414,8 @@ internal fun WorkoutDetailScreen(env: AppEnv, workout: Workout, onBack: () -> Un
             items(workout.exercises, key = { "exercise/${it.id}" }) { we ->
                 val measured = we.exercise.measured
                 var noteOpen by rememberSaveable(we.id) { mutableStateOf(false) }
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    HorizontalDivider()
+                // Each exercise is a card: header, its sets, its note.
+                ChartCard(Modifier.padding(top = 4.dp)) {
                     HistoryExerciseHeader(
                         workout, we,
                         busy = env.runner.busy,
@@ -405,8 +456,7 @@ internal fun WorkoutDetailScreen(env: AppEnv, workout: Workout, onBack: () -> Un
                 }
             }
             item(key = "add-exercise") {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    HorizontalDivider()
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 8.dp)) {
                     notice?.let { NoticeLine(it) { notice = null } }
                     SecondaryButton(
                         onClick = { addingExercise = true },
@@ -748,7 +798,6 @@ private fun HistorySetTable(we: WorkoutExercise, onEdit: (LoggedSet) -> Unit, on
             val group = set.groupId?.let(groupEntries::get)
             // A group is one row, at the position of its first stage.
             if (group != null && group.stages.first().id != set.id) return@forEach
-            if (!first) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             first = false
             if (!set.warmup) workingIndex++
             val label = if (set.warmup) "Warm-up" else "Set $workingIndex"
@@ -757,7 +806,7 @@ private fun HistorySetTable(we: WorkoutExercise, onEdit: (LoggedSet) -> Unit, on
                 Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("$workingIndex", style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(28.dp).clearAndSetSemantics {})
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(28.dp).clearAndSetSemantics { hideFromAccessibility() })
                     GroupRow(group, label, we.exercise, extra, onOpen = { onGroup(group.group.id) }, modifier = Modifier.weight(1f))
                 }
                 return@forEach
@@ -777,13 +826,13 @@ private fun HistorySetTable(we: WorkoutExercise, onEdit: (LoggedSet) -> Unit, on
                     if (set.warmup) "W" else "$workingIndex",
                     style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.width(28.dp).clearAndSetSemantics {}
+                    modifier = Modifier.width(28.dp).clearAndSetSemantics { hideFromAccessibility() }
                 )
                 Column(Modifier.weight(1f)) {
                     Text(
                         loadRepsText(set, we.exercise),
-                        style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum"),
-                        fontWeight = if (set.warmup) FontWeight.Normal else FontWeight.SemiBold,
+                        style = if (set.warmup) MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum") else ledgerValueStyle(),
+                        fontWeight = if (set.warmup) FontWeight.Normal else FontWeight.Bold,
                         color = if (set.warmup) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
                     )
                     Text(
@@ -792,8 +841,7 @@ private fun HistorySetTable(we: WorkoutExercise, onEdit: (LoggedSet) -> Unit, on
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                RebuildIcon(R.drawable.ic_pencil, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp))
+                LoggedRowEditMark()
             }
         }
     }
@@ -804,15 +852,16 @@ private fun HistorySetTable(we: WorkoutExercise, onEdit: (LoggedSet) -> Unit, on
 internal fun ColumnScope.LazyBody(
     spacing: Dp = 12.dp,
     state: LazyListState = rememberLazyListState(),
+    modifier: Modifier = Modifier,
     content: LazyListScope.() -> Unit
 ) {
     LazyColumn(
-        Modifier
+        modifier
             .weight(1f)
             .readableWidth()
             .yieldsToFixedControls(),
         state = state,
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(spacing),
         content = content
     )
@@ -889,16 +938,15 @@ internal fun ExerciseHistoryScreen(
                     Modifier
                         .fillMaxWidth()
                         .clip(MaterialTheme.shapes.medium)
-                        .background(MaterialTheme.colorScheme.surfaceContainer)
+                        .background(MaterialTheme.colorScheme.surfaceContainerLowest)
                         .semantics(mergeDescendants = true) {}
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text("Latest · ${formatDate(latest.workout.startedAt)}", style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        color = accentText())
                     latest.entries.forEach {
-                        Text(entryText(it, exercise), style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum"),
-                            fontWeight = FontWeight.Medium)
+                        Text(entryText(it, exercise), style = ledgerValueStyle())
                     }
                     Text("${countLabel(sessions.size, "session")} since ${formatDate(sessions.first().workout.startedAt)}",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -944,10 +992,10 @@ internal fun ExerciseHistoryScreen(
             // When only some sessions counted reps per leg, each of those says so; reps are never converted.
             val mixedPerLeg = sessions.any { it.perLeg } && !sessions.all { it.perLeg }
             itemsIndexed(sessions.asReversed()) { i, s ->
-                Column {
-                    if (i > 0) HorizontalDivider()
+                // Merged on the card itself, so a sliver of its edge still reads as the session.
+                Column(Modifier.groupedRow(i, sessions.lastIndex).semantics(mergeDescendants = true) {}) {
                     Row(
-                        Modifier.fillMaxWidth().padding(vertical = 8.dp).semantics(mergeDescendants = true) {},
+                        Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Text(formatDate(s.workout.startedAt), style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
@@ -1008,8 +1056,11 @@ internal fun SetChart(
     val max = values.max()
     val flat = max <= min
     val span = if (flat) 1.0 else max - min
-    val color = MaterialTheme.colorScheme.primary
-    val grid = MaterialTheme.colorScheme.outlineVariant
+    val color = accentText()
+    val fill = MaterialTheme.colorScheme.primaryContainer
+    val faint = MaterialTheme.colorScheme.onSurfaceVariant
+    val cardColor = MaterialTheme.colorScheme.surfaceContainerLowest
+    val grid = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
     val guide = MaterialTheme.colorScheme.outline
     val describe = "$title chart: ${sessions.size} sessions, values from ${format(min)} to " +
         "${format(max)}, ${formatDate(firstDate)} to ${formatDate(lastDate)}. Latest session: ${sessions.last().joinToString { format(it) }}."
@@ -1031,15 +1082,15 @@ internal fun SetChart(
             List(sessions.size) { i -> pad + if (sessions.size > 1) w / (sessions.size - 1) * i else w / 2 }
         }
     }
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(bottom = 4.dp))
+    ChartCard(modifier) {
+        Text(title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
         ChartReadout(readValue, readDetail, touched = selection.value != null || sessions.size < 2)
         Row {
             Column(
                 Modifier
                     .height(chartHeight)
                     .padding(end = 8.dp)
-                    .clearAndSetSemantics {},
+                    .clearAndSetSemantics { hideFromAccessibility() },
                 verticalArrangement = if (flat) Arrangement.Center else Arrangement.SpaceBetween,
                 horizontalAlignment = Alignment.End
             ) {
@@ -1062,30 +1113,34 @@ internal fun SetChart(
                 val w = size.width - pad * 2
                 listOf(0f, 0.5f, 1f).forEach { f ->
                     val y = pad + h * f
-                    drawLine(grid, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx(),
-                        pathEffect = if (f == 0.5f) PathEffect.dashPathEffect(floatArrayOf(8f, 8f)) else null)
+                    drawLine(grid, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
                 }
                 val step = if (sessions.size > 1) w / (sessions.size - 1) else 0f
                 fun xOf(i: Int) = pad + if (sessions.size > 1) step * i else w / 2
                 fun yOf(v: Double) = pad + if (flat) h / 2 else h * (1f - ((v - min) / span).toFloat())
                 selection.value?.let { i -> drawLine(guide, Offset(xOf(i), 0f), Offset(xOf(i), size.height), strokeWidth = 1.dp.toPx()) }
-                // A faint line through each session's top value, to read the trend; the dots remain the data.
-                if (sessions.size > 1) {
-                    val tops = sessions.mapIndexedNotNull { i, set -> set.maxOrNull()?.let { Offset(xOf(i), yOf(it)) } }
-                    tops.zipWithNext { a, b -> drawLine(color.copy(alpha = 0.3f), a, b, strokeWidth = 1.5.dp.toPx()) }
-                }
+                // Each session's other sets are faint dots; its best set carries a smooth line with a soft wash beneath.
                 sessions.forEachIndexed { i, set ->
-                    val x = xOf(i)
-                    val emphasized = i == (selection.value ?: sessions.lastIndex)
-                    set.forEach { v ->
-                        val y = yOf(v)
-                        drawCircle(if (emphasized) color else color.copy(alpha = 0.7f),
-                            radius = (if (emphasized) 5 else 4).dp.toPx(), center = Offset(x, y))
-                    }
+                    val top = set.maxOrNull()
+                    set.forEach { v -> if (v != top) drawCircle(faint.copy(alpha = 0.45f), radius = 3.dp.toPx(), center = Offset(xOf(i), yOf(v))) }
+                }
+                val tops = sessions.mapIndexedNotNull { i, set -> set.maxOrNull()?.let { Offset(xOf(i), yOf(it)) } }
+                if (tops.size > 1) {
+                    // Straight segments: sets are discrete, and a curve would invent values between sessions.
+                    fun line() = Path().apply { moveTo(tops.first().x, tops.first().y); tops.drop(1).forEach { lineTo(it.x, it.y) } }
+                    val area = line().apply { lineTo(tops.last().x, size.height); lineTo(tops.first().x, size.height); close() }
+                    drawPath(area, Brush.verticalGradient(listOf(fill.copy(alpha = 0.35f), fill.copy(alpha = 0f))))
+                    drawPath(line(), color, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                }
+                tops.forEach { drawCircle(color, radius = 2.5.dp.toPx(), center = it) }
+                val at = selection.value ?: sessions.lastIndex
+                tops.getOrNull(at)?.let { c ->
+                    drawCircle(cardColor, radius = 7.dp.toPx(), center = c)
+                    drawCircle(color, radius = 7.dp.toPx(), center = c, style = Stroke(width = 3.dp.toPx()))
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().clearAndSetSemantics {}, horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = "From ${formatDate(firstDate)} to ${formatDate(lastDate)}" }, horizontalArrangement = Arrangement.SpaceBetween) {
             Text(formatDate(firstDate), style = axisStyle, color = axisColor)
             if (sessions.size > 1) Text(formatDate(lastDate), style = axisStyle, color = axisColor)
         }

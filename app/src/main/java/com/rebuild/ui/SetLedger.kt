@@ -1,5 +1,8 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
@@ -226,14 +229,15 @@ private fun TableRow(
     Row(
         Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(8.dp))
             .background(if (highlighted) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent)
-            .padding(horizontal = 8.dp),
+            // Cells end on the content gutter, flush with the cards below.
+            .padding(start = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             ordinal,
             style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
-            color = if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (highlighted) accentText() else MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = if (highlighted) FontWeight.Bold else FontWeight.Medium,
             modifier = Modifier.width(28.dp).clearAndSetSemantics {}
         )
@@ -273,11 +277,13 @@ private fun RowToday(row: LedgerRow, exercise: Exercise, extra: Boolean, stacked
         is WorkEntry.Group -> GroupRow(entry, "Set ${row.ordinal}", exercise, extra, onOpen = { onGroup(entry.group.id) },
             modifier = modifier.then(if (stacked) Modifier.fillMaxWidth() else Modifier))
         null -> if (row.state == LedgerState.NEXT || row.state == LedgerState.PLANNED) {
+            val accent = accentText()
             val next = row.state == LedgerState.NEXT
-            val color = if (next) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
             Box(
                 modifier.heightIn(min = 44.dp).then(if (stacked) Modifier.fillMaxWidth() else Modifier)
-                    .dashedOutline(color)
+                    // A filled slot, not a dashed wireframe: amber-tinted for the next set, neutral for later ones.
+                    // A dashed, empty slot: nothing is logged here yet, and it is clearly not a button.
+                    .dashedOutline(if (next) accent else MaterialTheme.colorScheme.outline)
                     .clearAndSetSemantics {
                         contentDescription = "Set ${row.ordinal}: ${if (next) "up next" else "planned"}, not logged yet"
                     }
@@ -285,7 +291,7 @@ private fun RowToday(row: LedgerRow, exercise: Exercise, extra: Boolean, stacked
                 contentAlignment = Alignment.CenterStart
             ) {
                 // The dashed outline already says nothing is logged; the label only says which row is next.
-                if (next) Text("Up next", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                if (next) Text("Up next", style = MaterialTheme.typography.labelLarge, color = accent)
                 else Text("Not logged", style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -300,18 +306,20 @@ private fun RowToday(row: LedgerRow, exercise: Exercise, extra: Boolean, stacked
 private fun TodayCell(set: LoggedSet, label: String, extra: Boolean, exercise: Exercise, stacked: Boolean,
     onEdit: (LoggedSet) -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier.heightIn(min = 48.dp).then(if (stacked) Modifier.fillMaxWidth() else Modifier)
-            .clip(RoundedCornerShape(8.dp))
+        modifier.heightIn(min = 56.dp).then(if (stacked) Modifier.fillMaxWidth() else Modifier)
+            .clip(MaterialTheme.shapes.small)
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
             .clickable(onClickLabel = "Edit $label") { onEdit(set) }
             .semantics(mergeDescendants = true) { contentDescription = "$label: ${setText(set, exercise).spokenUnits()}" }
             .testTag("set-row")
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
             Text(
                 if (stacked) "Today: ${loadRepsText(set, exercise)}" else loadRepsText(set, exercise),
-                style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum"),
+                // The logged set is the number this screen exists for: condensed and large.
+                style = ledgerValueStyle(),
                 fontWeight = if (set.warmup) FontWeight.Normal else FontWeight.SemiBold
             )
             Text(
@@ -320,8 +328,7 @@ private fun TodayCell(set: LoggedSet, label: String, extra: Boolean, exercise: E
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        RebuildIcon(R.drawable.ic_pencil, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(18.dp))
+        LoggedRowEditMark()
     }
 }
 
@@ -335,7 +342,6 @@ private fun StackedRow(
     today: @Composable () -> Unit
 ) {
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Text(title, style = MaterialTheme.typography.labelLarge, modifier = Modifier.clearAndSetSemantics {})
         if (previous != null && exercise != null) {
             val (ordinal, entry) = previous

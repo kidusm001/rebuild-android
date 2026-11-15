@@ -1,5 +1,8 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.foundation.shape.CircleShape
 import com.rebuild.domain.loadUnitChoices
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -45,7 +48,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -233,7 +235,6 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
             StopwatchStrip(workout, watch) { select(watch.exerciseId) }
         }
         notice?.let { NoticeLine(it) { notice = null } }
-        HorizontalDivider()
         if (focused == null) {
             EmptyWorkoutBody(onAdd = { adding = true }, enabled = !env.runner.busy,
                 modifier = Modifier.weight(1f).yieldsToFixedControls())
@@ -327,7 +328,7 @@ private fun ExerciseRail(
     LaunchedEffect(focusedIndex) { listState.animateScrollToItem(focusedIndex) }
     LazyRow(
         state = listState,
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.readableWidth().selectableGroup().testTag("exercise-picker")
     ) {
@@ -359,6 +360,7 @@ private fun ExercisePill(
         watch != null -> ", stopwatch effort not logged"
         else -> ""
     }
+    // A tab, not a button: 12 dp corners rather than a full pill.
     val shape = MaterialTheme.shapes.small
     val large = LocalDensity.current.fontScale > 1.3f
     Box(
@@ -366,8 +368,8 @@ private fun ExercisePill(
             .heightIn(min = 48.dp)
             .widthIn(max = if (large) 280.dp else 208.dp)
             .clip(shape)
-            .background(if (selected) colors.secondaryContainer else Color.Transparent)
-            .border(1.dp, if (selected) colors.primary else colors.outlineVariant, shape)
+            // Filled, never outlined: the current exercise is the amber-tinted pill, the rest sit on tone.
+            .background(if (selected) colors.secondaryContainer else colors.surfaceContainerHigh)
             .selectable(selected = selected, role = Role.Tab, onClick = onClick)
             .semantics {
                 contentDescription = "Exercise ${index + 1} of $count: ${we.exercise.name}, " +
@@ -501,6 +503,7 @@ private fun ExerciseFocus(
         }
     }
 
+    val bodyScroll = rememberScrollState()
     DockedLayout(
         dockShare = {
             when {
@@ -521,8 +524,9 @@ private fun ExerciseFocus(
                     .onSizeChanged { workspaceViewport = it.height }
                     .onFocusChanged { workspaceFocused = it.hasFocus }
                     .focusGroup()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .fadingEdges(bodyScroll, if (density.fontScale > 1.3f) 48.dp else 32.dp)
+                    .verticalScroll(bodyScroll)
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
                     // Without the dock, the last rows scroll clear of the gesture area.
                     .then(if (pinned) Modifier else Modifier.navigationBarsPadding()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -551,6 +555,11 @@ private fun ExerciseFocus(
                                     RebuildIcon(R.drawable.ic_sliders_horizontal, contentDescription = null,
                                         modifier = Modifier.size(18.dp))
                                 },
+                                shape = CircleShape,
+                                border = null,
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    leadingIconContentColor = MaterialTheme.colorScheme.onSurface),
                                 modifier = Modifier.heightIn(min = 48.dp).testTag("choose-load-unit")
                                     .semantics { contentDescription = "Load unit: ${unitName(we.entryLoadUnit)}" }
                             )
@@ -587,8 +596,11 @@ private fun ExerciseFocus(
                 // Secondary actions read as one compact list with aligned icons, below the sets they relate to.
                 Column {
                     // Before the target is met the rail is the way to move on; the Target done panel offers Next.
-                    SecondaryButton(onClick = { details = !details }, icon = R.drawable.ic_clipboard_list,
-                        modifier = Modifier.fillMaxWidth().testTag("exercise-details")) {
+                    GroupedActionRow(onClick = { details = !details }, icon = R.drawable.ic_clipboard_list,
+                        index = 0, lastIndex = 1,
+                        trailing = if (details) R.drawable.ic_chevron_up else R.drawable.ic_chevron_down,
+                        label = if (details) "Hide options" else "Target and options",
+                        modifier = Modifier.testTag("exercise-details")) {
                         Text(
                             when {
                                 details -> "Hide options"
@@ -671,12 +683,13 @@ internal fun ExerciseNoteField(env: AppEnv, workoutId: String, we: WorkoutExerci
     if (!editing && note == we.notes) {
         if (note.isNotBlank()) Text(note, modifier = Modifier.testTag("exercise-note-content"))
         val action = if (note.isBlank()) "Add exercise note" else "Edit exercise note"
-        SecondaryButton(onClick = { editing = true },
+        GroupedActionRow(onClick = { editing = true },
             icon = if (note.isBlank()) R.drawable.ic_notebook_pen else R.drawable.ic_pencil,
-            modifier = Modifier.testTag("edit-exercise-note").semantics {
+            index = 1, lastIndex = 1,
+            modifier = Modifier.padding(top = 2.dp).testTag("edit-exercise-note").semantics {
             contentDescription = "$action for ${we.exercise.name}"
         }) {
-            Text(action)
+            Text(action, modifier = Modifier.weight(1f))
         }
         return
     }

@@ -1,5 +1,14 @@
 package com.rebuild.ui
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
+import com.rebuild.ui.theme.Numerals
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.BorderStroke
@@ -19,7 +28,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -75,51 +83,88 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
         env.runner.run(restChange(timer, timer.deadline + deltaMs, env.clock()))
     }
 
-    Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.testTag("rest-bar")) {
-        Column(Modifier.padding(start = 16.dp, end = 8.dp, top = if (compact) 0.dp else 8.dp,
-            bottom = if (compact) 0.dp else 8.dp)) {
-            val limitation = when {
-                !env.status.notificationsAllowed -> "alerts off"
-                !env.status.exactAlarmsAllowed -> "alerts may be late"
-                env.status.batteryRestricted -> "battery limits alerts"
-                else -> null
-            }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    val colors = MaterialTheme.colorScheme
+    val trackColor = colors.onPrimaryContainer.copy(alpha = 0.18f)
+    val fillColor = colors.onPrimaryContainer
+    val progress = if (total != null && remaining > 0) (remainingMs / (total * 1000f)).coerceIn(0f, 1f) else 0f
+    val limitation = when {
+        !env.status.notificationsAllowed -> "alerts off"
+        !env.status.exactAlarmsAllowed -> "alerts may be late"
+        env.status.batteryRestricted -> "battery limits alerts"
+        else -> null
+    }
+    // A floating signal-amber pill above the navigation, with a thin ink progress line along its foot. Decorative; the
+    // countdown is what's spoken.
+    // A full-width amber sheet docked above the navigation: rounded top corners, square bottom, edge to edge.
+    Box(Modifier.fillMaxWidth()) {
+        Surface(
+            color = colors.primaryContainer,
+            contentColor = colors.onPrimaryContainer,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            shadowElevation = 0.dp,
+            modifier = Modifier.fillMaxWidth().testTag("rest-bar")
+        ) {
+            Row(
+                Modifier
+                    .drawBehind {
+                        if (total != null && remaining > 0 && !compact) {
+                            val inset = 20.dp.toPx()
+                            val h = 3.dp.toPx()
+                            val y = size.height - 8.dp.toPx()
+                            val track = size.width - inset * 2
+                            drawRoundRect(trackColor, Offset(inset, y), Size(track, h), CornerRadius(h / 2))
+                            drawRoundRect(fillColor, Offset(inset, y), Size(track * progress, h), CornerRadius(h / 2))
+                        }
+                    }
+                    .padding(start = 20.dp, end = 8.dp, top = if (compact) 2.dp else 12.dp, bottom = if (compact) 2.dp else 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
                 // The number a resting lifter looks for is the largest thing on the bar.
                 Column(
                     Modifier.weight(1f).testTag("rest-status")
                         .semantics(mergeDescendants = true) { if (remaining == 0) liveRegion = LiveRegionMode.Polite }
                 ) {
-                    // An alert limitation is part of the status line; Options explains it and opens settings.
                     val word = if (pause) "Pause" else "Rest"
                     val note = limitation?.let { " · $it" } ?: ""
                     val time = if (remaining > 0) formatRest(remaining) else "Done"
                     // Short windows and large text keep the bar to one line, so it never squeezes the entry: the
                     // countdown stays whole and the alert limitation moves to Options (and to TalkBack).
-                    if (compact) Text("$word $time", style = MaterialTheme.typography.titleMedium, maxLines = 1,
-                        modifier = Modifier.semantics { if (limitation != null) contentDescription = "$word $time, $limitation" })
+                    // Compact: the countdown alone, in numerals, so it is never the part that gets squeezed out.
+                    if (compact) Text("$word $time", style = MaterialTheme.typography.titleLarge.copy(fontFamily = Numerals),
+                        maxLines = 1, softWrap = false,
+                        modifier = Modifier.semantics {
+                            contentDescription = "$word $time" + (limitation?.let { ", $it" } ?: "")
+                        })
                     else {
-                        Text(word + note, style = MaterialTheme.typography.labelMedium)
-                        Text(time, style = MaterialTheme.typography.headlineMedium)
+                        Text(word + note, style = overlineStyle())
+                        Text(time, style = MaterialTheme.typography.displayMedium)
                     }
                 }
+                val quiet = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = Color.White.copy(alpha = 0.38f),
+                    contentColor = colors.onPrimaryContainer
+                )
+                // Skip ends the rest: ink on amber, the strongest control on the pill.
+                val strong = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = colors.onPrimaryContainer,
+                    contentColor = colors.primaryContainer
+                )
                 if (remaining > 0) {
-                    OutlinedButton(
+                    FilledTonalButton(
                         onClick = { adjust(30_000) },
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.4f)),
                         enabled = !env.runner.busy,
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
-                        contentPadding = PaddingValues(horizontal = 12.dp),
+                        colors = quiet,
+                        contentPadding = PaddingValues(horizontal = if (compact) 10.dp else 14.dp),
                         modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Add 30 seconds" }
-                    ) { Text("+30 s") }
+                    ) { Text(if (compact) "+30" else "+30 s", maxLines = 1, softWrap = false) }
                 }
                 // Skipping ends this rest for good, so it's a labelled button rather than a bare icon beside Options.
-                OutlinedButton(
+                FilledTonalButton(
                     onClick = { env.runner.run(Action.SkipRest) },
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.4f)),
                     enabled = !env.runner.busy,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
-                    contentPadding = PaddingValues(horizontal = 12.dp),
+                    colors = strong,
+                    contentPadding = PaddingValues(horizontal = 14.dp),
                     modifier = Modifier.heightIn(min = 48.dp).semantics {
                         contentDescription = if (remaining > 0) "Skip rest" else "Dismiss rest"
                     }
@@ -128,17 +173,6 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                     RebuildIcon(R.drawable.ic_ellipsis_vertical, contentDescription = "Rest options")
                 }
             }
-            if (total != null && remaining > 0 && !compactLandscape) {
-                LinearProgressIndicator(
-                    progress = { (remainingMs / (total * 1000f)).coerceIn(0f, 1f) },
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.16f),
-                    drawStopIndicator = {},
-                    // The countdown is the accessible equivalent; expanded progress semantics overlap the controls.
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, end = 8.dp).clearAndSetSemantics {}
-                )
-            }
-
         }
     }
 

@@ -1,5 +1,6 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.platform.LocalConfiguration
 import com.rebuild.domain.BodySite
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.togetherWith
@@ -279,8 +280,12 @@ fun RebuildApp(
                         // The lowest bar paints behind the gesture area in its own color, and every bar rides above
                         // the keyboard, so nothing light or empty ever shows under a dark screen.
                         val base = when {
-                            bottomNav -> MaterialTheme.colorScheme.surfaceContainer
-                            timer != null -> MaterialTheme.colorScheme.secondaryContainer
+                            // The navigation bar paints its own tone; around a floating rest pill the canvas shows.
+                            bottomNav -> MaterialTheme.colorScheme.surface
+                            // On the workout the pill floats on the dock's tone, so dock and pill read as one base.
+                            // Only when the entry dock is pinned at the bottom; at large text or in landscape it scrolls inline.
+                            timer != null && route == Routes.WORKOUT && dockPinned() -> MaterialTheme.colorScheme.surfaceContainer
+                            timer != null -> MaterialTheme.colorScheme.surface
                             else -> MaterialTheme.colorScheme.surfaceContainerHighest
                         }
                         Column(
@@ -589,4 +594,15 @@ private fun RouteContent(env: AppEnv, nav: Navigator, route: String) {
         }
         else -> LaunchedEffect(route) { nav.select(Tab.HOME) }
     }
+}
+
+/** The same rule the workout uses to pin its entry dock: portrait, text at most 130%, a window at least 600 dp tall. */
+@Composable
+private fun dockPinned(): Boolean {
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val displayDensity = LocalContext.current.resources.displayMetrics.density
+    val windowHeightDp = configuration.screenHeightDp * displayDensity / density.density
+    return configuration.orientation != android.content.res.Configuration.ORIENTATION_LANDSCAPE &&
+        density.fontScale <= 1.3f && windowHeightDp >= 600f
 }
