@@ -1,5 +1,8 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
@@ -173,6 +176,7 @@ internal fun ColumnScope.ScrollBody(content: @Composable ColumnScope.() -> Unit)
             .weight(1f)
             .fillMaxWidth()
             .yieldsToFixedControls()
+            .fadingEdges()
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -674,7 +678,7 @@ internal fun StatTile(
     ) {
         Text(value, style = MaterialTheme.typography.displaySmall,
             color = if (emphasized) colors.onSecondaryContainer else colors.onSurface, maxLines = 1)
-        Text(caption, style = MaterialTheme.typography.labelMedium,
+        Text(caption.uppercase(), style = overlineStyle(), maxLines = 1,
             color = if (emphasized) colors.onSecondaryContainer else colors.onSurfaceVariant)
     }
 }
@@ -719,4 +723,61 @@ internal fun TonalChip(
             selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
         )
     )
+}
+
+/**
+ * Content scrolling past the top or bottom of a page fades out over 24 dp instead of being sliced by a hard edge
+ * (under a fixed title above, or the floating rest pill below). Drawing only: layout and semantics are unchanged.
+ */
+internal fun Modifier.fadingEdges(edge: androidx.compose.ui.unit.Dp = 24.dp): Modifier = this
+    .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+    .drawWithContent {
+        drawContent()
+        val fade = edge.toPx().coerceAtMost(size.height / 4)
+        drawRect(
+            androidx.compose.ui.graphics.Brush.verticalGradient(
+                0f to Color.Transparent, fade / size.height to Color.Black,
+                1f - fade / size.height to Color.Black, 1f to Color.Transparent
+            ),
+            blendMode = androidx.compose.ui.graphics.BlendMode.DstIn
+        )
+    }
+
+/** Small, bold, tracked caps for overlines (status, tile captions); the original case is what screen readers hear. */
+@Composable
+internal fun overlineStyle() = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+
+/**
+ * A row of a grouped action list (like system settings): an icon in a tonal circle, the label, and a chevron, on a
+ * card tone with 20/4 dp corners from [groupShape]. Reads as one button.
+ */
+@Composable
+internal fun GroupedActionRow(
+    onClick: () -> Unit,
+    @DrawableRes icon: Int,
+    index: Int,
+    lastIndex: Int,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    @DrawableRes trailing: Int = R.drawable.ic_chevron_right,
+    content: @Composable RowScope.() -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clip(groupShape(index, lastIndex))
+            .background(colors.surfaceContainerLowest)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(Modifier.size(36.dp).clip(CircleShape).background(colors.surfaceContainerHigh), contentAlignment = Alignment.Center) {
+            RebuildIcon(icon, contentDescription = null, tint = colors.onSurface, modifier = Modifier.size(18.dp))
+        }
+        androidx.compose.material3.ProvideTextStyle(MaterialTheme.typography.labelLarge) { content() }
+        RebuildIcon(trailing, contentDescription = null, tint = colors.onSurfaceVariant, modifier = Modifier.size(18.dp))
+    }
 }

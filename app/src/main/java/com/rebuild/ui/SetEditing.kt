@@ -138,11 +138,11 @@ internal fun SetFields(
                 modifier.testTag("$tagPrefix-${if (mass) "kg" else "plates"}"),
                 decimal = mass, filterNumericInput = mass, showMessage = stackOnError, valueStyle = valueStyle)
         }
-        SetNumberField(reps, onReps, "Reps", SetField.REPS, failure, validationAttempt,
-            modifier.testTag("$tagPrefix-reps"), decimal = false, showMessage = stackOnError, placeholder = repsHint, valueStyle = valueStyle)
+        SetNumberField(reps, onReps, repsHint?.let { "Reps · $it" } ?: "Reps", SetField.REPS, failure, validationAttempt,
+            modifier.testTag("$tagPrefix-reps"), decimal = false, showMessage = stackOnError, valueStyle = valueStyle)
         SetNumberField(
-            rir, onRir, "RIR", SetField.RIR, failure, validationAttempt, modifier.testTag("$tagPrefix-rir"),
-            imeAction = ImeAction.Done, onDone = onDone, showMessage = stackOnError, placeholder = rirHint,
+            rir, onRir, rirHint?.let { "RIR · $it" } ?: "RIR", SetField.RIR, failure, validationAttempt, modifier.testTag("$tagPrefix-rir"),
+            imeAction = ImeAction.Done, onDone = onDone, showMessage = stackOnError,
             valueStyle = valueStyle
         )
     }

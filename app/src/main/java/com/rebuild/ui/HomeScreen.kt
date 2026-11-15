@@ -233,7 +233,7 @@ private fun SessionTitle(eyebrow: String?, name: String, summary: String, eyebro
             style = MaterialTheme.typography.labelLarge,
             // State reads in the amber family in both themes: amber-ink on light, amber on dark.
             color = if (!eyebrowState) MaterialTheme.colorScheme.onSurfaceVariant
-                else if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) MaterialTheme.colorScheme.primary
+                else if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) MaterialTheme.colorScheme.primaryContainer
                 else MaterialTheme.colorScheme.secondary
         )
         Text(name, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })

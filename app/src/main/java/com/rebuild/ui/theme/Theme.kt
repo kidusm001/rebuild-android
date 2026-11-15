@@ -53,8 +53,9 @@ internal val Light = lightColorScheme(
 )
 
 internal val Dark = darkColorScheme(
-    primary = Color(0xFFFFB94A),
-    onPrimary = Color(0xFF2A1800),
+    // Filled actions are bone on dark, the inverse of light's ink, so amber stays the rest and selection signal.
+    primary = Color(0xFFEDE6DD),
+    onPrimary = Color(0xFF1C1915),
     primaryContainer = Color(0xFFFFB224),
     onPrimaryContainer = Color(0xFF231500),
     secondary = Color(0xFFD4C5AC),
@@ -118,7 +119,7 @@ internal val RebuildTypography = Typography().run {
         bodyMedium = bodyMedium.copy(letterSpacing = 0.sp).tabular(),
         bodySmall = bodySmall.copy(letterSpacing = 0.1.sp).tabular(),
         labelLarge = labelLarge.copy(fontWeight = FontWeight.SemiBold, fontSize = 15.sp, letterSpacing = 0.1.sp).tabular(),
-        labelMedium = labelMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp).tabular(),
+        labelMedium = labelMedium.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.3.sp).tabular(),
         labelSmall = labelSmall.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.4.sp).tabular()
     )
 }

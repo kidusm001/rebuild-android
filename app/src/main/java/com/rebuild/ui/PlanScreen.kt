@@ -90,7 +90,7 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
     val takenOff = state.removedTemplates(viewPhase)
 
     ScreenScaffold(title = "Plan") {
-        Text("Preview a phase", style = MaterialTheme.typography.labelLarge,
+        Text("PREVIEW A PHASE", style = overlineStyle(),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp))
         // Every phase stays whole and in sight: the chips wrap to a second line rather than scroll off the edge.
@@ -119,8 +119,8 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
             TonalCard { Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        if (viewPhase == current) "Current phase" else "Not your current phase",
-                        style = MaterialTheme.typography.labelMedium,
+                        (if (viewPhase == current) "Current phase" else "Not your current phase").uppercase(),
+                        style = overlineStyle(),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f).testTag("plan-phase-status")
                     )
@@ -425,7 +425,7 @@ private fun WeeklyTotals(target: Int, baseline: Int, upper: Int) {
         @Composable fun Tiles(modifier: (Boolean) -> Modifier) {
             StatTile("$target", "This phase", modifier(true), emphasized = true, spoken = "This phase, $target")
             StatTile("$baseline", "Baseline", modifier(false), spoken = "Established baseline, $baseline")
-            StatTile("$upper", "Advisory upper", modifier(false), spoken = "Advisory upper, $upper")
+            StatTile("$upper", "Upper", modifier(false), spoken = "Advisory upper, $upper")
         }
         if (LocalDensity.current.fontScale > 1.3f) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Tiles { Modifier.fillMaxWidth() } }

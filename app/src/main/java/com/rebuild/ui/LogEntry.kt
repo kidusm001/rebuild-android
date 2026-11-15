@@ -316,8 +316,9 @@ internal fun EntryPanel(
             SetFields(we.exercise, draft.kg, { draft.kg = it }, draft.reps, { draft.reps = it }, draft.rir,
                 { draft.rir = it }, { log() }, "entry", draft.validation, draft.validationAttempt, showRirHint = false,
                 unit = we.entryLoadUnit, stackOnError = false,
-                repsHint = if (we.minReps != null && we.maxReps != null) "${we.minReps}–${we.maxReps}" else null,
-                rirHint = we.targetRir?.toString(), prominent = true)
+                // At large text the target line above already says it; tiles keep one-line labels and equal heights.
+                repsHint = if (!large && we.minReps != null && we.maxReps != null) "${we.minReps}–${we.maxReps}" else null,
+                rirHint = we.targetRir?.takeIf { !large }?.toString(), prominent = true)
         }
     }
 

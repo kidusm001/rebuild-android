@@ -604,8 +604,10 @@ private fun ExerciseFocus(
                 // Secondary actions read as one compact list with aligned icons, below the sets they relate to.
                 Column {
                     // Before the target is met the rail is the way to move on; the Target done panel offers Next.
-                    SecondaryButton(onClick = { details = !details }, icon = R.drawable.ic_clipboard_list,
-                        modifier = Modifier.fillMaxWidth().testTag("exercise-details")) {
+                    GroupedActionRow(onClick = { details = !details }, icon = R.drawable.ic_clipboard_list,
+                        index = 0, lastIndex = 1,
+                        trailing = if (details) R.drawable.ic_chevron_up else R.drawable.ic_chevron_down,
+                        modifier = Modifier.testTag("exercise-details")) {
                         Text(
                             when {
                                 details -> "Hide options"
@@ -688,12 +690,13 @@ internal fun ExerciseNoteField(env: AppEnv, workoutId: String, we: WorkoutExerci
     if (!editing && note == we.notes) {
         if (note.isNotBlank()) Text(note, modifier = Modifier.testTag("exercise-note-content"))
         val action = if (note.isBlank()) "Add exercise note" else "Edit exercise note"
-        SecondaryButton(onClick = { editing = true },
+        GroupedActionRow(onClick = { editing = true },
             icon = if (note.isBlank()) R.drawable.ic_notebook_pen else R.drawable.ic_pencil,
-            modifier = Modifier.testTag("edit-exercise-note").semantics {
+            index = 1, lastIndex = 1,
+            modifier = Modifier.padding(top = 2.dp).testTag("edit-exercise-note").semantics {
             contentDescription = "$action for ${we.exercise.name}"
         }) {
-            Text(action)
+            Text(action, modifier = Modifier.weight(1f))
         }
         return
     }

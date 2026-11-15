@@ -1,5 +1,6 @@
 package com.rebuild.ui
 
+import com.rebuild.ui.theme.Numerals
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.Offset
@@ -127,10 +128,14 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                     val time = if (remaining > 0) formatRest(remaining) else "Done"
                     // Short windows and large text keep the bar to one line, so it never squeezes the entry: the
                     // countdown stays whole and the alert limitation moves to Options (and to TalkBack).
-                    if (compact) Text("$word $time", style = MaterialTheme.typography.titleMedium, maxLines = 1,
-                        modifier = Modifier.semantics { if (limitation != null) contentDescription = "$word $time, $limitation" })
+                    // Compact: the countdown alone, in numerals, so it is never the part that gets squeezed out.
+                    if (compact) Text(time, style = MaterialTheme.typography.headlineSmall.copy(fontFamily = Numerals),
+                        maxLines = 1, softWrap = false,
+                        modifier = Modifier.semantics {
+                            contentDescription = "$word $time" + (limitation?.let { ", $it" } ?: "")
+                        })
                     else {
-                        Text((word + note).uppercase(), style = MaterialTheme.typography.labelMedium,
+                        Text((word + note).uppercase(), style = overlineStyle(),
                             modifier = Modifier.semantics { contentDescription = word + note })
                         Text(time, style = MaterialTheme.typography.displayMedium)
                     }
@@ -149,9 +154,9 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                         onClick = { adjust(30_000) },
                         enabled = !env.runner.busy,
                         colors = quiet,
-                        contentPadding = PaddingValues(horizontal = 14.dp),
+                        contentPadding = PaddingValues(horizontal = if (compact) 10.dp else 14.dp),
                         modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Add 30 seconds" }
-                    ) { Text("+30 s") }
+                    ) { Text(if (compact) "+30" else "+30 s", maxLines = 1, softWrap = false) }
                 }
                 // Skipping ends this rest for good, so it's a labelled button rather than a bare icon beside Options.
                 FilledTonalButton(

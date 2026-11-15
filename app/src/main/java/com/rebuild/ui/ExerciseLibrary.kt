@@ -360,7 +360,7 @@ internal fun LoadUnitSelector(
             val selected = unit == option
             Box(
                 Modifier.weight(1f).heightIn(min = 48.dp).clip(CircleShape)
-                    .background(if (selected) colors.primary else Color.Transparent)
+                    .background(if (selected) colors.secondaryContainer else Color.Transparent)
                     .selectable(selected = selected, enabled = enabled, role = Role.RadioButton) { onSelect(option) }
                     .testTag("unit-${option.name}")
                     .semantics { contentDescription = if (option == LoadUnit.LB) "Pounds" else if (option == LoadUnit.KG)
@@ -369,7 +369,7 @@ internal fun LoadUnitSelector(
             ) {
                 Text(if (option == LoadUnit.PLATES) "Plates" else unitName(option), maxLines = 1,
                     style = MaterialTheme.typography.labelLarge,
-                    color = if (selected) colors.onPrimary else colors.onSurface)
+                    color = if (selected) colors.onSecondaryContainer else colors.onSurface)
             }
         }
     }
