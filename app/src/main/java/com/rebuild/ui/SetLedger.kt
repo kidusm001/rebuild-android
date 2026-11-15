@@ -230,7 +230,8 @@ private fun TableRow(
         Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(8.dp))
             // The Up next slot carries the highlight itself; the row stays flat so containers never nest.
             .background(Color.Transparent)
-            .padding(horizontal = 8.dp),
+            // Cells end on the content gutter, flush with the cards below.
+            .padding(start = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -277,13 +278,17 @@ private fun RowToday(row: LedgerRow, exercise: Exercise, extra: Boolean, stacked
         is WorkEntry.Group -> GroupRow(entry, "Set ${row.ordinal}", exercise, extra, onOpen = { onGroup(entry.group.id) },
             modifier = modifier.then(if (stacked) Modifier.fillMaxWidth() else Modifier))
         null -> if (row.state == LedgerState.NEXT || row.state == LedgerState.PLANNED) {
+            val amberMark = MaterialTheme.colorScheme.primaryContainer
             val next = row.state == LedgerState.NEXT
             Box(
                 modifier.heightIn(min = 44.dp).then(if (stacked) Modifier.fillMaxWidth() else Modifier)
                     // A filled slot, not a dashed wireframe: amber-tinted for the next set, neutral for later ones.
                     .clip(MaterialTheme.shapes.small)
-                    .background(if (next) MaterialTheme.colorScheme.secondaryContainer
-                        else MaterialTheme.colorScheme.surfaceContainerHigh)
+                    // Neutral, not an amber slab that looks like a button; a short amber bar marks the next set.
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .then(if (next) Modifier.drawBehind {
+                        drawRect(amberMark, size = androidx.compose.ui.geometry.Size(4.dp.toPx(), size.height))
+                    } else Modifier)
                     .clearAndSetSemantics {
                         contentDescription = "Set ${row.ordinal}: ${if (next) "up next" else "planned"}, not logged yet"
                     }
@@ -292,7 +297,7 @@ private fun RowToday(row: LedgerRow, exercise: Exercise, extra: Boolean, stacked
             ) {
                 // The dashed outline already says nothing is logged; the label only says which row is next.
                 if (next) Text("Up next", style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    color = MaterialTheme.colorScheme.onSurface)
                 else Text("Not logged", style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

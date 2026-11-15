@@ -690,10 +690,11 @@ internal fun StatTile(
             .clearAndSetSemantics { contentDescription = spoken }
             .padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
+        // Label on top, value beneath: the same anatomy as the entry tiles.
+        Text(caption, style = MaterialTheme.typography.labelMedium, maxLines = 1,
+            color = if (emphasized) colors.onSecondaryContainer else colors.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.displaySmall,
             color = if (emphasized) colors.onSecondaryContainer else colors.onSurface, maxLines = 1)
-        Text(caption.uppercase(), style = overlineStyle(), maxLines = 1,
-            color = if (emphasized) colors.onSecondaryContainer else colors.onSurfaceVariant)
     }
 }
 

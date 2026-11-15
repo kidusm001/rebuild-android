@@ -83,7 +83,7 @@ internal fun MoreScreen(env: AppEnv, onNavigate: (String) -> Unit) {
             if (state.workouts.isNotEmpty() && (state.lastBackupAt == null || unsaved)) {
                 // A calm card: the warning is in the icon and the words, not a loud red slab.
                 TonalCard {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.padding(16.dp).testTag("more-backup-warning")) {
                         Box(Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.errorContainer),
                             contentAlignment = Alignment.Center) {
