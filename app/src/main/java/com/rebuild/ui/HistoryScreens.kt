@@ -1137,7 +1137,7 @@ internal fun SetChart(
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().clearAndSetSemantics { hideFromAccessibility() }, horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = "From ${formatDate(firstDate)} to ${formatDate(lastDate)}" }, horizontalArrangement = Arrangement.SpaceBetween) {
             Text(formatDate(firstDate), style = axisStyle, color = axisColor)
             if (sessions.size > 1) Text(formatDate(lastDate), style = axisStyle, color = axisColor)
         }

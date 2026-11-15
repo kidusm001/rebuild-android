@@ -282,7 +282,8 @@ internal fun TrendChart(
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(start = 48.dp).clearAndSetSemantics { hideFromAccessibility() }, horizontalArrangement = Arrangement.SpaceBetween) {
+        // Labelled with its range, so the axis is never an unnamed strip when scrolled to the edge.
+        Row(Modifier.fillMaxWidth().padding(start = 48.dp).clearAndSetSemantics { contentDescription = "From ${dayMonthYear(from)} to ${dayMonthYear(to)}" }, horizontalArrangement = Arrangement.SpaceBetween) {
             // Start, middle and end, so a week in between can be read off the axis.
             Text(dayMonthYear(from), style = axisStyle, color = colors.onSurfaceVariant)
             if (days >= 14) Text(dayMonthYear(from.plusDays(days / 2)), style = axisStyle, color = colors.onSurfaceVariant)
