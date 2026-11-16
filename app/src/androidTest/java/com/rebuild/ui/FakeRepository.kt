@@ -58,9 +58,16 @@ class FakeRepository(initial: AppState) : AppRepository {
     /** When set, execute() suspends until completed, to simulate a slow save. */
     @Volatile var gate: CompletableDeferred<Unit>? = null
 
+    /** When set, the next action of this type fails with this message instead of saving, to test error paths. */
+    @Volatile var failNext: Pair<Class<out Action>, String>? = null
+
     override suspend fun execute(action: Action) {
         actions += action
         gate?.await()
+        failNext?.takeIf { it.first.isInstance(action) }?.let { (_, message) ->
+            failNext = null
+            throw IllegalStateException(message)
+        }
         val s = flow.value
         flow.value = when (action) {
             is Action.SelectPhase -> s.copy(phase = action.phase)

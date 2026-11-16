@@ -4,6 +4,8 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithTag
@@ -84,5 +86,23 @@ class HoldToReorderDeviceTest {
         rule.runOnIdle { actions.first { it.label == "Move later" }.action() }
         rule.waitUntil(5_000) { names(repo) == listOf("db-press", "bench") }
         assertTrue(repo.actions.any { it is Action.MoveWorkoutExercise })
+    }
+
+    @Test fun aMoveThatFailsToSavePutsTheStripBackAndSaysSo() {
+        val repo = workout()
+        repo.failNext = Action.MoveWorkoutExercise::class.java to "Couldn't save the new order."
+        rule.onNodeWithTag("exercise-chip-0").performTouchInput {
+            down(center)
+            advanceEventTime(700)
+            repeat(20) { moveBy(androidx.compose.ui.geometry.Offset(width / 6f, 0f)) }
+            up()
+        }
+        rule.waitUntil(5_000) { repo.actions.any { it is Action.MoveWorkoutExercise } }
+        rule.waitForIdle()
+        // Nothing was saved, and the strip shows the saved order again: Bench press is still first.
+        assertEquals(listOf("bench", "db-press"), names(repo))
+        // Said once, in the snackbar, not twice.
+        rule.onNodeWithText("Couldn't save the new order.", substring = true).assertIsDisplayed()
+        rule.onNodeWithTag("exercise-chip-0").assert(hasContentDescription("Bench press", substring = true))
     }
 }

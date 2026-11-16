@@ -372,19 +372,25 @@ private fun ExerciseRail(
 
     // A hold also reaches the pill's tap handling when the finger lifts; that tap must not switch exercises.
     var heldTap by remember { mutableStateOf(false) }
+    // Edge scrolling waits for a deliberate drag: a pill held still near an edge must not scroll (and so reorder).
+    var dragMoved by remember { mutableStateOf(false) }
 
     /** Moves an exercise for today; returns false (nothing sent) when another change is still saving. */
     fun move(id: String, to: Int): Boolean {
         if (env.runner.busy) return false
         val target = to.coerceIn(0, workout.exercises.lastIndex)
-        if (saved.indexOf(id) != target) env.runner.run(Action.MoveWorkoutExercise(workout.id, id, target), onError = onNotice)
+        // If the save fails the strip goes back to the saved order, so its numbers never claim a move that didn't happen.
+        val before = saved
+        if (before.indexOf(id) != target) env.runner.run(Action.MoveWorkoutExercise(workout.id, id, target),
+            // The runner already shows the failure in the snackbar; here the strip only goes back.
+            onError = { order = before })
         return true
     }
     fun removeFromToday(we: WorkoutExercise): Boolean {
         if (env.runner.busy) return false
         removeBlocked(we, watch)?.let { onNotice(it); return false }
         if (we.optional) removing = we.id
-        else env.runner.run(Action.SetSkipped(workout.id, we.id, !we.skipped), onError = onNotice)
+        else env.runner.run(Action.SetSkipped(workout.id, we.id, !we.skipped))
         return true
     }
     // The gesture handler outlives a recomposition, so it reads these through their latest values.
@@ -415,8 +421,9 @@ private fun ExerciseRail(
     }
 
     // While a pill is held near either edge the strip keeps scrolling, every frame, even if the thumb rests there.
-    LaunchedEffect(dragging) {
+    LaunchedEffect(dragging, dragMoved) {
         val id = dragging ?: return@LaunchedEffect
+        if (!dragMoved) return@LaunchedEffect
         val edge = with(density) { 48.dp.toPx() }
         val step = with(density) { 10.dp.toPx() }
         while (true) {
@@ -465,6 +472,7 @@ private fun ExerciseRail(
                         detectDragGesturesAfterLongPress(
                             onDragStart = {
                                 travelled = 0f
+                                dragMoved = false
                                 heldTap = true
                                 dragging = ex.id
                                 dragOffset = 0f
@@ -474,6 +482,7 @@ private fun ExerciseRail(
                             onDrag = { change, amount ->
                                 change.consume()
                                 travelled += kotlin.math.abs(amount.x) + kotlin.math.abs(amount.y)
+                                if (travelled > viewConfiguration.touchSlop) dragMoved = true
                                 followDrag(ex.id, amount.x)
                             },
                             onDragEnd = {
@@ -482,10 +491,13 @@ private fun ExerciseRail(
                                 dragging = null
                                 dragOffset = 0f
                                 heldTap = false
-                                // Held still: the menu. Dragged: today's new order, saved once (or, if a change is
+                                dragMoved = false
+                                // Held still: the menu, over the saved order. Dragged: today's new order, saved once (or, if a change is
                                 // still saving, back where it was, with a word why).
-                                if (!moved) menuFor = ex.id
-                                else if (!currentMove(ex.id, to)) {
+                                if (!moved) {
+                                    order = currentSaved
+                                    menuFor = ex.id
+                                } else if (!currentMove(ex.id, to)) {
                                     order = currentSaved
                                     onNotice("Still saving. Try the move again in a moment.")
                                 }
@@ -496,6 +508,7 @@ private fun ExerciseRail(
                                 val held = travelled <= viewConfiguration.touchSlop
                                 dragging = null
                                 dragOffset = 0f
+                                dragMoved = false
                                 order = currentSaved
                                 if (held) menuFor = ex.id
                             }
