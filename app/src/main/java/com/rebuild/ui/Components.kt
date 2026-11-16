@@ -221,7 +221,7 @@ internal fun SecondaryButton(
         enabled = enabled,
         contentPadding = PaddingValues(start = if (icon != null) 12.dp else 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
         colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            containerColor = tonalFill(),
             contentColor = MaterialTheme.colorScheme.onSurface
         )
     ) {
@@ -361,15 +361,18 @@ internal fun NumberField(
             filterNumericInput, errorSemantics, valueStyle)
         return
     }
-    // A filled tile, not an outlined form box: tone separates it, and focus draws a 2 dp ring.
+    // A filled field with a hairline edge: tone and edge show where to type before it's touched (even on a dialog,
+    // whose surface matches the usual fill), and focus draws a 2 dp ring.
     var focused by remember { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
     val accentRing = accentText()
+    val fill = tonalFill()
     val ring = when {
         isError -> colors.error
         focused -> accentRing
-        else -> Color.Transparent
+        else -> idleFieldEdge()
     }
+    val ringWidth = if (isError || focused) 2.dp else 1.dp
     TextField(
         // A hint, never mistaken for a value: lighter and regular weight.
         placeholder = placeholder?.let { { Text(it, maxLines = 1, style = valueStyle.copy(fontWeight = FontWeight.Normal),
@@ -383,8 +386,8 @@ internal fun NumberField(
         shape = MaterialTheme.shapes.small,
         colors = TextFieldDefaults.colors(
             focusedContainerColor = colors.surfaceContainerLowest,
-            unfocusedContainerColor = colors.surfaceContainerHigh,
-            errorContainerColor = colors.surfaceContainerHigh,
+            unfocusedContainerColor = fill,
+            errorContainerColor = fill,
             focusedIndicatorColor = Color.Transparent,
             unfocusedIndicatorColor = Color.Transparent,
             errorIndicatorColor = Color.Transparent,
@@ -401,7 +404,7 @@ internal fun NumberField(
         keyboardActions = KeyboardActions(onDone = { onDone() }),
         modifier = (if (isError && errorSemantics != null) modifier.semantics { error(errorSemantics) } else modifier)
             .onFocusChanged { focused = it.isFocused }
-            .border(2.dp, ring, MaterialTheme.shapes.small)
+            .border(ringWidth, ring, MaterialTheme.shapes.small)
     )
 }
 
@@ -741,7 +744,7 @@ internal fun TonalChip(
         shape = CircleShape,
         border = null,
         colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            containerColor = tonalFill(),
             labelColor = MaterialTheme.colorScheme.onSurface,
             selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
             selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -831,6 +834,7 @@ private fun NumberTile(
     var focused by remember { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
     val accentRing = accentText()
+    val tileFill = tonalFill()
     val ring = when {
         isError -> colors.error
         focused -> accentRing
@@ -862,7 +866,7 @@ private fun NumberTile(
                     Modifier
                         .fillMaxWidth()
                         .clip(MaterialTheme.shapes.small)
-                        .background(if (focused) colors.surfaceContainerLowest else colors.surfaceContainerHigh)
+                        .background(if (focused) colors.surfaceContainerLowest else tileFill)
                         .border(2.dp, ring, MaterialTheme.shapes.small)
                         .padding(horizontal = 14.dp, vertical = 10.dp)
                 ) {
@@ -904,6 +908,20 @@ internal fun LoggedRowEditMark() {
 
 /** Where a [TextButton] is drawn decides its look: dialog actions are pills, screen text buttons stay text. */
 internal enum class DialogSlot { NONE, BODY, DISMISS, CONFIRM }
+
+/**
+ * The fill of a tonal control (a number field, a secondary button, a chip): one step up from what it sits on. A dialog
+ * is itself surfaceContainerHigh, so inside one the control steps up to surfaceContainerHighest instead of matching
+ * the dialog and vanishing until it's touched.
+ */
+@Composable
+internal fun tonalFill(): Color =
+    if (LocalDialogSlot.current != DialogSlot.NONE) MaterialTheme.colorScheme.surfaceContainerHighest
+    else MaterialTheme.colorScheme.surfaceContainerHigh
+
+/** An empty field's edge, so where to type shows before it's touched; focus and errors draw their own ring. */
+@Composable
+internal fun idleFieldEdge(): Color = MaterialTheme.colorScheme.outlineVariant
 internal val LocalDialogSlot = androidx.compose.runtime.staticCompositionLocalOf { DialogSlot.NONE }
 
 /**
