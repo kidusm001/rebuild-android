@@ -5,6 +5,7 @@ import android.util.Log
 import com.rebuild.data.RebuildRepository
 import com.rebuild.domain.AppRepository
 import com.rebuild.platform.RestAlarmScheduler
+import com.rebuild.platform.RestAlertPrefs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -16,7 +17,8 @@ import kotlinx.coroutines.sync.withLock
 
 class RebuildApplication : Application() {
     val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    val alarms by lazy { RestAlarmScheduler(this) }
+    val restAlerts by lazy { RestAlertPrefs(this) }
+    val alarms by lazy { RestAlarmScheduler(this) { restAlerts.alert.value.sound } }
     private val openMutex = Mutex()
     private var opened: AppRepository? = null
 

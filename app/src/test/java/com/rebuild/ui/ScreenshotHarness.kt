@@ -66,6 +66,14 @@ class ScreenshotHarness {
         override fun exportBackup() = Unit
         override fun shareBackup() = Unit
         override fun chooseRestore() = Unit
+        override val restAlert = MutableStateFlow(RestAlert())
+        override fun setRestAlert(alert: RestAlert) { restAlert.value = alert }
+        override fun previewRestAlert() {
+            if (restAlert.value.sound == RestSound.ALARM) alarmRingingSince.value = now
+        }
+        override fun stopRestAlarm() { alarmRingingSince.value = null }
+        override val alarmRingingSince = MutableStateFlow<Long?>(null)
+        override fun announceRestEnd(timerId: String, shortPause: Boolean) = Unit
     }
 
     @Before fun gate() = assumeTrue("Set REBUILD_SCREENS to render screens", out != null)
@@ -145,6 +153,35 @@ class ScreenshotHarness {
         shot("$mode-13-phase")
         back()
         bodyScreens(mode)
+        restAlertScreens(mode)
+    }
+
+    /** The rest alert settings, a rest's end mid-flash and mid-sweep, and a ringing alarm's Stop bar. */
+    private fun restAlertScreens(mode: String) {
+        tap("More")
+        tapTag("more-rest-alert")
+        tapTag("rest-sound-chime")
+        tapTag("rest-visual-flash")
+        shot("$mode-19-rest-alert")
+        tryAlertPaused()
+        compose.mainClock.advanceTimeBy(140)
+        shot("$mode-20-rest-end-flash")
+        resumeClock()
+        tapTag("rest-visual-sweep")
+        tryAlertPaused()
+        compose.mainClock.advanceTimeBy(250)
+        shot("$mode-21-rest-end-sweep-rising")
+        compose.mainClock.advanceTimeBy(700)
+        shot("$mode-22-rest-end-sweep-hold")
+        resumeClock()
+        tapTag("rest-sound-alarm")
+        tapTag("rest-visual-none")
+        tapTag("rest-alert-try")
+        compose.mainClock.advanceTimeBy(7_000)
+        shot("$mode-23-rest-alarm-bar")
+        tapTag("rest-end-stop")
+        platform.restAlert.value = RestAlert()
+        back()
     }
 
     private fun bodyScreens(mode: String) {
@@ -181,6 +218,25 @@ class ScreenshotHarness {
     /** Touches a chart [fraction] of the way across, as a finger would, so the shot shows a selected point. */
     private fun touchChart(tag: String, fraction: Float) {
         compose.onAllNodes(hasTestTag(tag)).onFirst().performScrollTo().performTouchInput { click(Offset(width * fraction, centerY)) }
+        compose.waitForIdle()
+    }
+
+    /**
+     * Presses "Try alert" and freezes time right there, so a shot can catch the alert mid-motion. The scroll to the
+     * button happens first, with the clock running: a scroll animation can't finish on a paused clock, and waiting
+     * for it would hang (as it did in landscape, where the button is below the fold).
+     */
+    private fun tryAlertPaused() {
+        compose.onAllNodes(hasTestTag("rest-alert-try")).onFirst().performScrollTo()
+        compose.waitForIdle()
+        compose.mainClock.autoAdvance = false
+        compose.onAllNodes(hasTestTag("rest-alert-try")).onFirst().performClick()
+    }
+
+    /** Lets the alert finish and time run normally again. */
+    private fun resumeClock() {
+        compose.mainClock.advanceTimeBy(6_000)
+        compose.mainClock.autoAdvance = true
         compose.waitForIdle()
     }
 
@@ -273,6 +329,8 @@ class ScreenshotHarness {
         }
         val dir = requireNotNull(out).apply { mkdirs() }
         File(dir, "$prefix$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        // Each shot is a full-screen bitmap; let it go now rather than at the end of a four-pass tour.
+        bitmap.recycle()
     }
 
     @Suppress("UNCHECKED_CAST")

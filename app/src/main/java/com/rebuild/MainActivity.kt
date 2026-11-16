@@ -42,6 +42,7 @@ import androidx.lifecycle.lifecycleScope
 import com.rebuild.platform.BackupViewModel
 import com.rebuild.ui.PlatformActions
 import com.rebuild.ui.PlatformStatus
+import com.rebuild.ui.RestAlert
 import com.rebuild.ui.RebuildApp
 import com.rebuild.ui.RestPip
 import com.rebuild.ui.theme.RebuildTheme
@@ -203,6 +204,8 @@ class MainActivity : ComponentActivity(), PlatformActions {
     override fun onResume() {
         super.onResume()
         refreshStatus()
+        // Coming back to Rebuild answers a ringing rest alarm.
+        app.alarms.stopRinging()
         lifecycleScope.launch {
             try {
                 model.repository.value?.let { app.alarms.reconcileCurrent(it) }
@@ -288,6 +291,30 @@ class MainActivity : ComponentActivity(), PlatformActions {
     }
 
     override fun exportBackup() { model.beginExport(false) { saveBackup.launch(it) } }
+    override val restAlert: StateFlow<RestAlert> get() = app.restAlerts.alert
+    override fun setRestAlert(alert: RestAlert) = app.restAlerts.set(alert)
+    override fun previewRestAlert() = app.alarms.notifyExpired(about = com.rebuild.platform.RestContext("", nextSet = 2, ofSets = 3))
+    override fun stopRestAlarm() = app.alarms.stopRinging(always = true)
+    override val alarmRingingSince: StateFlow<Long?> get() = app.alarms.ringingSince
+    override fun announceRestEnd(timerId: String, shortPause: Boolean) {
+        val repository = model.repository.value ?: return
+        lifecycleScope.launch {
+            try {
+                val state = repository.state.value
+                val timer = state.restTimer?.takeIf { it.id == timerId }
+                val workoutId = state.restTimer?.workoutId
+                val about = timer?.let { com.rebuild.platform.restContext(state, it) }
+                // Only the first to end it alerts: Android's alarm, arriving after, finds nothing left to end.
+                if (repository.consumeRestTimer(timerId, System.currentTimeMillis())) {
+                    app.alarms.notifyExpired(shortPause, about, endedAt = timer?.deadline ?: System.currentTimeMillis()) {
+                        repository.state.value.let { it.activeWorkoutId == workoutId && it.restTimer == null }
+                    }
+                }
+            } catch (error: RuntimeException) {
+                Log.e("Rebuild", "Could not end the rest on screen", error)
+            }
+        }
+    }
     override fun chooseRestore() { openBackup.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }
     override fun shareBackup() {
         model.prepareShare { file ->

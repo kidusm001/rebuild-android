@@ -22,4 +22,19 @@ interface PlatformActions {
     fun exportBackup()
     fun shareBackup()
     fun chooseRestore()
+
+    /** This phone's rest-end alert choice. */
+    val restAlert: StateFlow<RestAlert>
+    fun setRestAlert(alert: RestAlert)
+    /** Sounds the chosen alert now, the way a real rest end would, so it can be tried from settings. */
+    fun previewRestAlert()
+    /** Silences a ringing rest alarm. */
+    fun stopRestAlarm()
+    /** When the rest alarm began ringing, or null while it is quiet. */
+    val alarmRingingSince: StateFlow<Long?>
+    /**
+     * A rest reached its deadline with Rebuild in front: end it now and sound its alert, instead of waiting for
+     * Android's alarm, which can arrive late and would then ring after the user had already moved on.
+     */
+    fun announceRestEnd(timerId: String, shortPause: Boolean)
 }

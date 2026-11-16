@@ -2,12 +2,21 @@
     <string name="app_name">Rebuild</string>
     <string name="rest_channel_name">Rest complete</string>
     <string name="rest_channel_description">Silent rest alerts with vibration. Delivery depends on Android and battery settings.</string>
-    <string name="rest_complete">Rest complete</string>
-    <string name="rest_complete_body">Ready when you are. Open Rebuild to continue.</string>
-    <string name="pause_complete">Pause complete</string>
+    <string name="rest_complete">Rest over</string>
+    <string name="pause_complete">Pause over</string>
     <string name="rest_countdown_channel_name">Rest countdown</string>
     <string name="rest_countdown_channel_description">The running rest timer while Rebuild is in the background.</string>
     <string name="rest_running">Resting</string>
     <string name="pause_running">Short pause</string>
-    <string name="pause_complete_body">Ready for your next mini-set when you are.</string>
+    <string name="rest_long_channel_name">Rest complete: long buzz</string>
+    <string name="rest_long_channel_description">Vibrates for about five seconds when a rest ends.</string>
+    <string name="rest_chime_channel_name">Rest complete: chime</string>
+    <string name="rest_chime_channel_description">Plays your notification sound with a buzz when a rest ends.</string>
+    <string name="rest_alarm_channel_name">Rest complete: alarm</string>
+    <string name="rest_alarm_channel_description">Rings with your alarm sound until you stop it or 5 minutes pass. It plays in silent mode, and through Do Not Disturb only if that allows alarms.</string>
+    <string name="rest_silent_channel_name">Rest complete: silent</string>
+    <string name="rest_silent_channel_description">A notification with no sound or vibration when a rest ends.</string>
+    <string name="rest_alarm_stop">Stop</string>
+    <string name="rest_add_30">+30 s</string>
+    <string name="rest_skip">Skip</string>
 </resources>

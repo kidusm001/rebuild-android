@@ -1,3 +1,5 @@
+import java.time.Duration
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -43,7 +45,15 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    testOptions { unitTests.isIncludeAndroidResources = true }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+        // The screenshot tour renders four full-screen passes in one JVM; the 512 MB default runs out by the third.
+        unitTests.all {
+            it.maxHeapSize = "1536m"
+            // A stuck test fails the run instead of hanging it for hours.
+            it.timeout.set(Duration.ofMinutes(30))
+        }
+    }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }
 

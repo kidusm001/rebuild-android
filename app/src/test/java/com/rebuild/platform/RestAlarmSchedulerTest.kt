@@ -119,4 +119,69 @@ class RestAlarmSchedulerTest {
         scheduler.notifyExpired()
         assertEquals(0, shadowOf(manager).size())
     }
+
+    @Test fun eachSoundPostsOnItsOwnChannelAndOnlyTheAlarmKeepsRinging() {
+        val notifications = shadowOf(context.getSystemService(NotificationManager::class.java))
+        com.rebuild.ui.RestSound.entries.forEach { sound ->
+            val chosen = RestAlarmScheduler(context) { sound }
+            chosen.notifyExpired()
+            val posted = notifications.getNotification(RestAlarmScheduler.NOTIFICATION_ID)
+            assertEquals(RestAlarmScheduler.channelFor(sound), posted.channelId)
+            val insistent = posted.flags and android.app.Notification.FLAG_INSISTENT != 0
+            assertEquals("$sound rings until stopped", sound == com.rebuild.ui.RestSound.ALARM, insistent)
+            assertEquals(if (sound == com.rebuild.ui.RestSound.ALARM) 1 else 0, posted.actions?.size ?: 0)
+        }
+        assertEquals(com.rebuild.ui.RestSound.entries.map { RestAlarmScheduler.channelFor(it) }.toSet().size,
+            com.rebuild.ui.RestSound.entries.size)
+    }
+
+    @Test fun openingRebuildStopsOnlyAnAlarm() {
+        val notifications = shadowOf(context.getSystemService(NotificationManager::class.java))
+        val buzz = RestAlarmScheduler(context) { com.rebuild.ui.RestSound.BUZZ }
+        buzz.notifyExpired()
+        buzz.stopRinging()
+        assertNotNull(notifications.getNotification(RestAlarmScheduler.NOTIFICATION_ID))
+        val alarm = RestAlarmScheduler(context) { com.rebuild.ui.RestSound.ALARM }
+        alarm.notifyExpired()
+        alarm.stopRinging()
+        assertNull(notifications.getNotification(RestAlarmScheduler.NOTIFICATION_ID))
+        alarm.notifyExpired()
+        buzz.stopRinging(always = true)
+        assertNull(notifications.getNotification(RestAlarmScheduler.NOTIFICATION_ID))
+    }
+
+    @Test fun aShortPauseBuzzesEvenWithTheAlarmChosen() {
+        val notifications = shadowOf(context.getSystemService(NotificationManager::class.java))
+        val alarm = RestAlarmScheduler(context) { com.rebuild.ui.RestSound.ALARM }
+        alarm.notifyExpired(shortPause = true)
+        val posted = notifications.getNotification(RestAlarmScheduler.NOTIFICATION_ID)
+        assertEquals(RestAlarmScheduler.CHANNEL_ID, posted.channelId)
+        assertEquals(0, posted.flags and android.app.Notification.FLAG_INSISTENT)
+        assertNull(alarm.ringingSince.value)
+    }
+
+    @Test fun theAlarmReportsRingingUntilStoppedOrANewRestStarts() {
+        val alarm = RestAlarmScheduler(context) { com.rebuild.ui.RestSound.ALARM }
+        alarm.notifyExpired()
+        assertNotNull(alarm.ringingSince.value)
+        val posted = shadowOf(context.getSystemService(NotificationManager::class.java))
+            .getNotification(RestAlarmScheduler.NOTIFICATION_ID)
+        assertEquals("Stop shows on the lock screen", android.app.Notification.VISIBILITY_PUBLIC, posted.visibility)
+        alarm.stopRinging(always = true)
+        assertNull(alarm.ringingSince.value)
+        alarm.notifyExpired()
+        alarm.reconcile(timer, "workout", now)
+        assertNull("A new rest silences the last one's alarm", alarm.ringingSince.value)
+    }
+
+    @Test fun eachRestsButtonsAreTheirOwnIntents() {
+        val notifications = shadowOf(context.getSystemService(NotificationManager::class.java))
+        scheduler.reconcile(timer, "workout", now)
+        val first = notifications.getNotification(RestAlarmScheduler.COUNTDOWN_NOTIFICATION_ID).actions.map { it.actionIntent }
+        scheduler.reconcile(timer.copy(id = "next"), "workout", now)
+        val second = notifications.getNotification(RestAlarmScheduler.COUNTDOWN_NOTIFICATION_ID).actions.map { it.actionIntent }
+        // A tap on the older notification's +30 s or Skip still names the older rest.
+        first.zip(second).forEach { (old, new) -> assertFalse(old == new) }
+        assertEquals("timer", shadowOf(first[1]).savedIntent.getStringExtra(RestAlarmScheduler.EXTRA_TIMER_ID))
+    }
 }

@@ -1,0 +1,4 @@
+<resources>
+    <!-- The rest notifications' accent: amber ink on the light shade, signal amber on the dark one. -->
+    <color name="rest_notification_accent">#7A4D00</color>
+</resources>

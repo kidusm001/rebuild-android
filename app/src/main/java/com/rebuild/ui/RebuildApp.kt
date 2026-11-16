@@ -42,6 +42,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
@@ -52,7 +53,10 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
@@ -101,6 +105,7 @@ internal object Routes {
     const val PHASE = "phase"
     const val BACKUP = "backup"
     const val HELP = "help"
+    const val REST_ALERT = "rest-alert"
     const val EXERCISES = "exercises"
     const val ROUTINES = "routines"
     const val NEW_ROUTINE = "routine-new"
@@ -184,6 +189,11 @@ fun RebuildApp(
     RebuildTheme {
         val state by repository.state.collectAsStateWithLifecycle()
         val status by platform.status.collectAsStateWithLifecycle()
+        val restAlert by platform.restAlert.collectAsStateWithLifecycle()
+        val ringingSince by platform.alarmRingingSince.collectAsStateWithLifecycle()
+        val restEnd = remember { RestEndState() }
+        // Where the rest bar's top edge was, so a sweep at its end starts from the bar itself.
+        var restBarTop by remember { mutableStateOf<Float?>(null) }
         val runner: ActionRunner = viewModel(key = "rebuild-runner-${System.identityHashCode(repository)}") {
             ActionRunner(repository)
         }
@@ -223,8 +233,26 @@ fun RebuildApp(
 
         // One instance per real change of its inputs. Every screen takes it, so a fresh instance on each recomposition
         // here (a tab tap, a back press, the lifecycle) would recompose every screen on the stack for nothing.
-        val env = remember(state, status, platform, runner, clock, readClock, effortDrafts, today) {
-            AppEnv(state, status, platform, runner, clock, readClock, effortDrafts)
+        val env = remember(state, status, platform, runner, clock, readClock, effortDrafts, today, restAlert) {
+            AppEnv(state, status, platform, runner, clock, readClock, effortDrafts, restAlert, previewRestEnd = {
+                platform.previewRestAlert()
+                restEnd.current = RestEnd("preview-${clock()}", shortPause = false, preview = true,
+                    about = com.rebuild.platform.RestContext("", nextSet = 2, ofSets = 3))
+            })
+        }
+        // A rest ending in front of the user gets its on-screen alert; the sound comes from its notification.
+        val runningRest = state.restTimer?.takeIf { it.workoutId == state.activeWorkoutId }
+        RestEndWatcher(runningRest, clock, about = { com.rebuild.platform.restContext(state, it) }) {
+            restEnd.current = it
+            platform.announceRestEnd(it.id, it.shortPause)
+        }
+        // A resting lifter glances at the phone rather than touching it: the screen stays on while a rest runs or its
+        // alarm rings, so the countdown and the end of the rest can be seen.
+        val view = LocalView.current
+        val keepOn = runningRest != null || ringingSince != null
+        DisposableEffect(view, keepOn) {
+            view.keepScreenOn = keepOn
+            onDispose { view.keepScreenOn = false }
         }
         val nav = rememberSaveable(saver = Navigator.Saver) { Navigator(listOf(Tab.HOME.route)) }
 
@@ -276,7 +304,8 @@ fun RebuildApp(
                     // On the workout screen the stopwatch is shown where it times; everywhere else it stays one tap away.
                     val watch = state.stopwatch?.takeIf { route != Routes.WORKOUT }
                     val bottomNav = showNav && !wide
-                    if (state.phase != null && (bottomNav || timer != null || watch != null)) {
+                    val ringing = ringingSince?.takeIf { timer == null }
+                    if (state.phase != null && (bottomNav || timer != null || watch != null || ringing != null)) {
                         // The lowest bar paints behind the gesture area in its own color, and every bar rides above
                         // the keyboard, so nothing light or empty ever shows under a dark screen.
                         val base = when {
@@ -305,8 +334,14 @@ fun RebuildApp(
                                 }
                             }
                             if (timer != null) {
-                                Box(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))) {
+                                Box(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                                    .onGloballyPositioned { restBarTop = it.boundsInRoot().top }) {
                                     RestBar(env, timer)
+                                }
+                            } else if (ringing != null) {
+                                // The ringing alarm takes the rest bar's place, so Stop is where the eye already is.
+                                Box(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))) {
+                                    RestAlarmBar(ringing, clock, onStop = platform::stopRestAlarm)
                                 }
                             }
                             if (bottomNav) {
@@ -340,6 +375,10 @@ fun RebuildApp(
                 }
             }
         }
+        restEnd.current?.let { end ->
+            RestEndOverlay(end, restAlert, onDone = { restEnd.current = null },
+                restBarTop = restBarTop.takeIf { !end.preview })
+        }
         state.workouts.find { it.id == receiptFor }?.let { finished ->
             WorkoutReceipt(env, finished,
                 onView = { receiptFor = null; nav.push(Routes.workoutDetail(finished.id)) },
@@ -356,7 +395,10 @@ internal class AppEnv(
     val runner: ActionRunner,
     val clock: () -> Long,
     val monotonic: () -> Monotonic,
-    val effortDrafts: EffortDrafts = EffortDrafts()
+    val effortDrafts: EffortDrafts = EffortDrafts(),
+    val restAlert: RestAlert = RestAlert(),
+    /** Shows and sounds the chosen rest-end alert now, from the settings screen. */
+    val previewRestEnd: () -> Unit = {}
 ) {
     fun exercise(id: String): Exercise? = state.exercises.find { it.id == id }
 }
@@ -511,6 +553,7 @@ private fun RouteContent(env: AppEnv, nav: Navigator, route: String) {
         route == Routes.PHASE -> PhaseSettingsScreen(env, onBack = { nav.pop() })
         route == Routes.BACKUP -> BackupScreen(env, onBack = { nav.pop() })
         route == Routes.HELP -> HelpScreen(onBack = { nav.pop() })
+        route == Routes.REST_ALERT -> RestAlertScreen(env, onBack = { nav.pop() })
         route == Routes.EXERCISES -> ExerciseLibraryScreen(env, onBack = { nav.pop() })
         route == Routes.BODYWEIGHT -> BodyweightScreen(env, onBack = { nav.pop() })
         route == Routes.MEASUREMENTS -> MeasurementsScreen(env, onBack = { nav.pop() }, onMeasure = { nav.push(Routes.MEASURE) },
