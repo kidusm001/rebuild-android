@@ -1,8 +1,19 @@
 package com.rebuild.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,11 +29,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -71,19 +79,20 @@ internal fun pointsInRange(points: List<TopSetPoint>, range: ChartRange, today: 
     return points.filter { it.date >= start }
 }
 
-/** The most workouts that each get their own line; past that, a line per workout would be a tangle, so none is drawn. */
-internal const val MAX_TOP_SET_LINES = 2
+/**
+ * Whether the chart can split into a line per workout: when the exercise was done in exactly two. More would be a
+ * tangle of lines, and one has nothing to split.
+ */
+internal fun canSplitByWorkout(points: List<TopSetPoint>): Boolean = points.map { it.workout }.distinct().size == 2
 
 /**
- * The lines on the chart: one per workout the exercise was done in, each in date order, so a heavy day and a light day
- * each climb on their own instead of one line zig-zagging between them as if every other session were a drop. Empty
- * when the exercise was done in more workouts than [MAX_TOP_SET_LINES]: then the dots stand alone. The workout with the
- * latest point comes first.
+ * The lines on the chart. By default one, through every workout in date order. [split] gives each of two workouts its
+ * own line, so a heavy day and a light day each climb on their own instead of one line zig-zagging between them as if
+ * every other session were a drop. The workout with the latest point comes first.
  */
-internal fun topSetLines(points: List<TopSetPoint>): List<List<TopSetPoint>> {
-    val byWorkout = points.groupBy { it.workout }.values.sortedByDescending { it.last().date }
-    return if (byWorkout.size > MAX_TOP_SET_LINES) emptyList() else byWorkout
-}
+internal fun topSetLines(points: List<TopSetPoint>, split: Boolean): List<List<TopSetPoint>> =
+    if (split && canSplitByWorkout(points)) points.groupBy { it.workout }.values.sortedByDescending { it.last().date }
+    else listOf(points)
 
 /** Lines break where sessions are more than two weeks apart: nothing is drawn across a gap. */
 internal const val TOP_SET_GAP_DAYS = 14L
@@ -177,10 +186,11 @@ private fun rangeLabel(range: ChartRange) = if (range == ChartRange.ALL) "All" e
 
 /**
  * The heaviest set each workout, placed on its date, with its reps written by the dot: what was lifted and how many
- * times, with nothing to work out. Each workout the exercise is done in gets its own line, breaking across a gap of
- * more than two weeks. It opens on the last three months, with All a tap away once there is older history. Touching a
- * dot reads that workout's set above the chart; until then the Latest card above already says the last one.
+ * times, with nothing to work out. One line joins them, breaking across a gap of more than two weeks; an exercise done
+ * in two workouts can split into a line for each. It opens on the last three months, with All a tap away once there is
+ * older history. The readout says the latest set until a dot is touched.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun TopSetChart(
     sessions: List<HistorySession>,
@@ -196,10 +206,54 @@ internal fun TopSetChart(
     val choosable = pointsInRange(all, ChartRange.M3, today).size in 1 until all.size
     var chosen by rememberSaveable { mutableStateOf(ChartRange.M3) }
     val range = if (choosable) chosen else ChartRange.ALL
-    val points = remember(all, range, today) { pointsInRange(all, range, today) }
-    val lines = remember(points) { topSetLines(points) }
-    val below = remember(points, lines) { labelBelow(points, lines) }
-    val second = remember(lines) { lines.getOrNull(1)?.toSet().orEmpty() }
+    // Off by default: one line is the simplest read, and splitting is there for a heavy and a light day.
+    var split by rememberSaveable { mutableStateOf(false) }
+    val splittable = canSplitByWorkout(pointsInRange(all, range, today))
+    val title = loadChartTitle(exercise, unit).substringAfter(" · ")
+    ChartCard(modifier.testTag("top-set-card")) {
+        Text("Heaviest set · $title", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+        Text("Your heaviest set each workout. Higher is more weight; ×8 is its reps.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (choosable || splittable) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (choosable) listOf(ChartRange.M3, ChartRange.ALL).forEach { r ->
+                TonalChip(selected = r == chosen, onClick = { chosen = r }, label = { Text(rangeLabel(r)) },
+                    modifier = Modifier.testTag("range-${r.name}"))
+            }
+            if (splittable) TonalChip(selected = split, onClick = { split = !split }, label = { Text("Split by workout") },
+                modifier = Modifier.testTag("split-by-workout"))
+        }
+        // A new range redraws the chart around other dates and loads, so it fades across, as the Body chart does.
+        Crossfade(targetState = range, animationSpec = tween(220), label = "top-set-range") { shownRange ->
+            TopSetPlot(remember(all, shownRange, today) { pointsInRange(all, shownRange, today) }, shownRange, split,
+                unit, exercise, today, title)
+        }
+    }
+}
+
+/**
+ * The chart under its chips: the readout, the plot and its axes, and the key when split. Splitting moves nothing: the
+ * dots stay where they are, while the one line fades into two, the second workout's dots hollow out, labels slide to
+ * their new side, and the key opens underneath.
+ */
+@Composable
+private fun TopSetPlot(
+    points: List<TopSetPoint>,
+    range: ChartRange,
+    splitAsked: Boolean,
+    unit: LoadUnit,
+    exercise: Exercise,
+    today: LocalDate,
+    title: String
+) {
+    val split = splitAsked && canSplitByWorkout(points)
+    val progress by animateFloatAsState(if (split) 1f else 0f, tween(320), label = "top-set-split")
+    val single = remember(points) { topSetLines(points, split = false) }
+    val apart = remember(points) { topSetLines(points, split = true).takeIf { it.size > 1 }.orEmpty() }
+    val lines = if (split) apart else single
+    val belowSingle = remember(points, single) { labelBelow(points, single) }
+    val belowApart = remember(points, apart) { if (apart.isEmpty()) belowSingle else labelBelow(points, apart) }
+    val below = if (split) belowApart else belowSingle
+    val second = remember(apart) { apart.getOrNull(1)?.toSet().orEmpty() }
     val loads = points.map { it.load }
     val ticks = loadTicks(loads.min(), loads.max(), unit)
     val low = ticks.first()
@@ -230,6 +284,7 @@ internal fun TopSetChart(
     val selection = rememberChartSelection(points)
     val selected = selection.value
     val latest = points.lastIndex
+    val shown = selected ?: latest
     fun spokenSet(p: TopSetPoint) = "${chartLoadText(p.load, unit, exercise)} for ${countLabel(p.top.reps, "rep")}"
     fun dayAndWorkout(p: TopSetPoint) = readoutWeekday(p.date, today) + if (p.workout.isNotBlank()) " · ${p.workout}" else ""
     fun fraction(d: LocalDate) = if (days > 0) ChronoUnit.DAYS.between(from, d).toFloat() / days else 0.5f
@@ -239,7 +294,6 @@ internal fun TopSetChart(
             points.map { pad + (width - pad * 2) * fraction(it.date) }
         }
     }
-    val title = loadChartTitle(exercise, unit).substringAfter(" · ")
     val spokenRange = if (range == ChartRange.ALL) "all workouts" else "last ${rangeLabel(range)}"
     val loadSpan = if (loads.min() == loads.max()) chartLoadText(loads.min(), unit, exercise)
         else "from ${chartLoadText(loads.min(), unit, exercise)} to ${chartLoadText(loads.max(), unit, exercise)}"
@@ -247,18 +301,15 @@ internal fun TopSetChart(
     val describe = ("Heaviest set each workout, $title, $spokenRange: ${countLabel(points.size, "workout")}, $loadSpan, " +
         "$dateSpan." +
         (if (lines.size > 1) " One line for each of ${lines.joinToString(" and ") { it.first().workout }}." else "")).spokenUnits()
-    val state = points[selected ?: latest].let { p ->
+    val state = points[shown].let { p ->
         "${if (selected == null) "Latest: " else ""}${spokenSet(p)}, ${dayMonthYear(p.date)}" +
             if (p.workout.isNotBlank()) ", ${p.workout}" else ""
     }.spokenUnits()
-    ChartCard(modifier.testTag("top-set-card")) {
-        Text("Heaviest set · $title", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-        Text("Your heaviest set each workout. Higher is more weight; ×8 is its reps.",
-            style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-        if (choosable) RangeChips(chosen, { chosen = it }, ranges = listOf(ChartRange.M3, ChartRange.ALL), label = ::rangeLabel)
-        TouchReadout(points.getOrNull(selected ?: -1)?.let { p ->
-            "${chartLoadText(p.load, unit, exercise)} × ${p.top.reps}" to dayAndWorkout(p)
-        })
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        points[shown].let { p ->
+            ChartReadout("${chartLoadText(p.load, unit, exercise)} × ${p.top.reps}",
+                (if (selected == null) "Latest · " else "") + dayAndWorkout(p), touched = true)
+        }
         Row {
             LoadAxis(ticks, height, axisWidth, top = labelRoom, bottom = labelRoom) { tickText(it, unit) }
             Canvas(
@@ -276,76 +327,78 @@ internal fun TopSetChart(
                 ticks.forEach { t ->
                     drawLine(colors.outlineVariant.copy(alpha = 0.7f), Offset(0f, y(t)), Offset(size.width, y(t)), strokeWidth = 1.dp.toPx())
                 }
-                // Each label's box: centred on its dot, kept inside the chart, over or under the dot.
+                // Each label's box: centred on its dot, kept inside the chart, over or under the dot. While splitting,
+                // a label changing side slides between the two places.
                 val gap = 4.dp.toPx()
-                val boxes = points.mapIndexed { i, p ->
-                    val text = if (i == selected || i == latest) bold[i] else plain[i]
-                    val lift = (if (i == selected) 9 else 5).dp.toPx()
+                fun box(i: Int, under: Boolean): Rect {
+                    val p = points[i]
+                    val text = if (i == shown || i == latest) bold[i] else plain[i]
+                    val lift = (if (i == shown) 9 else 5).dp.toPx()
                     val tw = text.size.width.toFloat()
                     val tx = (x(p.date) - tw / 2f).coerceIn(0f, (size.width - tw).coerceAtLeast(0f))
-                    val ty = if (below[i]) y(p.load) + lift else y(p.load) - lift - text.size.height
-                    Rect(tx - gap / 2, ty, tx + tw + gap / 2, ty + text.size.height)
+                    val ty = if (under) y(p.load) + lift else y(p.load) - lift - text.size.height
+                    return Rect(tx - gap / 2, ty, tx + tw + gap / 2, ty + text.size.height)
                 }
+                val boxes = points.indices.map { box(it, below[it]) }
                 val labelled = labelledPoints(boxes, selected)
+                val drawn = points.indices.map { i ->
+                    val from0 = box(i, belowSingle[i])
+                    val to1 = box(i, belowApart[i])
+                    from0.translate(0f, (to1.top - from0.top) * progress)
+                }
                 selected?.let { i ->
                     // The guide stays inside the plot and stops short of the touched dot's own label.
                     val gx = x(points[i].date)
-                    val box = boxes[i]
+                    val b = drawn[i]
                     val plotTop = top - pad
                     val plotBottom = top + h + pad
-                    val guide = colors.outline
                     val stroke = 1.dp.toPx()
-                    if (box.top > plotTop) drawLine(guide, Offset(gx, plotTop), Offset(gx, box.top), strokeWidth = stroke)
-                    if (box.bottom < plotBottom) drawLine(guide, Offset(gx, box.bottom), Offset(gx, plotBottom), strokeWidth = stroke)
+                    if (b.top > plotTop) drawLine(colors.outline, Offset(gx, plotTop), Offset(gx, b.top), strokeWidth = stroke)
+                    if (b.bottom < plotBottom) drawLine(colors.outline, Offset(gx, b.bottom), Offset(gx, plotBottom), strokeWidth = stroke)
                 }
-                // Straight segments: sets are discrete, and a curve would invent loads between workouts.
-                lines.forEach { workout ->
-                    topSetSegments(workout).forEach { segment ->
-                        val pts = segment.map { Offset(x(it.date), y(it.load)) }
-                        if (pts.size > 1) {
-                            val path = Path().apply { moveTo(pts.first().x, pts.first().y); pts.drop(1).forEach { lineTo(it.x, it.y) } }
-                            drawPath(path, line, style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                // Straight segments: sets are discrete, and a curve would invent loads between workouts. Splitting
+                // fades the one line out as the two fade in.
+                fun drawLines(set: List<List<TopSetPoint>>, alpha: Float) {
+                    if (alpha <= 0f) return
+                    set.forEach { workout ->
+                        topSetSegments(workout).forEach { segment ->
+                            val pts = segment.map { Offset(x(it.date), y(it.load)) }
+                            if (pts.size > 1) {
+                                val path = Path().apply { moveTo(pts.first().x, pts.first().y); pts.drop(1).forEach { lineTo(it.x, it.y) } }
+                                drawPath(path, line, alpha = alpha,
+                                    style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                            }
                         }
                     }
                 }
-                // Dots: filled on the first workout's line (and when there are no lines), hollow on the second.
+                drawLines(single, 1f - progress)
+                drawLines(apart, progress)
+                // Dots: filled; the second workout's hollow out as the chart splits.
                 points.forEach { p ->
                     val c = Offset(x(p.date), y(p.load))
-                    if (p in second) {
-                        drawCircle(card, radius = 4.dp.toPx(), center = c)
-                        drawCircle(line, radius = 4.dp.toPx(), center = c, style = Stroke(width = 2.dp.toPx()))
-                    } else drawCircle(line, radius = if (lines.isEmpty()) 4.dp.toPx() else 3.dp.toPx(), center = c)
+                    if (p in second && progress > 0f) {
+                        val r = (3f + progress).dp.toPx()
+                        drawCircle(lerp(line, card, progress), radius = r, center = c)
+                        drawCircle(line, radius = r, center = c, style = Stroke(width = 2.dp.toPx()))
+                    } else drawCircle(line, radius = 3.dp.toPx(), center = c)
                 }
-                selected?.let { i ->
-                    val c = Offset(x(points[i].date), y(points[i].load))
-                    drawCircle(card, radius = 7.dp.toPx(), center = c)
-                    drawCircle(line, radius = 7.dp.toPx(), center = c, style = Stroke(width = 2.5.dp.toPx()))
-                }
+                // The ring marks the set the readout says: the latest until a dot is touched.
+                val c = Offset(x(points[shown].date), y(points[shown].load))
+                drawCircle(card, radius = 7.dp.toPx(), center = c)
+                drawCircle(line, radius = 7.dp.toPx(), center = c, style = Stroke(width = 2.5.dp.toPx()))
                 labelled.forEach { i ->
-                    val emphasis = i == selected || i == latest
+                    val emphasis = i == shown || i == latest
                     val text = if (emphasis) bold[i] else plain[i]
                     drawText(text, color = if (emphasis) colors.onSurface else colors.onSurfaceVariant,
-                        topLeft = Offset(boxes[i].left + gap / 2, boxes[i].top))
+                        topLeft = Offset(drawn[i].left + gap / 2, drawn[i].top))
                 }
             }
         }
         DateAxis(from, to, days, today, axisWidth)
-        if (lines.size > 1) WorkoutKey(lines.map { it.first().workout }, line, card)
-    }
-}
-
-/**
- * Above the chart: the touched workout's set and day, or until a dot is touched, how to read one. Both take the same
- * height, so touching doesn't move the chart. The chart itself announces this to screen readers.
- */
-@Composable
-private fun TouchReadout(read: Pair<String, String>?) {
-    val density = LocalDensity.current
-    val minHeight = with(density) { 32.sp.toDp() + MaterialTheme.typography.bodySmall.lineHeight.toDp() }
-    Box(Modifier.fillMaxWidth().heightIn(min = minHeight), contentAlignment = Alignment.CenterStart) {
-        if (read != null) ChartReadout(read.first, read.second, touched = true)
-        else Text("Touch a dot to read that workout", style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clearAndSetSemantics { hideFromAccessibility() })
+        AnimatedVisibility(visible = split, enter = expandVertically(tween(320)) + fadeIn(tween(320)),
+            exit = shrinkVertically(tween(320)) + fadeOut(tween(200))) {
+            WorkoutKey(apart.map { it.first().workout }, line, card)
+        }
     }
 }
 

@@ -56,23 +56,29 @@ class ExerciseProgressTest {
     private fun point(date: String, kg: Double, workout: String = "Push") =
         TopSetPoint(LocalDate.parse(date), LoggedSet("$date$workout", kg, 8, null, false, 0), workout)
 
-    @Test fun eachWorkoutGetsItsOwnLineSoAHeavyAndLightDayDontZigZag() {
+    @Test fun oneLineByDefaultAndALinePerWorkoutWhenSplit() {
         val points = listOf(point("2026-10-01", 60.0, "Lower A"), point("2026-10-03", 50.0, "Lower B"),
             point("2026-10-08", 62.5, "Lower A"), point("2026-10-10", 52.5, "Lower B"))
-        val lines = topSetLines(points)
-        // The latest workout's line first, each in date order.
+        // By default one line through every workout, in date order.
+        assertEquals(listOf(points), topSetLines(points, split = false))
+        // Split: the latest workout's line first, each in date order.
+        val lines = topSetLines(points, split = true)
         assertEquals(listOf(listOf(50.0, 52.5), listOf(60.0, 62.5)), lines.map { l -> l.map { it.load } })
         // The lower line's reps go under it, the upper's over.
         assertEquals(listOf(false, true, false, true), labelBelow(points, lines))
-        // A third workout would tangle them: dots only.
-        assertEquals(emptyList<List<TopSetPoint>>(), topSetLines(points + point("2026-10-12", 55.0, "Extra")))
+        // A third workout would be a tangle: no split on offer, and asking for one keeps the single line.
+        val three = points + point("2026-10-12", 55.0, "Extra")
+        assertEquals(false, canSplitByWorkout(three))
+        assertEquals(listOf(three), topSetLines(three, split = true))
+        // Nor with only one workout.
+        assertEquals(false, canSplitByWorkout(points.filter { it.workout == "Lower A" }))
     }
 
     @Test fun onOneLineADotTheLineRunsAboveHasItsRepsUnderneath() {
         // A peak, a valley, a rise; then a lone workout after a gap, which nothing is drawn to.
         val points = listOf(point("2026-09-01", 50.0), point("2026-09-03", 60.0), point("2026-09-05", 55.0),
             point("2026-09-07", 65.0), point("2026-10-30", 40.0))
-        assertEquals(listOf(true, false, true, false, false), labelBelow(points, topSetLines(points)))
+        assertEquals(listOf(true, false, true, false, false), labelBelow(points, topSetLines(points, split = false)))
     }
 
     @Test fun crowdedLabelsThinOutAndOnlyTheTouchedOnesNeighboursGiveWay() {

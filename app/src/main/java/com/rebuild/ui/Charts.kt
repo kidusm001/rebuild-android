@@ -74,19 +74,13 @@ enum class ChartRange(val label: String, val months: Long?) {
 }
 
 @Composable
-internal fun RangeChips(
-    selected: ChartRange,
-    onSelect: (ChartRange) -> Unit,
-    modifier: Modifier = Modifier,
-    ranges: List<ChartRange> = ChartRange.entries,
-    label: (ChartRange) -> String = { it.label }
-) {
+internal fun RangeChips(selected: ChartRange, onSelect: (ChartRange) -> Unit, modifier: Modifier = Modifier) {
     LazyRow(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(ranges) { range ->
+        items(ChartRange.entries) { range ->
             TonalChip(
                 selected = range == selected,
                 onClick = { onSelect(range) },
-                label = { Text(label(range)) },
+                label = { Text(range.label) },
                 modifier = Modifier.testTag("range-${range.name}")
             )
         }
