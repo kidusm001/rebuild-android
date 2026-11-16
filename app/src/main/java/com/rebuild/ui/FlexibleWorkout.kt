@@ -221,6 +221,8 @@ internal fun ReorderDialog(env: AppEnv, workout: Workout, onDismiss: () -> Unit)
         title = { Text("Reorder exercises") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Tip: during a workout, hold an exercise at the top and drag it to move it, or hold and let go for more.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Column(Modifier.testTag("reorder-list")) {
                     workout.exercises.forEachIndexed { index, we ->
                         if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
