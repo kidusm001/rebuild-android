@@ -21,7 +21,7 @@ class ThemeTest {
                 surfaceContainerLowest, surfaceContainerLow, surfaceContainer, surfaceContainerHigh,
                 surfaceContainerHighest, outline, outlineVariant)
         }
-        val expected = listOf("FFB94A", "2A1800", "D99A30", "231500",
+        val expected = listOf("FFB94A", "2A1800", "EBA42A", "231500",
             "D4C5AC", "392F1E", "4A3410", "FFDFA3", "9FD6A6", "0F3A1C", "1F4027", "C8EBCB",
             "FFB4A9", "680003", "5C1D18", "FFDAD5", "0F0E0D", "EDE6DD", "0F0E0D", "EDE6DD",
             "34302C", "CFC5B7", "1D1B19", "171514", "221F1D", "2A2724", "34302C", "958B7E", "3C3833")
