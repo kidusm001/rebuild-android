@@ -52,13 +52,23 @@ class ExerciseProgressTest {
         assertEquals(4, pointsInRange(points, ChartRange.ALL, today).size)
     }
 
-    @Test fun crowdedRepsLabelsSkipNeighboursButTheTouchedOneAlwaysShows() {
-        // Ten pixels apart with labels needing 25: every third from the latest back.
+    @Test fun aDotTheLineRunsAboveHasItsRepsUnderneath() {
+        fun point(date: String, kg: Double) = TopSetPoint(LocalDate.parse(date), LoggedSet(date, kg, 8, null, false, 0))
+        // A peak, a valley, a rise; then a lone workout after a gap, which nothing is drawn to.
+        val segments = topSetSegments(listOf(point("2026-09-01", 50.0), point("2026-09-03", 60.0), point("2026-09-05", 55.0),
+            point("2026-09-07", 65.0), point("2026-10-30", 40.0)))
+        assertEquals(listOf(true, false, true, false, false), labelBelow(segments))
+    }
+
+    @Test fun crowdedRepsLabelsThinOutPerSideAndOnlyTheTouchedOnesNeighboursGiveWay() {
+        // Ten pixels apart with labels needing 25, all above: every third from the latest back.
         val xs = List(7) { it * 10f }
-        assertEquals(setOf(6, 3, 0), labelledPoints(xs, 25f, null))
-        // Touching the second point labels it, and its neighbours give way.
-        assertEquals(setOf(1, 6), labelledPoints(xs, 25f, 1))
-        // With room, every point keeps its reps.
-        assertEquals(xs.indices.toSet(), labelledPoints(xs, 8f, null))
+        val above = List(7) { false }
+        assertEquals(setOf(6, 3, 0), labelledPoints(xs, above, 25f, null))
+        // Touching the second point labels it; the labels at 0 and 3 it would run into give way, 6 stays.
+        assertEquals(setOf(1, 6), labelledPoints(xs, above, 25f, 1))
+        // Alternating sides, as a zig-zag is: every point keeps its reps at twenty pixels apart.
+        val zigzag = List(7) { it % 2 == 0 }
+        assertEquals(xs.indices.toSet(), labelledPoints(xs.map { it * 2 }, zigzag, 25f, null))
     }
 }

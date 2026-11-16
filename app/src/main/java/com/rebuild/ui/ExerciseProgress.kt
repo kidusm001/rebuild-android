@@ -68,19 +68,28 @@ internal fun pointsInRange(points: List<TopSetPoint>, range: ChartRange, today: 
 }
 
 /**
- * Which points get their reps written above them, given each point's x and the room one label needs. The touched
- * point always does; the rest are taken from the latest back, skipping any that would run into a label already placed,
- * so a crowded chart keeps every other label instead of a smear of overlapping numbers.
+ * Whether a point's reps go under its dot: when it sits lower than the points the line joins it to, the line runs
+ * above it, so the space under the dot is the one place nothing is drawn. Everything else is labelled above.
  */
-internal fun labelledPoints(xs: List<Float>, room: Float, selected: Int?): Set<Int> {
-    val placed = mutableListOf<Float>()
-    val chosen = mutableSetOf<Int>()
-    fun place(i: Int) { chosen += i; placed += xs[i] }
-    selected?.let(::place)
-    for (i in xs.indices.reversed()) {
-        if (i != selected && placed.none { kotlin.math.abs(it - xs[i]) < room }) place(i)
+internal fun labelBelow(segments: List<List<TopSetPoint>>): List<Boolean> = segments.flatMap { segment ->
+    segment.indices.map { i ->
+        val neighbours = listOfNotNull(segment.getOrNull(i - 1), segment.getOrNull(i + 1))
+        neighbours.isNotEmpty() && neighbours.all { it.load > segment[i].load }
     }
-    return chosen
+}
+
+/**
+ * Which points get their reps written, given each point's x, which side of its dot its label goes ([below]), and the
+ * room one label needs across. Labels on opposite sides never meet. Taken from the latest back, a label that would run
+ * into one already placed on its side is skipped, so a crowded chart thins its labels instead of smearing them. The
+ * touched point always shows its own, and only the labels it would run into give way: the rest stay where they were.
+ */
+internal fun labelledPoints(xs: List<Float>, below: List<Boolean>, room: Float, selected: Int?): Set<Int> {
+    fun clash(i: Int, j: Int) = below[i] == below[j] && kotlin.math.abs(xs[i] - xs[j]) < room
+    val chosen = mutableListOf<Int>()
+    for (i in xs.indices.reversed()) if (chosen.none { clash(it, i) }) chosen += i
+    if (selected == null || selected in chosen) return chosen.toSet()
+    return (chosen.filterNot { clash(it, selected) } + selected).toSet()
 }
 
 /** Lines break where sessions are more than two weeks apart: nothing is drawn across a gap. */
@@ -125,9 +134,9 @@ internal fun readoutDay(date: LocalDate, today: LocalDate): String =
 
 /** The load axis: tick values from top to bottom, each centred on its gridline. */
 @Composable
-private fun LoadAxis(ticks: List<Double>, height: Dp, top: Dp = 0.dp, format: (Double) -> String) {
+private fun LoadAxis(ticks: List<Double>, height: Dp, top: Dp = 0.dp, bottom: Dp = 0.dp, format: (Double) -> String) {
     Column(
-        Modifier.height(height).width(44.dp).padding(top = top, end = 8.dp).clearAndSetSemantics { hideFromAccessibility() },
+        Modifier.height(height).width(44.dp).padding(top = top, bottom = bottom, end = 8.dp).clearAndSetSemantics { hideFromAccessibility() },
         verticalArrangement = if (ticks.size > 1) Arrangement.SpaceBetween else Arrangement.Center,
         horizontalAlignment = Alignment.End
     ) {
@@ -168,6 +177,7 @@ internal fun TopSetChart(
     var range by rememberSaveable(choosable) { mutableStateOf(if (choosable) ChartRange.M3 else ChartRange.ALL) }
     val points = remember(all, range, today) { pointsInRange(all, range, today) }
     val segments = remember(points) { topSetSegments(points) }
+    val below = remember(segments) { labelBelow(segments) }
     val loads = points.map { it.load }
     val ticks = loadTicks(loads.min(), loads.max(), unit)
     val low = ticks.first()
@@ -184,7 +194,7 @@ internal fun TopSetChart(
     val inset = with(density) { axisStyle.lineHeight.toDp() } / 2
     val repsStyle = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum")
     val measurer = rememberTextMeasurer()
-    // Room above the highest dot for its reps, so a label never runs off the top of the chart.
+    // Room above the highest dot and under the lowest for their reps, so a label never runs off the chart.
     val headroom = with(density) { repsStyle.lineHeight.toDp() } + 4.dp
     val selection = rememberChartSelection(points)
     val shown = points[selection.value ?: points.lastIndex]
@@ -210,7 +220,7 @@ internal fun TopSetChart(
         ChartReadout(value, detail, touched = true)
         AxisUnit(unit)
         Row {
-            LoadAxis(ticks, height, top = headroom) { tickText(it, unit) }
+            LoadAxis(ticks, height, top = headroom, bottom = headroom) { tickText(it, unit) }
             Canvas(
                 Modifier.weight(1f).height(height)
                     .chartSemantics(describe, points.size, selection.value, "$value, $detail".spokenUnits()) { selection.value = it }
@@ -219,7 +229,7 @@ internal fun TopSetChart(
             ) {
                 val pad = inset.toPx()
                 val top = headroom.toPx() + pad
-                val h = size.height - top - pad
+                val h = size.height - top - pad - headroom.toPx()
                 val w = size.width - pad * 2
                 fun x(d: LocalDate) = pad + w * fraction(d)
                 fun y(v: Double) = top + h * (1f - ((v - low) / span).toFloat())
@@ -243,9 +253,9 @@ internal fun TopSetChart(
                 val c = Offset(x(shown.date), y(shown.load))
                 drawCircle(card, radius = 7.dp.toPx(), center = c)
                 drawCircle(line, radius = 7.dp.toPx(), center = c, style = Stroke(width = 2.5.dp.toPx()))
-                // Reps over each dot that has room; touching any dot always shows its own.
+                // Reps by each dot that has room; touching any dot always shows its own.
                 val room = measurer.measure("×15", repsStyle).size.width + 6.dp.toPx()
-                val labelled = labelledPoints(points.map { x(it.date) }, room, selection.value)
+                val labelled = labelledPoints(points.map { x(it.date) }, below, room, selection.value)
                 labelled.forEach { i ->
                     val p = points[i]
                     val emphasis = i == shownIndex
@@ -258,7 +268,8 @@ internal fun TopSetChart(
                     )
                     val lift = (if (emphasis) 9 else 5).dp.toPx()
                     val tx = (x(p.date) - text.size.width / 2f).coerceIn(0f, size.width - text.size.width)
-                    drawText(text, topLeft = Offset(tx, y(p.load) - lift - text.size.height))
+                    val ty = if (below[i]) y(p.load) + lift else y(p.load) - lift - text.size.height
+                    drawText(text, topLeft = Offset(tx, ty))
                 }
             }
         }
