@@ -10,9 +10,10 @@ Everything visual comes from `ui/theme/Theme.kt` and the shared components in
 
 - **Color.** A warm tinted canvas with lighter (light) or raised (dark) cards,
   separated by tone, never by borders or dividers. Light: canvas `#F3EFE9`, cards
-  `#FFFFFF`. Dark: canvas `#0F0E0D`, cards `#1D1B19`. Signal amber `#FFB224` with
-  ink labels (`#231500`) is the one action and rest color in both themes: main
-  buttons, the rest sheet, selection and today's progress. Amber as text, focus
+  `#FFFFFF`. Dark: canvas `#0F0E0D`, cards `#1D1B19`. Signal amber with ink labels
+  (`#231500`) is the one action and rest color in both themes: main buttons, the rest
+  sheet, selection and today's progress. It is `#FFB224` on light and a softer
+  `#D99A30` on dark, where full-strength amber glared against the near-black canvas. Amber as text, focus
   rings and selected controls uses amber-ink `#7A4D00` on light and `#FFB94A` on
   dark (`accentText()`), because signal amber is only a fill. Selection is
   `secondaryContainer` everywhere (chips, tabs, segmented controls). `ThemeTest`
