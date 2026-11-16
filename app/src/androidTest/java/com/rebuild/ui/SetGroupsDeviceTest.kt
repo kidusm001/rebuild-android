@@ -314,7 +314,8 @@ class SetGroupsDeviceTest {
         rule.onNodeWithContentDescription("Bench press, ", substring = true).performScrollTo().performClick()
         rule.onNodeWithText("No working sets logged yet.").assertDoesNotExist()
         // Each set is charted by what it was (40 × 10, 30 × 8); the drops after it never become points.
-        listOf("Top set chart, kg: 1 session, from 30 kg to 40 kg,", "Same reps, then and now chart: heaviest set at each of 2 rep counts,").forEach {
+        // Its heaviest set is the one charted: 40 × 10, never a drop.
+        listOf("Heaviest set each workout, kg, all workouts: 1 workout, 40 kg,").forEach {
             val chart = hasContentDescription(it, substring = true)
             rule.onNode(hasScrollToIndexAction()).performScrollToNode(chart)
             rule.onNode(chart).assertExists()
@@ -334,7 +335,7 @@ class SetGroupsDeviceTest {
         runBlocking { repo.execute(Action.FinishWorkout(FIXED_NOW - 600_000)) }
         rule.waitForIdle()
         // The charts sit below the latest-session card in a lazy list, so each is scrolled to before it is checked.
-        listOf("Top set chart, kg: 2 sessions, from 30 kg to 42.5 kg,", "Same reps, then and now chart: heaviest set at each of 4 rep counts,").forEach {
+        listOf("Heaviest set each workout, kg, all workouts: 2 workouts, from 40 kg to 42.5 kg,").forEach {
             val chart = hasContentDescription(it, substring = true)
             rule.onNode(hasScrollToIndexAction()).performScrollToNode(chart)
             rule.onNode(chart).assertExists()

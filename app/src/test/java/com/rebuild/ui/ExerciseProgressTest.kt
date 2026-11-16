@@ -12,6 +12,7 @@ import com.rebuild.domain.Workout
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.LocalDate
+import androidx.compose.ui.geometry.Rect
 
 class ExerciseProgressTest {
     private val press = Exercise("press", "Press", LoadingType.EXTERNAL, false)
@@ -52,23 +53,43 @@ class ExerciseProgressTest {
         assertEquals(4, pointsInRange(points, ChartRange.ALL, today).size)
     }
 
-    @Test fun aDotTheLineRunsAboveHasItsRepsUnderneath() {
-        fun point(date: String, kg: Double) = TopSetPoint(LocalDate.parse(date), LoggedSet(date, kg, 8, null, false, 0))
-        // A peak, a valley, a rise; then a lone workout after a gap, which nothing is drawn to.
-        val segments = topSetSegments(listOf(point("2026-09-01", 50.0), point("2026-09-03", 60.0), point("2026-09-05", 55.0),
-            point("2026-09-07", 65.0), point("2026-10-30", 40.0)))
-        assertEquals(listOf(true, false, true, false, false), labelBelow(segments))
+    private fun point(date: String, kg: Double, workout: String = "Push") =
+        TopSetPoint(LocalDate.parse(date), LoggedSet("$date$workout", kg, 8, null, false, 0), workout)
+
+    @Test fun eachWorkoutGetsItsOwnLineSoAHeavyAndLightDayDontZigZag() {
+        val points = listOf(point("2026-10-01", 60.0, "Lower A"), point("2026-10-03", 50.0, "Lower B"),
+            point("2026-10-08", 62.5, "Lower A"), point("2026-10-10", 52.5, "Lower B"))
+        val lines = topSetLines(points)
+        // The latest workout's line first, each in date order.
+        assertEquals(listOf(listOf(50.0, 52.5), listOf(60.0, 62.5)), lines.map { l -> l.map { it.load } })
+        // The lower line's reps go under it, the upper's over.
+        assertEquals(listOf(false, true, false, true), labelBelow(points, lines))
+        // A third workout would tangle them: dots only.
+        assertEquals(emptyList<List<TopSetPoint>>(), topSetLines(points + point("2026-10-12", 55.0, "Extra")))
     }
 
-    @Test fun crowdedRepsLabelsThinOutPerSideAndOnlyTheTouchedOnesNeighboursGiveWay() {
-        // Ten pixels apart with labels needing 25, all above: every third from the latest back.
-        val xs = List(7) { it * 10f }
-        val above = List(7) { false }
-        assertEquals(setOf(6, 3, 0), labelledPoints(xs, above, 25f, null))
-        // Touching the second point labels it; the labels at 0 and 3 it would run into give way, 6 stays.
-        assertEquals(setOf(1, 6), labelledPoints(xs, above, 25f, 1))
-        // Alternating sides, as a zig-zag is: every point keeps its reps at twenty pixels apart.
-        val zigzag = List(7) { it % 2 == 0 }
-        assertEquals(xs.indices.toSet(), labelledPoints(xs.map { it * 2 }, zigzag, 25f, null))
+    @Test fun onOneLineADotTheLineRunsAboveHasItsRepsUnderneath() {
+        // A peak, a valley, a rise; then a lone workout after a gap, which nothing is drawn to.
+        val points = listOf(point("2026-09-01", 50.0), point("2026-09-03", 60.0), point("2026-09-05", 55.0),
+            point("2026-09-07", 65.0), point("2026-10-30", 40.0))
+        assertEquals(listOf(true, false, true, false, false), labelBelow(points, topSetLines(points)))
+    }
+
+    @Test fun crowdedLabelsThinOutAndOnlyTheTouchedOnesNeighboursGiveWay() {
+        // Boxes 25 wide, 10 apart, on one row: every third from the latest back.
+        val row = List(7) { Rect(it * 10f, 0f, it * 10f + 25f, 10f) }
+        assertEquals(setOf(6, 3, 0), labelledPoints(row, null))
+        // Touching the second labels it; the boxes it overlaps (0 and 3) give way, 6 stays.
+        assertEquals(setOf(1, 6), labelledPoints(row, 1))
+        // Boxes on different rows never clash, however close across: a zig-zag keeps every label.
+        val zigzag = List(7) { Rect(it * 10f, if (it % 2 == 0) 0f else 20f, it * 10f + 15f, if (it % 2 == 0) 10f else 30f) }
+        assertEquals(zigzag.indices.toSet(), labelledPoints(zigzag, null))
+        // But a box under one dot can still run into a box over another: they are checked as boxes, not sides.
+        assertEquals(setOf(1), labelledPoints(listOf(Rect(0f, 0f, 20f, 10f), Rect(5f, 5f, 25f, 15f)), null))
+    }
+
+    @Test fun theChartsWeekdaysMatchRecordsAndOnlyAnOlderYearIsSpelledOut() {
+        assertEquals("Thu 22 Oct", readoutWeekday(LocalDate.parse("2026-10-22"), today))
+        assertEquals("Wed 22 Oct 2025", readoutWeekday(LocalDate.parse("2025-10-22"), today))
     }
 }

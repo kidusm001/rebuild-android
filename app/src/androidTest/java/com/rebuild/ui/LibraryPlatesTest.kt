@@ -408,10 +408,10 @@ class LibraryPlatesTest {
         rule.onNodeWithTag("history-workouts").performScrollToNode(hasText("Upper"))
         rule.onNodeWithText("Upper", substring = false).performClick()
         rule.onAllNodesWithContentDescription("Seated cable row, ", substring = true)[0].performScrollTo().performClick()
-        rule.onNodeWithText("Weight · kg").assertExists()
+        rule.onNodeWithText("Heaviest set · kg").assertExists()
         rule.onNodeWithTag("unit-PLATES").performClick()
-        rule.onNodeWithText("Load · plates per stack").assertExists()
-        rule.onNodeWithText("Weight · kg").assertDoesNotExist()
+        rule.onNodeWithText("Heaviest set · plates per stack").assertExists()
+        rule.onNodeWithText("Heaviest set · kg").assertDoesNotExist()
     }
 
     @OptIn(ExperimentalLayoutApi::class)

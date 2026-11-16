@@ -1009,7 +1009,7 @@ internal fun ExerciseHistoryScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Latest · ${formatDate(latest.workout.startedAt)}", style = MaterialTheme.typography.labelLarge,
                             color = accentText(), modifier = Modifier.weight(1f))
-                        Text(countLabel(sessions.size, "session"), style = MaterialTheme.typography.labelMedium,
+                        Text(countLabel(sessions.size, "workout"), style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     latest.entries.forEach { HistoryEntryLines(it, exercise, prominent = true) }
@@ -1017,9 +1017,6 @@ internal fun ExerciseHistoryScreen(
             }
             // Stages aren't separate sets, so charts plot normal working sets only; groups are listed below.
             val charted = sessions.filter { it.sets.isNotEmpty() }
-            if (charted.any { s -> s.sets.any { it.loadValue != null } }) {
-                item(key = "top-set-chart") { TopSetChart(charted, unit, exercise, localDateOf(env.clock())) }
-            }
             val perLeg = charted.map { it.perLeg }
             val perLegNote = when {
                 perLeg.all { it } -> " (per leg)"
@@ -1029,6 +1026,9 @@ internal fun ExerciseHistoryScreen(
             // Loaded sets are read through the top set chart and the records (same reps, then and now); without a load
             // (bodyweight, or assisted, where heaviest means nothing) the reps themselves are the chart.
             val loaded = recordSets(env.state.workouts, unit) { it.exercise.identity() == identity }
+            // Heaviest only means hardest for an external load: assisted sets (where more help is easier) and bodyweight
+            // get the reps chart instead, as Records leave them out too.
+            if (loaded.isNotEmpty()) item(key = "top-set-chart") { TopSetChart(charted, unit, exercise, localDateOf(env.clock())) }
             if (loaded.isEmpty() && charted.isNotEmpty()) item(key = "reps-chart") {
                 SetChart(
                     "Reps$perLegNote",

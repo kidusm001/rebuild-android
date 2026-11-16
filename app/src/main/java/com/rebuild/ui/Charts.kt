@@ -78,14 +78,15 @@ internal fun RangeChips(
     selected: ChartRange,
     onSelect: (ChartRange) -> Unit,
     modifier: Modifier = Modifier,
-    ranges: List<ChartRange> = ChartRange.entries
+    ranges: List<ChartRange> = ChartRange.entries,
+    label: (ChartRange) -> String = { it.label }
 ) {
     LazyRow(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items(ranges) { range ->
             TonalChip(
                 selected = range == selected,
                 onClick = { onSelect(range) },
-                label = { Text(range.label) },
+                label = { Text(label(range)) },
                 modifier = Modifier.testTag("range-${range.name}")
             )
         }
@@ -177,9 +178,10 @@ internal fun sessionText(values: List<Double>, format: (Double) -> String): Stri
 internal fun Modifier.chartSemantics(description: String, count: Int, selected: Int?, readout: String,
     onSelect: (Int) -> Unit): Modifier = semantics {
     contentDescription = description
+    // Even a single point says what it is: the readout above the chart is hidden from screen readers.
+    stateDescription = readout
     if (count > 1) {
         val at = selected ?: (count - 1)
-        stateDescription = readout
         progressBarRangeInfo = ProgressBarRangeInfo(at.toFloat(), 0f..(count - 1).toFloat(), steps = (count - 2).coerceAtLeast(0))
         setProgress { target -> onSelect(target.roundToInt().coerceIn(0, count - 1)); true }
     }
