@@ -32,7 +32,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -47,6 +49,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.rebuild.domain.Exercise
+import com.rebuild.ui.theme.SignalAmber
 import com.rebuild.domain.LoadUnit
 import com.rebuild.domain.LoggedSet
 import com.rebuild.domain.Workout
@@ -286,6 +289,10 @@ private fun TopSetPlot(
     val colors = MaterialTheme.colorScheme
     val line = accentText()
     val card = colors.surfaceContainerLowest
+    // The wash belongs with the line: full signal amber, as on the Body chart, not the softened dark fill. On the dark
+    // card the same strength turns to a brown slab, so it's fainter there.
+    val wash = SignalAmber
+    val washAlpha = if (card.luminance() < 0.5f) 0.16f else 0.22f
     val density = LocalDensity.current
     val axisStyle = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum")
     val inset = with(density) { axisStyle.lineHeight.toDp() } / 2
@@ -386,21 +393,33 @@ private fun TopSetPlot(
                 }
                 // Straight segments: sets are discrete, and a curve would invent loads between workouts. Splitting
                 // fades the one line out as the two fade in.
-                fun drawLines(set: List<List<TopSetPoint>>, alpha: Float) {
+                val plotBottom = top + h + pad
+                fun drawLines(set: List<List<TopSetPoint>>, alpha: Float, washed: Boolean) {
                     if (alpha <= 0f) return
                     set.forEach { workout ->
                         topSetSegments(workout).forEach { segment ->
                             val pts = segment.map { Offset(x(it), y(it.load)) }
                             if (pts.size > 1) {
                                 val path = Path().apply { moveTo(pts.first().x, pts.first().y); pts.drop(1).forEach { lineTo(it.x, it.y) } }
+                                // The ember wash under the single line, as on the Body chart: faint, anchored to the top of
+                                // the plot so its strength doesn't change from one exercise to the next, and gone well above
+                                // the bottom axis, so it reads as warmth rather than a filled amount.
+                                if (washed) {
+                                    val area = Path().apply {
+                                        addPath(path); lineTo(pts.last().x, plotBottom); lineTo(pts.first().x, plotBottom); close()
+                                    }
+                                    drawPath(area, Brush.verticalGradient(listOf(wash.copy(alpha = washAlpha), wash.copy(alpha = 0f)),
+                                        startY = top - pad, endY = top + h * 0.85f), alpha = alpha)
+                                }
                                 drawPath(path, line, alpha = alpha,
                                     style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
                             }
                         }
                     }
                 }
-                drawLines(single, 1f - progress)
-                drawLines(apart, progress)
+                // Split, the lines go unwashed: two washes would stack into a band under the lower line.
+                drawLines(single, 1f - progress, washed = true)
+                drawLines(apart, progress, washed = false)
                 // Dots: filled; the second workout's hollow out as the chart splits.
                 points.forEach { p ->
                     val c = Offset(x(p), y(p.load))
