@@ -44,10 +44,15 @@ internal fun exerciseSummaries(finished: List<Workout>): List<ExerciseSummary> =
         .flatMap { w -> w.exercises.filter { e -> e.sets.any { !it.warmup } || e.efforts.isNotEmpty() }.map { w to it } }
         .groupBy { it.second.exercise.identity() }
         .map { (_, list) ->
-            val (workout, latest) = list.first()
+            val workout = list.first().first
+            // An exercise can be in one workout twice (swapped in for another): its sets there are read together, and
+            // that workout counts once.
+            val latest = list.filter { it.first.id == workout.id }.map { it.second }.reduce { a, b ->
+                a.copy(sets = a.sets + b.sets, setGroups = a.setGroups + b.setGroups, efforts = a.efforts + b.efforts)
+            }
             val exercise = latest.exercise
             val (text, spoken) = latestLine(latest, exercise)
-            ExerciseSummary(exercise, list.size, workout.startedAt, text, spoken)
+            ExerciseSummary(exercise, list.map { it.first.id }.distinct().size, workout.startedAt, text, spoken)
         }
 
 /**

@@ -60,8 +60,11 @@ import kotlin.math.floor
 /** The day a workout happened, as its week counts it. */
 internal fun workoutDate(workout: Workout): LocalDate = workout.startDate?.let(LocalDate::parse) ?: localDateOf(workout.startedAt)
 
-/** A workout on the heaviest set chart: its heaviest working set, that set's reps, and which workout it was. */
-internal data class TopSetPoint(val date: LocalDate, val top: LoggedSet, val workout: String = "") {
+/**
+ * A workout on the heaviest set chart: its heaviest working set, that set's reps, which workout it was, and whether
+ * its reps were counted per leg.
+ */
+internal data class TopSetPoint(val date: LocalDate, val top: LoggedSet, val workout: String = "", val perLeg: Boolean = false) {
     val load: Double get() = top.loadValue!!
 }
 
@@ -69,7 +72,19 @@ internal data class TopSetPoint(val date: LocalDate, val top: LoggedSet, val wor
 internal fun topSetPoints(sessions: List<HistorySession>): List<TopSetPoint> = sessions.mapNotNull { s ->
     val loaded = s.sets.filter { it.loadValue != null }
     val top = loaded.maxWithOrNull(compareBy<LoggedSet> { it.loadValue!! }.thenBy { it.reps }) ?: return@mapNotNull null
-    TopSetPoint(workoutDate(s.workout), top, s.workout.name)
+    TopSetPoint(workoutDate(s.workout), top, s.workout.name, s.perLeg)
+}
+
+/**
+ * How far each point sits from its day, in dot widths: 0 for the only workout that day, and -0.5 and 0.5 for two on the
+ * same day, and so on, so every workout has a dot of its own to touch rather than one hidden under another.
+ */
+internal fun sameDayOffsets(points: List<TopSetPoint>): List<Float> {
+    val byDay = points.indices.groupBy { points[it].date }
+    return points.indices.map { i ->
+        val day = byDay.getValue(points[i].date)
+        day.indexOf(i) - (day.size - 1) / 2f
+    }
 }
 
 /** The points a [range] shows, counting back from [today]; All shows every one. */
@@ -212,7 +227,12 @@ internal fun TopSetChart(
     val title = loadChartTitle(exercise, unit).substringAfter(" · ")
     ChartCard(modifier.testTag("top-set-card")) {
         Text("Heaviest set · $title", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-        Text("Your heaviest set each workout. Higher is more weight; ×8 is its reps.",
+        val perLeg = all.map { it.perLeg }
+        Text("Your heaviest set each workout. Higher is more weight; " + when {
+            perLeg.all { it } -> "×8 is its reps per leg."
+            perLeg.any { it } -> "×8 is its reps, per leg where the readout says so."
+            else -> "×8 is its reps."
+        },
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (choosable || splittable) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (choosable) listOf(ChartRange.M3, ChartRange.ALL).forEach { r ->
@@ -223,9 +243,11 @@ internal fun TopSetChart(
                 modifier = Modifier.testTag("split-by-workout"))
         }
         // A new range redraws the chart around other dates and loads, so it fades across, as the Body chart does.
-        Crossfade(targetState = range, animationSpec = tween(220), label = "top-set-range") { shownRange ->
-            TopSetPlot(remember(all, shownRange, today) { pointsInRange(all, shownRange, today) }, shownRange, split,
-                unit, exercise, today, title)
+        // Each view keeps the points it was drawn with, so the outgoing one never refilters new data (another unit, say)
+        // by its old range and comes up empty.
+        val points = remember(all, range, today) { pointsInRange(all, range, today) }
+        Crossfade(targetState = range to points, animationSpec = tween(220), label = "top-set-range") { (shownRange, shown) ->
+            if (shown.isNotEmpty()) TopSetPlot(shown, shownRange, split, unit, exercise, today, title)
         }
     }
 }
@@ -285,13 +307,19 @@ private fun TopSetPlot(
     val selected = selection.value
     val latest = points.lastIndex
     val shown = selected ?: latest
-    fun spokenSet(p: TopSetPoint) = "${chartLoadText(p.load, unit, exercise)} for ${countLabel(p.top.reps, "rep")}"
-    fun dayAndWorkout(p: TopSetPoint) = readoutWeekday(p.date, today) + if (p.workout.isNotBlank()) " · ${p.workout}" else ""
+    fun spokenSet(p: TopSetPoint) =
+        "${chartLoadText(p.load, unit, exercise)} for ${countLabel(p.top.reps, "rep")}" + if (p.perLeg) " per leg" else ""
+    fun dayAndWorkout(p: TopSetPoint) = readoutWeekday(p.date, today) + (if (p.workout.isNotBlank()) " · ${p.workout}" else "") +
+        if (p.perLeg) " · reps per leg" else ""
     fun fraction(d: LocalDate) = if (days > 0) ChronoUnit.DAYS.between(from, d).toFloat() / days else 0.5f
+    // Two workouts on one day sit a dot's width apart, each touchable.
+    val offsets = remember(points) { sameDayOffsets(points) }
+    val dodge = with(density) { 8.dp.toPx() }
+    val index = remember(points) { points.withIndex().associate { it.value to it.index } }
     val xs = remember(points, inset, density) {
         { width: Int ->
             val pad = with(density) { inset.toPx() }
-            points.map { pad + (width - pad * 2) * fraction(it.date) }
+            points.mapIndexed { i, p -> pad + (width - pad * 2) * fraction(p.date) + offsets[i] * dodge }
         }
     }
     val spokenRange = if (range == ChartRange.ALL) "all workouts" else "last ${rangeLabel(range)}"
@@ -322,7 +350,7 @@ private fun TopSetPlot(
                 val top = labelRoom.toPx() + pad
                 val h = plot.toPx()
                 val w = size.width - pad * 2
-                fun x(d: LocalDate) = pad + w * fraction(d)
+                fun x(p: TopSetPoint) = pad + w * fraction(p.date) + offsets[index.getValue(p)] * dodge
                 fun y(v: Double) = top + h * (1f - ((v - low) / span).toFloat())
                 ticks.forEach { t ->
                     drawLine(colors.outlineVariant.copy(alpha = 0.7f), Offset(0f, y(t)), Offset(size.width, y(t)), strokeWidth = 1.dp.toPx())
@@ -335,7 +363,7 @@ private fun TopSetPlot(
                     val text = if (i == shown || i == latest) bold[i] else plain[i]
                     val lift = (if (i == shown) 9 else 5).dp.toPx()
                     val tw = text.size.width.toFloat()
-                    val tx = (x(p.date) - tw / 2f).coerceIn(0f, (size.width - tw).coerceAtLeast(0f))
+                    val tx = (x(p) - tw / 2f).coerceIn(0f, (size.width - tw).coerceAtLeast(0f))
                     val ty = if (under) y(p.load) + lift else y(p.load) - lift - text.size.height
                     return Rect(tx - gap / 2, ty, tx + tw + gap / 2, ty + text.size.height)
                 }
@@ -348,7 +376,7 @@ private fun TopSetPlot(
                 }
                 selected?.let { i ->
                     // The guide stays inside the plot and stops short of the touched dot's own label.
-                    val gx = x(points[i].date)
+                    val gx = x(points[i])
                     val b = drawn[i]
                     val plotTop = top - pad
                     val plotBottom = top + h + pad
@@ -362,7 +390,7 @@ private fun TopSetPlot(
                     if (alpha <= 0f) return
                     set.forEach { workout ->
                         topSetSegments(workout).forEach { segment ->
-                            val pts = segment.map { Offset(x(it.date), y(it.load)) }
+                            val pts = segment.map { Offset(x(it), y(it.load)) }
                             if (pts.size > 1) {
                                 val path = Path().apply { moveTo(pts.first().x, pts.first().y); pts.drop(1).forEach { lineTo(it.x, it.y) } }
                                 drawPath(path, line, alpha = alpha,
@@ -375,7 +403,7 @@ private fun TopSetPlot(
                 drawLines(apart, progress)
                 // Dots: filled; the second workout's hollow out as the chart splits.
                 points.forEach { p ->
-                    val c = Offset(x(p.date), y(p.load))
+                    val c = Offset(x(p), y(p.load))
                     if (p in second && progress > 0f) {
                         val r = (3f + progress).dp.toPx()
                         drawCircle(lerp(line, card, progress), radius = r, center = c)
@@ -383,7 +411,7 @@ private fun TopSetPlot(
                     } else drawCircle(line, radius = 3.dp.toPx(), center = c)
                 }
                 // The ring marks the set the readout says: the latest until a dot is touched.
-                val c = Offset(x(points[shown].date), y(points[shown].load))
+                val c = Offset(x(points[shown]), y(points[shown].load))
                 drawCircle(card, radius = 7.dp.toPx(), center = c)
                 drawCircle(line, radius = 7.dp.toPx(), center = c, style = Stroke(width = 2.5.dp.toPx()))
                 labelled.forEach { i ->

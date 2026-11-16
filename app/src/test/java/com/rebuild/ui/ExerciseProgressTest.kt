@@ -98,4 +98,10 @@ class ExerciseProgressTest {
         assertEquals("Thu 22 Oct", readoutWeekday(LocalDate.parse("2026-10-22"), today))
         assertEquals("Wed 22 Oct 2025", readoutWeekday(LocalDate.parse("2025-10-22"), today))
     }
+
+    @Test fun twoWorkoutsOnOneDayEachGetADotOfTheirOwn() {
+        val points = listOf(point("2026-10-01", 50.0), point("2026-10-03", 52.5, "Extra"), point("2026-10-03", 55.0),
+            point("2026-10-05", 57.5))
+        assertEquals(listOf(0f, -0.5f, 0.5f, 0f), sameDayOffsets(points))
+    }
 }

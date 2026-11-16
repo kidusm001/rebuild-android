@@ -76,4 +76,14 @@ class ExerciseIndexTest {
         val top = topSet(entry(assisted, set("a", 30.0, 10, 1), set("b", 20.0, 6, 2), set("c", 20.0, 8, 3)))
         assertEquals("c", top?.id)
     }
+
+    @Test fun anExerciseTwiceInOneWorkoutIsReadTogetherAndCountedOnce() {
+        // Swapped in for another exercise, so it appears twice in the latest workout; the heavier set is in the second.
+        val first = entry(pulldown, set("a", 40.0, 10, 2_001))
+        val second = entry(pulldown, set("b", 45.0, 8, 2_005)).copy(id = "e-pulldown-2")
+        val summary = exerciseSummaries(listOf(workout("w1", 1_000, entry(pulldown, set("x", 50.0, 8, 1_001))),
+            workout("w2", 2_000, first, second))).single()
+        assertEquals("45 kg × 8", summary.latest)
+        assertEquals(2, summary.sessions)
+    }
 }
