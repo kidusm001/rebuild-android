@@ -48,4 +48,19 @@ class RestContextTest {
         val timer = s.restTimer ?: return // a warm-up may not start a rest; then there is nothing to describe
         assertEquals("Next: set 1 of ${first.targetSets}", restContext(s, timer)!!.next)
     }
+
+    @Test fun theTakeoverAndCardSayTheNextSetBigAndWhatItBelongsTo() {
+        val set = RestContext("Bench press", nextSet = 2, ofSets = 3)
+        assertEquals("Set 2", set.headline)
+        assertEquals("of 3 · Bench press", set.detail)
+        assertEquals("Next: set 2 of 3", set.next)
+        val untargeted = RestContext("Plank", nextSet = 4)
+        assertEquals("Plank", untargeted.detail)
+        assertEquals("Next: set 4", untargeted.next)
+        val moving = RestContext("Bench press", nextExercise = "Seated cable row")
+        assertEquals("Seated cable row", moving.headline)
+        assertEquals("after Bench press", moving.detail)
+        assertEquals("All sets done", RestContext("Bench press").headline)
+        assertEquals("Go again", RestContext("Bench press", shortPause = true).headline)
+    }
 }

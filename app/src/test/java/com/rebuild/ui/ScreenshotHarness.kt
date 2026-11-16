@@ -165,7 +165,7 @@ class ScreenshotHarness {
         shot("$mode-19-rest-alert")
         compose.mainClock.autoAdvance = false
         tapTagNoWait("rest-alert-try")
-        compose.mainClock.advanceTimeBy(32)
+        compose.mainClock.advanceTimeBy(140)
         shot("$mode-20-rest-end-flash")
         compose.mainClock.advanceTimeBy(5_000)
         tapTagNoWait("rest-visual-sweep")
@@ -173,7 +173,7 @@ class ScreenshotHarness {
         tapTagNoWait("rest-alert-try")
         compose.mainClock.advanceTimeBy(250)
         shot("$mode-21-rest-end-sweep-rising")
-        compose.mainClock.advanceTimeBy(400)
+        compose.mainClock.advanceTimeBy(700)
         shot("$mode-22-rest-end-sweep-hold")
         compose.mainClock.advanceTimeBy(5_000)
         compose.mainClock.autoAdvance = true

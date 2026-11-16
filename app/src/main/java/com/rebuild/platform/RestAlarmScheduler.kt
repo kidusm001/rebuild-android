@@ -20,6 +20,8 @@ import com.rebuild.domain.RestTimer
 import com.rebuild.ui.RestSound
 import android.media.AudioAttributes
 import android.media.RingtoneManager
+import android.os.SystemClock
+import android.widget.RemoteViews
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -178,12 +180,24 @@ class RestAlarmScheduler(
         if (chosen == RestSound.ALARM && !notificationsAllowedOn(ALARM_CHANNEL_ID)) return
         // "Rest over" leads, what to do now follows ("Next: set 2 of 3"), and the exercise sits in the header beside
         // the time it ended, so the shade and lock screen answer "what now?" without opening the app.
+        val title = context.getString(if (shortPause) R.string.pause_complete else R.string.rest_complete)
+        // The amber card: "REST OVER" small, the next set big ("Set 2"), and what it belongs to when expanded. The
+        // plain title and text stay set for the lock screen's redacted form, watches and screen readers.
+        fun card(layout: Int) = RemoteViews(context.packageName, layout).apply {
+            setTextViewText(R.id.rest_over_label, title.uppercase())
+            setTextViewText(R.id.rest_over_headline, about?.headline ?: title)
+            if (layout == R.layout.notification_rest_over_big) setTextViewText(R.id.rest_over_detail, about?.detail ?: "")
+        }
         val builder = NotificationCompat.Builder(context, channelFor(chosen))
             .setSmallIcon(R.drawable.ic_rest)
             .setColor(SIGNAL_AMBER)
-            .setContentTitle(context.getString(if (shortPause) R.string.pause_complete else R.string.rest_complete))
+            .setContentTitle(title)
             .setContentText(about?.next)
             .setSubText(about?.exercise)
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+            .setCustomContentView(card(R.layout.notification_rest_over))
+            .setCustomBigContentView(card(R.layout.notification_rest_over_big))
+            .setCustomHeadsUpContentView(card(R.layout.notification_rest_over))
             .setWhen(endedAt)
             .setShowWhen(true)
             .setContentIntent(open)
@@ -250,24 +264,32 @@ class RestAlarmScheduler(
             context, 3, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val label = context.getString(if (timer.shortPause) R.string.pause_running else R.string.rest_running)
+        fun countdown(layout: Int) = RemoteViews(context.packageName, layout).apply {
+            setChronometer(R.id.rest_countdown, SystemClock.elapsedRealtime() + (timer.deadline - now), null, true)
+            setChronometerCountDown(R.id.rest_countdown, true)
+            setTextViewText(R.id.rest_title, about?.exercise ?: label)
+            setTextViewText(R.id.rest_next, about?.next ?: "")
+        }
         try {
             notificationManager.notify(
                 COUNTDOWN_NOTIFICATION_ID,
                 NotificationCompat.Builder(context, COUNTDOWN_CHANNEL_ID)
                     .setSmallIcon(R.drawable.ic_rest)
                     .setColor(SIGNAL_AMBER)
-                    // The exercise is the headline; what's next sits under it; the countdown runs in the header.
-                    .setContentTitle(about?.exercise
-                        ?: context.getString(if (timer.shortPause) R.string.pause_running else R.string.rest_running))
+                    .setContentTitle(about?.exercise ?: label)
                     .setContentText(about?.next)
-                    .setSubText(context.getString(if (timer.shortPause) R.string.pause_running else R.string.rest_running))
+                    .setSubText(label)
+                    // The time large and live in the accent, the exercise and what's next beside it; it counts down on
+                    // its own, so nothing has to update it every second.
+                    .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+                    .setCustomContentView(countdown(R.layout.notification_rest_countdown))
+                    .setCustomBigContentView(countdown(R.layout.notification_rest_countdown_big))
                     // The rest bar's two controls, so a rest can be stretched or ended from the lock screen.
                     .addAction(0, context.getString(R.string.rest_add_30), restIntent(ACTION_ADD_30, timer.id, 5))
                     .addAction(0, context.getString(R.string.rest_skip), restIntent(ACTION_SKIP, timer.id, 6))
-                    .setUsesChronometer(true)
-                    .setChronometerCountDown(true)
                     .setWhen(timer.deadline)
-                    .setShowWhen(true)
+                    .setShowWhen(false)
                     .setTimeoutAfter(timer.deadline - now)
                     .setContentIntent(open)
                     .setOngoing(true)

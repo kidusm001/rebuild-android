@@ -293,7 +293,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
     override fun exportBackup() { model.beginExport(false) { saveBackup.launch(it) } }
     override val restAlert: StateFlow<RestAlert> get() = app.restAlerts.alert
     override fun setRestAlert(alert: RestAlert) = app.restAlerts.set(alert)
-    override fun previewRestAlert() = app.alarms.notifyExpired(about = com.rebuild.platform.RestContext("Try alert", "This is how a rest's end looks"))
+    override fun previewRestAlert() = app.alarms.notifyExpired(about = com.rebuild.platform.RestContext("Your next exercise", nextSet = 2, ofSets = 3))
     override fun stopRestAlarm() = app.alarms.stopRinging(always = true)
     override val alarmRingingSince: StateFlow<Long?> get() = app.alarms.ringingSince
     override fun announceRestEnd(timerId: String, shortPause: Boolean) {

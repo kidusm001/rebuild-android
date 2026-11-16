@@ -74,8 +74,8 @@ enum class RestSound(val title: String, val detail: String) {
 /** What Rebuild shows when a rest ends while it is open. Exactly one is chosen. */
 enum class RestVisual(val title: String, val detail: String) {
     NONE("None", "Sound and vibration only"),
-    FLASH("Flash", "Three quick flashes of the whole screen"),
-    SWEEP("Sweep", "The rest bar's amber passes once up the screen")
+    FLASH("Edge light", "The screen's edges glow three times"),
+    SWEEP("Up next", "The rest bar fills the screen with your next set")
 }
 
 /**
@@ -160,35 +160,45 @@ private fun <T : Enum<T>> ChoiceGroup(
 }
 
 /** A rest that ended in front of the user, waiting for its on-screen alert. */
-internal data class RestEnd(val id: String, val shortPause: Boolean, val preview: Boolean = false)
+internal data class RestEnd(
+    val id: String,
+    val shortPause: Boolean,
+    val preview: Boolean = false,
+    /** What comes next, for the takeover's headline and TalkBack; null when the workout can't say. */
+    val about: com.rebuild.platform.RestContext? = null
+)
 
 /**
  * Watches the running rest and reports its end the moment its deadline passes, but only while Rebuild is in front:
  * a rest that ended in the background was already announced by its notification, so it never flashes later.
  */
 @Composable
-internal fun RestEndWatcher(timer: RestTimer?, clock: () -> Long, onEnd: (RestEnd) -> Unit) {
+internal fun RestEndWatcher(
+    timer: RestTimer?,
+    clock: () -> Long,
+    about: () -> com.rebuild.platform.RestContext? = { null },
+    onEnd: (RestEnd) -> Unit
+) {
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val resumed = lifecycle.isAtLeast(Lifecycle.State.RESUMED)
     val report by rememberUpdatedState(onEnd)
+    val describe by rememberUpdatedState(about)
     LaunchedEffect(timer?.id, timer?.deadline, resumed) {
         if (timer == null || !resumed) return@LaunchedEffect
         val wait = timer.deadline - clock()
         if (wait < -1_000) return@LaunchedEffect
         if (wait > 0) delay(wait)
-        report(RestEnd(timer.id, timer.shortPause))
+        report(RestEnd(timer.id, timer.shortPause, about = describe()))
     }
 }
 
 /**
- * The on-screen part of a rest's end, over everything and draw-only, so it never takes a touch.
+ * The on-screen part of a rest's end, over everything.
  *
- * - Flash: three smooth swells of light a second apart (far under the three-a-second photosensitivity limit); see
- *   [flashLevel]. White at 90% on the dark theme; signal amber on the
- *   light one, where white would barely show. With the system's animations off it is one softer still frame.
- * - Sweep: [RestEndSweep], the rest bar's amber passing once up the screen; a still amber frame without animations.
+ * - Edge light: [RestEndGlow], the screen's edges glowing in three smooth beats; the workout stays readable.
+ * - Up next: [RestEndTakeover], the rest bar filling the screen with the next set, then dropping away.
  *
- * Either way TalkBack hears "Rest over". A ringing alarm's Stop lives in the rest bar's place, not here.
+ * TalkBack hears the end and what's next. A ringing alarm's Stop lives in the rest bar's place, not here.
  */
 @Composable
 internal fun RestEndOverlay(end: RestEnd, alert: RestAlert, onDone: () -> Unit, restBarTop: Float? = null) {
@@ -198,32 +208,9 @@ internal fun RestEndOverlay(end: RestEnd, alert: RestAlert, onDone: () -> Unit, 
             .getOrDefault(1f) == 0f
     }
     val done by rememberUpdatedState(onDone)
-    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val flashColor = if (dark) Color.White else MaterialTheme.colorScheme.primaryContainer
-    val peak = if (dark) 0.9f else 0.85f
     Box(Modifier.fillMaxSize().testTag("rest-end-overlay")) {
         when (alert.visual) {
-            RestVisual.FLASH -> {
-                // One clock runs the whole flash; each beat's brightness is a smooth curve of it, so there is never
-                // a snap or a hard edge in the light, only a swell and a long settle.
-                val clockMs = remember(end) { Animatable(0f) }
-                LaunchedEffect(end) {
-                    if (still) {
-                        // Without animations: one still frame, softer, so a silent alert still shows.
-                        clockMs.snapTo(-1f)
-                        delay(700)
-                    } else {
-                        clockMs.animateTo(FLASH_TOTAL_MS, tween(FLASH_TOTAL_MS.toInt(), easing = LinearEasing))
-                    }
-                    done()
-                }
-                // Drawn, not composed: the light changes in the draw phase without recomposing the screen beneath.
-                Spacer(Modifier.fillMaxSize().drawBehind {
-                    val t = clockMs.value
-                    val a = if (t < 0f) peak * 0.6f else peak * flashLevel(t)
-                    if (a > 0.003f) drawRect(flashColor.copy(alpha = a))
-                })
-            }
+            RestVisual.FLASH -> RestEndGlow(end, still, onFinished = { done() })
             RestVisual.SWEEP -> {
                 // Amber under the status bar: its icons turn dark for the moment, then go back.
                 val view = LocalView.current
@@ -234,23 +221,24 @@ internal fun RestEndOverlay(end: RestEnd, alert: RestAlert, onDone: () -> Unit, 
                     controller?.isAppearanceLightStatusBars = true
                     onDispose { if (before != null) controller.isAppearanceLightStatusBars = before }
                 }
-                RestEndSweep(end, still, onFinished = { done() }, startTop = restBarTop)
+                RestEndTakeover(end, still, end.about, end.shortPause, onFinished = { done() }, startTop = restBarTop)
             }
             RestVisual.NONE -> LaunchedEffect(end) { done() }
         }
-        // Announced once, without stealing focus.
+        // Announced once, without stealing focus: the end, then what to do now.
         Box(Modifier.semantics {
-            contentDescription = if (end.shortPause) "Pause over" else "Rest over"
+            contentDescription = (if (end.shortPause) "Pause over" else "Rest over") +
+                (end.about?.let { ". ${it.next}" } ?: "")
             liveRegion = LiveRegionMode.Polite
         })
     }
 }
 
-private const val FLASH_BEATS = 3
-private const val FLASH_PERIOD_MS = 1000f
-private const val FLASH_RISE_MS = 140f
-private const val FLASH_FALL_MS = 460f
-private const val FLASH_TOTAL_MS = FLASH_PERIOD_MS * (FLASH_BEATS - 1) + FLASH_RISE_MS + FLASH_FALL_MS
+internal const val FLASH_BEATS = 3
+internal const val FLASH_PERIOD_MS = 1000f
+internal const val FLASH_RISE_MS = 140f
+internal const val FLASH_FALL_MS = 460f
+internal const val FLASH_TOTAL_MS = FLASH_PERIOD_MS * (FLASH_BEATS - 1) + FLASH_RISE_MS + FLASH_FALL_MS
 
 /**
  * How bright the flash is [t] ms in, from 0 to 1: three beats a second apart (well under three a second). Each beat

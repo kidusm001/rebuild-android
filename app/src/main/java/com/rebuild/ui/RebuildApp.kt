@@ -236,12 +236,13 @@ fun RebuildApp(
         val env = remember(state, status, platform, runner, clock, readClock, effortDrafts, today, restAlert) {
             AppEnv(state, status, platform, runner, clock, readClock, effortDrafts, restAlert, previewRestEnd = {
                 platform.previewRestAlert()
-                restEnd.current = RestEnd("preview-${clock()}", shortPause = false, preview = true)
+                restEnd.current = RestEnd("preview-${clock()}", shortPause = false, preview = true,
+                    about = com.rebuild.platform.RestContext("Your next exercise", nextSet = 2, ofSets = 3))
             })
         }
         // A rest ending in front of the user gets its on-screen alert; the sound comes from its notification.
         val runningRest = state.restTimer?.takeIf { it.workoutId == state.activeWorkoutId }
-        RestEndWatcher(runningRest, clock) {
+        RestEndWatcher(runningRest, clock, about = { runningRest?.let { com.rebuild.platform.restContext(state, it) } }) {
             restEnd.current = it
             platform.announceRestEnd(it.id, it.shortPause)
         }
