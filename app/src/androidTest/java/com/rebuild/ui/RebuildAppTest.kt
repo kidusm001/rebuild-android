@@ -11,6 +11,8 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.assertIsEnabled
@@ -86,7 +88,7 @@ class RebuildAppTest {
         launch(repo)
         startScheduled()
         assertTrue(repo.actions.single() is Action.StartWorkout)
-        rule.onNodeWithTag("target-line").assertTextContains("2 working sets", substring = true)
+        rule.onNodeWithTag("target-line").assertTextContains("Target: 2 sets", substring = true)
 
         rule.onNodeWithTag("entry-kg").performScrollTo().performTextInput("40")
         rule.onNodeWithTag("entry-reps").performTextInput("8")
@@ -97,7 +99,7 @@ class RebuildAppTest {
         assertEquals(40.0, save.kg)
         assertEquals(8, save.reps)
         assertEquals(false, save.warmup)
-        rule.onNodeWithTag("working-count").assertTextContains("Working sets: 1 of 2", substring = true)
+        rule.onNodeWithTag("working-count").assert(hasContentDescription("Working sets: 1 of 2", substring = true))
     }
 
     @Test
@@ -112,8 +114,7 @@ class RebuildAppTest {
         rule.waitForIdle()
 
         assertTrue(repo.saves().single().warmup)
-        rule.onNodeWithTag("working-count")
-            .assertTextContains("Working sets: 0 of 1 · 1 warm-up", substring = true)
+        rule.onNodeWithTag("working-count").assert(hasContentDescription("Working sets: 0 of 1 · 1 warm-up", substring = true))
     }
 
     @Test
@@ -141,7 +142,7 @@ class RebuildAppTest {
         rule.onNodeWithTag("entry-reps").assertTextContains("9")
         rule.waitForIdle()
         assertTrue("prefill must not log anything", repo.saves().isEmpty())
-        rule.onNodeWithTag("working-count").assertTextContains("Working sets: 0 of 1", substring = true)
+        rule.onNodeWithTag("working-count").assert(hasContentDescription("Working sets: 0 of 1", substring = true))
     }
 
     @Test
@@ -168,7 +169,8 @@ class RebuildAppTest {
         startScheduled()
         rule.onNodeWithTag("exercise-chip-0").assertIsSelected()
         rule.onNode(hasText("Bench press") and isHeading()).assertExists()
-        rule.onNodeWithText("External load · kg total").assertExists()
+        rule.onNodeWithTag("target-line").assertTextContains("Target: ", substring = true)
+        rule.onNodeWithText("External load", substring = true).assertDoesNotExist()
         rule.onNodeWithTag("entry-kg").assertTextContains("50")
 
         rule.onNodeWithTag("exercise-chip-1").performClick()
@@ -177,7 +179,7 @@ class RebuildAppTest {
         rule.onNodeWithContentDescription("exercise 2 of 2", substring = true).assertExists()
         rule.onNode(hasText("Dumbbell press") and isHeading()).assertExists()
         rule.onNode(hasText("Bench press") and isHeading()).assertDoesNotExist()
-        rule.onNodeWithText("External load · kg per dumbbell").assertExists()
+        rule.onNodeWithTag("target-line").assertTextContains("Per dumbbell · Target: ", substring = true)
         rule.onNodeWithContentDescription("Previous set 1: 14", substring = true).assertExists()
         rule.onNodeWithTag("entry-kg").assertTextContains("14")
         rule.onNodeWithTag("entry-reps").assertTextContains("12")
@@ -195,9 +197,10 @@ class RebuildAppTest {
         rule.onNodeWithTag("exercise-chip-0").performClick()
         rule.onNodeWithTag("exercise-chip-0").assertIsSelected()
         rule.onNode(hasText("Bench press") and isHeading()).assertExists()
-        rule.onNodeWithText("External load · kg total").assertExists()
+        rule.onNodeWithTag("target-line").assertTextContains("Target: ", substring = true)
+        rule.onNodeWithText("External load", substring = true).assertDoesNotExist()
         rule.onNodeWithTag("entry-kg").assertTextContains("50")
-        rule.onNodeWithTag("working-count").assertTextContains("Working sets: 0 of 1", substring = true)
+        rule.onNodeWithTag("working-count").assert(hasContentDescription("Working sets: 0 of 1", substring = true))
         assertTrue(repo.state.value.activeWorkout!!.exercises[0].sets.isEmpty())
     }
 
@@ -262,7 +265,7 @@ class RebuildAppTest {
         rule.waitForIdle()
 
         // Meeting the target never moves the exercise that is already open.
-        rule.onNodeWithTag("working-count").assertTextContains("Working sets: 1 of 1", substring = true)
+        rule.onNodeWithTag("working-count").assert(hasContentDescription("Working sets: 1 of 1", substring = true))
         rule.onNodeWithTag("exercise-chip-0").assertIsSelected()
 
         rule.onNodeWithContentDescription("Back").performClick()
@@ -315,7 +318,7 @@ class RebuildAppTest {
         )
         repo.replace(repo.state.value.copy(workouts = listOf(restored), activeWorkoutId = "restored"))
         rule.waitForIdle()
-        rule.onNodeWithTag("working-count").assertTextContains("Working sets: 1 of 1", substring = true)
+        rule.onNodeWithTag("working-count").assert(hasContentDescription("Working sets: 1 of 1", substring = true))
         rule.onNodeWithTag("extra-set").performScrollTo().performClick()
         rule.onNodeWithTag("entry-kg").performScrollTo().assertTextContains("42")
         rule.onNodeWithTag("entry-reps").assertTextContains("11")
@@ -355,7 +358,7 @@ class RebuildAppTest {
         rule.waitForIdle()
 
         // Deliver two actual taps 100ms apart, rather than idle/scroll calls that can outlast the guard.
-        rule.onNodeWithTag("working-count").assertTextContains("Working sets: 1 of 2", substring = true)
+        rule.onNodeWithTag("working-count").assert(hasContentDescription("Working sets: 1 of 2", substring = true))
         rule.onNodeWithTag("entry-kg").assertTextContains("40")
         assertEquals(1, repo.saves().size)
 
@@ -366,7 +369,7 @@ class RebuildAppTest {
         rule.waitForIdle()
         assertEquals(2, repo.saves().size)
         assertEquals(2, repo.saves().map { it.setId }.toSet().size)
-        rule.onNodeWithTag("working-count").assertTextContains("Working sets: 2 of 2", substring = true)
+        rule.onNodeWithTag("working-count").assert(hasContentDescription("Working sets: 2 of 2", substring = true))
     }
 
     @Test
@@ -398,7 +401,7 @@ class RebuildAppTest {
             shown = true
         }
 
-        rule.onNodeWithTag("working-count").assertTextContains("Working sets: 1 of 2", substring = true)
+        rule.onNodeWithTag("working-count").assert(hasContentDescription("Working sets: 1 of 2", substring = true))
         rule.waitUntil(timeoutMillis = 5_000) {
             rule.onAllNodes(hasTestTag("log-set") and isEnabled()).fetchSemanticsNodes().isNotEmpty()
         }
@@ -415,7 +418,7 @@ class RebuildAppTest {
         assertEquals(8, repo.state.value.activeWorkout!!.exercises.first().sets[0].reps)
         assertEquals(45.0, repo.state.value.activeWorkout!!.exercises.first().sets[1].kg)
         assertEquals(9, repo.state.value.activeWorkout!!.exercises.first().sets[1].reps)
-        rule.onNodeWithTag("working-count").assertTextContains("Working sets: 2 of 2", substring = true)
+        rule.onNodeWithTag("working-count").assert(hasContentDescription("Working sets: 2 of 2", substring = true))
     }
 
     @Test

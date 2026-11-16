@@ -433,7 +433,7 @@ class MeasuredDeviceTest {
         val plank = startExtraWith(repo, "plank", "plank")
         assertEquals(Measure.TIMED, plank.exercise.measure)
         assertEquals("No history or plan for it: the visible 90-second default", DEFAULT_REST_SECONDS, plank.restSeconds)
-        rule.onNodeWithTag("target-line").assertTextEquals("No target · log what you do")
+        rule.onNodeWithTag("target-line").assertTextContains("No target · log what you do", substring = true)
         rule.onNodeWithTag("entry-context").assertTextContains("Timed set 1", substring = true)
         rule.onNodeWithTag("effort-kg").assertDoesNotExist()
         rule.onNodeWithTag("effort-distance").assertDoesNotExist()

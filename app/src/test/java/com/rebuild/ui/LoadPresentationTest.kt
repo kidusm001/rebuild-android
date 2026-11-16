@@ -14,6 +14,17 @@ class LoadPresentationTest {
         assertEquals("5 plates/stack × 10 @ 2 RIR", setText(plates, cable))
     }
 
+    @Test fun theWorkoutHeaderOnlyNamesTheLoadWhenTheUnitChipCannot() {
+        val db = cable.copy(perDumbbell = true)
+        val bodyweight = cable.copy(loading = LoadingType.BODYWEIGHT)
+        assertNull(loadingNote(cable, LoadUnit.KG, perLeg = false, unitShown = true))
+        assertEquals("Reps per leg", loadingNote(cable, LoadUnit.LB, perLeg = true, unitShown = true))
+        assertEquals("Per dumbbell", loadingNote(db, LoadUnit.KG, perLeg = false, unitShown = true))
+        assertEquals("External load · plates per stack", loadingNote(cable, LoadUnit.PLATES, perLeg = false, unitShown = true))
+        assertEquals("External load · kg total", loadingNote(cable, LoadUnit.KG, perLeg = false, unitShown = false))
+        assertEquals("Bodyweight · no weight recorded", loadingNote(bodyweight, LoadUnit.KG, perLeg = false, unitShown = false))
+    }
+
     @Test fun historyChartsAndRepsNeverMixUnitsOrWarmups() {
         val exercise = WorkoutExercise("e", "s", cable, 2, 2, 3, 8, 12, 2, 180,
             sets = listOf(kg, plates, plates.copy(id = "warm", warmup = true, reps = 99)))

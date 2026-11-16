@@ -99,6 +99,7 @@ import com.rebuild.domain.asksPerLeg
 import com.rebuild.domain.nextAfter
 import com.rebuild.domain.planSourceOf
 import com.rebuild.domain.LoadUnit
+import com.rebuild.domain.LoadingType
 import com.rebuild.domain.Measure
 import com.rebuild.domain.SetMethod
 import com.rebuild.domain.Stopwatch
@@ -814,22 +815,19 @@ private fun ExerciseFocus(
                     .then(if (pinned) Modifier else Modifier.navigationBarsPadding()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                val unitShown = env.state.canSetLoadUnit(workout.id, we.id)
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    // The rail above shows the position; it is still spoken with the name.
-                    Text(exercise.name, style = MaterialTheme.typography.headlineSmall,
-                        modifier = Modifier.semantics {
-                            heading()
-                            contentDescription = "${exercise.name}, exercise ${index + 1} of ${workout.exercises.size}"
-                        })
-                    // One subtitle line: how the load is entered, then the unit as a chip to change it.
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            loadingDescription(exercise, we.entryLoadUnit) + if (we.perLeg) " · reps per leg" else "",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (env.state.canSetLoadUnit(workout.id, we.id)) {
+                    // The name, with the unit chip at its end: the chip keeps its 32 dp pill and only its touch
+                    // area reaches 48 dp, so it sits on the name's line instead of pushing a line of its own apart.
+                    // Baselines align, so a name that wraps keeps the chip on its first line.
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        // The rail above shows the position; it is still spoken with the name.
+                        Text(exercise.name, style = MaterialTheme.typography.headlineSmall,
+                            modifier = Modifier.weight(1f).alignByBaseline().semantics {
+                                heading()
+                                contentDescription = "${exercise.name}, exercise ${index + 1} of ${workout.exercises.size}"
+                            })
+                        if (unitShown) {
                             AssistChip(
                                 onClick = { choosingUnit = true },
                                 enabled = !env.runner.busy && open == null && !watchHere,
@@ -843,13 +841,16 @@ private fun ExerciseFocus(
                                 colors = AssistChipDefaults.assistChipColors(
                                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                     leadingIconContentColor = MaterialTheme.colorScheme.onSurface),
-                                modifier = Modifier.heightIn(min = 48.dp).testTag("choose-load-unit")
+                                modifier = Modifier.alignByBaseline().testTag("choose-load-unit")
                                     .semantics { contentDescription = "Load unit: ${unitName(we.entryLoadUnit)}" }
                             )
                         }
                     }
+                    // One quiet line: how the load is entered, only when the unit chip doesn't already say it,
+                    // then today's target.
                     Text(
-                        targetLine(workout, we),
+                        listOfNotNull(loadingNote(exercise, we.entryLoadUnit, we.perLeg, unitShown), targetLine(workout, we))
+                            .joinToString(" · "),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.testTag("target-line")
@@ -946,7 +947,9 @@ private fun ExerciseFocus(
                         choosingUnit = false
                     }
                 }
-                Text("Your next sets use it, and it's remembered for this exercise. Logged sets keep their own unit.",
+                Text((if (exercise.loading == LoadingType.EXTERNAL && !exercise.perDumbbell)
+                        "Enter the total load lifted, bar included. " else "") +
+                        "Your next sets use it, and it's remembered for this exercise. Logged sets keep their own unit.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (LoadUnit.PLATES in choices) Text(PLATES_HELP, style = MaterialTheme.typography.bodySmall)
                 ErrorText(unitError)

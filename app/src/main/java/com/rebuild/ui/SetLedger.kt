@@ -40,7 +40,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.rebuild.R
 import com.rebuild.domain.Exercise
@@ -145,13 +148,11 @@ internal fun SetLedger(
 
     // A logged set grows the ledger instead of jumping it.
     Column(modifier.fillMaxWidth().animateContentSize(tween(200)), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            "Working sets: $done" + (we.targetSets?.let { " of $it" } ?: "") +
-                (if (inProgress) " · 1 in progress" else "") +
-                if (warmups.isNotEmpty()) " · ${countLabel(warmups.size, "warm-up")}" else "",
-            style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier.testTag("working-count")
-        )
+        // The count rides in the Today column's header: the rows beneath already show any warm-up or open set, so
+        // only the spoken count names them.
+        val count = "$done" + (we.targetSets?.let { " of $it" } ?: "")
+        val spokenCount = "Working sets: $count" + (if (inProgress) " · 1 in progress" else "") +
+            if (warmups.isNotEmpty()) " · ${countLabel(warmups.size, "warm-up")}" else ""
         if (we.upperSets != null && done > we.upperSets) {
             Text(
                 "Above the advisory upper of ${we.upperSets}",
@@ -163,7 +164,8 @@ internal fun SetLedger(
             Modifier.fillMaxWidth().then(if (hasPrevious) Modifier.testTag("previous-comparable") else Modifier),
             verticalArrangement = Arrangement.spacedBy(if (stacked) 0.dp else 4.dp)
         ) {
-            LedgerHeader(hasPrevious, previousStartedAt, stacked)
+            LedgerHeader(hasPrevious, previousStartedAt, stacked, count, spokenCount,
+                met = we.targetSets?.let { done >= it } ?: false)
             warmups.forEach { set ->
                 if (stacked) StackedRow("Warm-up", null, null, false) { TodayCell(set, "Warm-up", false, exercise, true, onEdit) }
                 else TableRow("W", highlighted = false, hasPrevious = hasPrevious, previous = { Spacer(it) }) {
@@ -196,13 +198,35 @@ internal fun SetLedger(
 }
 
 @Composable
-private fun LedgerHeader(hasPrevious: Boolean, startedAt: Long?, stacked: Boolean) {
+private fun LedgerHeader(
+    hasPrevious: Boolean,
+    startedAt: Long?,
+    stacked: Boolean,
+    count: String,
+    spokenCount: String,
+    met: Boolean
+) {
     val label = MaterialTheme.typography.labelMedium
     val color = MaterialTheme.colorScheme.onSurfaceVariant
+    // "Today 0 of 2": the progress is the strongest text in the header, a step larger than the quiet column name,
+    // and turns to the accent once today's target is met.
+    val countStyle = MaterialTheme.typography.labelLarge
+    val countColor = if (met) accentText() else MaterialTheme.colorScheme.onSurface
+    val todayCount = buildAnnotatedString {
+        append("Today ")
+        withStyle(SpanStyle(color = countColor, fontSize = countStyle.fontSize, fontWeight = FontWeight.Bold)) {
+            append(count)
+        }
+    }
+    val countModifier = Modifier.testTag("working-count").semantics { contentDescription = spokenCount }
     if (stacked) {
-        if (hasPrevious && startedAt != null) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Last time", style = label, color = color)
-            Text(formatDate(startedAt), style = label, color = color, modifier = Modifier.testTag("previous-date"))
+        Column(Modifier.padding(bottom = 4.dp)) {
+            Text(todayCount, style = label, color = color, modifier = countModifier)
+            if (hasPrevious && startedAt != null) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                val quiet = MaterialTheme.typography.bodyMedium
+                Text("Last time", style = quiet, color = color)
+                Text(formatDate(startedAt), style = quiet, color = color, modifier = Modifier.testTag("previous-date"))
+            }
         }
         return
     }
@@ -214,7 +238,7 @@ private fun LedgerHeader(hasPrevious: Boolean, startedAt: Long?, stacked: Boolea
             if (startedAt != null) Text(formatDate(startedAt), style = MaterialTheme.typography.labelSmall, color = color,
                 modifier = Modifier.testTag("previous-date"))
         }
-        Text("Today", style = label, color = color, modifier = Modifier.weight(1f).padding(start = 8.dp))
+        Text(todayCount, style = label, color = color, modifier = countModifier.weight(1f).padding(start = 8.dp))
     }
 }
 

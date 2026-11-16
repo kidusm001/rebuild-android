@@ -55,6 +55,20 @@ internal fun loadingDescription(exercise: Exercise, unit: LoadUnit = LoadUnit.KG
     }
 }
 
+/**
+ * The workout header's quiet line about how a load is entered, or null when there is nothing to add: beside the
+ * unit chip, an external load in kg or lb only needs "Per dumbbell" or "Reps per leg", if either applies.
+ */
+internal fun loadingNote(exercise: Exercise, unit: LoadUnit, perLeg: Boolean, unitShown: Boolean): String? {
+    val plain = unitShown && exercise.measure == Measure.REPS && exercise.loading == LoadingType.EXTERNAL &&
+        unit != LoadUnit.PLATES
+    return when {
+        plain && exercise.perDumbbell -> "Per dumbbell" + if (perLeg) " · reps per leg" else ""
+        plain -> if (perLeg) "Reps per leg" else null
+        else -> loadingDescription(exercise, unit) + if (perLeg) " · reps per leg" else ""
+    }
+}
+
 internal fun loadingShort(exercise: Exercise): String {
     val load = when (exercise.loading) {
         LoadingType.EXTERNAL -> if (exercise.perDumbbell) "per dumbbell" else "external"

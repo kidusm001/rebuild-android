@@ -141,9 +141,16 @@ The rest of this document records how each feature's surfaces were decided.
 
 Workout is the primary destination, organized since 0.1.6 as a set-first logbook.
 Numbered exercise pills (order badge, name, working-set count; a check once the
-target is logged) sit above one focused exercise: its name, loading/unit line and
-today's target. The set ledger follows, one row per working-set ordinal with Set,
-**Last time** and **Today** columns. Last time holds same-unit working sets from
+target is logged) sit above one focused exercise, headed by two lines only: its name,
+with the unit chip baseline-aligned at the end of the name's first line, then one quiet
+line "Target: 2 sets · 8–12 reps · 3 RIR". How the load is entered leads that line only
+when the chip can't say it ("Per dumbbell · Optional goal: 3 sets", "Bodyweight · no weight
+recorded · …"); a plain kg or lb load adds nothing, and the unit dialog explains that
+a total load includes the bar. The set ledger follows, one row per working-set ordinal
+with Set, **Last time** and **Today** columns. The working-set count lives in the
+Today header ("Today **0 of 2**", the count a step larger, accent once the target is
+met), not on a line of its own; it is spoken whole, with any set in progress and
+warm-ups. Last time holds same-unit working sets from
 the dated last comparable workout, paired in the order the entry prefill already
 uses. Today holds the saved set with its own unit, RIR and a correction action,
 or a dashed, explicitly labeled placeholder (Up next / Not logged), never a

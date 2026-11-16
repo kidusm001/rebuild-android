@@ -293,7 +293,7 @@ class FlexibleWorkoutDeviceTest {
         assertNull("Adding an exercise starts no timer", repo.state.value.restTimer)
         rule.onNodeWithContentDescription("exercise 1 of 1", substring = true).assertExists()
         rule.onNode(hasText("Cable face pull") and isHeading()).assertExists()
-        rule.onNodeWithTag("target-line").assertTextEquals("No target · log what you do")
+        rule.onNodeWithTag("target-line").assertTextContains("No target · log what you do", substring = true)
         rule.onNodeWithTag("exercise-details").assertTextContains("Goal, rest and options · rest 1:30")
         rule.onNodeWithTag("exercise-chip-0")
             .assert(hasContentDescription("Exercise 1 of 1: Cable face pull, 0 working sets, optional"))
@@ -520,7 +520,7 @@ class FlexibleWorkoutDeviceTest {
         assertEquals(DEFAULT_REST_SECONDS, added.restSeconds)
         assertNull(repo.state.value.restTimer)
         rule.onNodeWithContentDescription("exercise 8 of 8", substring = true).assertExists()
-        rule.onNodeWithTag("target-line").assertTextEquals("Added today · optional, no target")
+        rule.onNodeWithTag("target-line").assertTextContains("Added today · optional, no target", substring = true)
         chip(7).assert(hasContentDescription("Exercise 8 of 8: Cable face pull, 0 working sets, optional"))
         chip(0).assert(hasContentDescription("Exercise 1 of 8: Machine chest press, 0 of 2 working sets"))
 
@@ -614,7 +614,7 @@ class FlexibleWorkoutDeviceTest {
 
         chip(0).performClick()
         rule.waitForIdle()
-        rule.onNodeWithTag("target-line").assertTextEquals("Skipped today · target 2 working sets · 8–12 reps")
+        rule.onNodeWithTag("target-line").assertTextContains("Skipped today · target 2 sets · 8–12 reps", substring = true)
         rule.onNodeWithTag("skipped-panel").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("entry-kg").assertDoesNotExist()
         rule.onNodeWithTag("log-set").assertDoesNotExist()
@@ -624,7 +624,7 @@ class FlexibleWorkoutDeviceTest {
         rule.waitUntil(5_000) { !active(repo).exercises.first().skipped }
         rule.waitForIdle()
         assertEquals(chest, active(repo).exercises.first())
-        rule.onNodeWithTag("target-line").assertTextEquals("Today's target: 2 working sets · 8–12 reps · 3 RIR")
+        rule.onNodeWithTag("target-line").assertTextContains("Target: 2 sets · 8–12 reps · 3 RIR", substring = true)
         rule.onNodeWithTag("skipped-panel").assertDoesNotExist()
         rule.onNodeWithTag("entry-kg").performScrollTo().assertIsDisplayed()
 
@@ -701,7 +701,7 @@ class FlexibleWorkoutDeviceTest {
             assertEquals(90, it.restSeconds)
         }
         assertTrue("A goal is for today only", repo.state.value.planAdditions.isEmpty())
-        rule.onNodeWithTag("target-line").assertTextEquals("Optional goal: 3 working sets · 12–15 reps")
+        rule.onNodeWithTag("target-line").assertTextContains("Optional goal: 3 sets · 12–15 reps", substring = true)
 
         rule.onNodeWithTag("save-addition").performScrollTo().assertTextContains("Save to Upper plan…").performClick()
         assertDialogShows("Add to Upper")
