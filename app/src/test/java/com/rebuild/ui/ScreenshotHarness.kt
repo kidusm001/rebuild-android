@@ -17,6 +17,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasScrollToNodeAction
@@ -99,6 +100,7 @@ class ScreenshotHarness {
         back()
         tap("Plan")
         shot("$mode-06-plan")
+        restPicker(mode)
         tap("More")
         shot("$mode-07-more")
         tap("Today")
@@ -171,6 +173,30 @@ class ScreenshotHarness {
         shot("$mode-18-measure-form")
         back()
         back()
+    }
+
+    /** A planned exercise's rest, chosen on the duration picker, the way the plan editor opens it. */
+    private fun restPicker(mode: String) {
+        val slot = SemanticsMatcher("plan slot") { n ->
+            n.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("plan-slot-") == true
+        }
+        // The editor focuses a field, and a blinking cursor never lets Compose go idle, so time is stepped by hand.
+        compose.mainClock.autoAdvance = false
+        fun settle() = repeat(10) {
+            compose.mainClock.advanceTimeBy(100)
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+        }
+        compose.onAllNodes(slot).onFirst().performScrollTo().performClick()
+        settle()
+        compose.onAllNodes(hasTestTag("goal-rest") or hasTestTag("exercise-rest")).onFirst().performScrollTo().performClick()
+        settle()
+        shot("$mode-06b-plan-rest-picker")
+        repeat(2) {
+            compose.onAllNodes(hasText("Cancel") and hasClickAction()).onFirst().performClick()
+            settle()
+        }
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
     }
 
     private fun back() {
@@ -255,7 +281,7 @@ class ScreenshotHarness {
     }
 
     private fun shot(name: String) {
-        compose.waitForIdle()
+        if (compose.mainClock.autoAdvance) compose.waitForIdle()
         val root = compose.activity.window.decorView
         val bitmap = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
