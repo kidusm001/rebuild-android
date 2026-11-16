@@ -72,9 +72,11 @@ class TabKeepAliveDeviceTest {
         rule.waitForIdle()
         back()
         rule.onNodeWithTag("week-progress").performScrollTo().assertIsDisplayed()
-        // Nothing hidden takes this one: it closes the app.
+        // Nothing hidden takes this one: it closes the app. The activity is captured first: once it is destroyed the
+        // rule can no longer hand it out, so asking the rule inside the wait would throw instead of answering.
+        val activity = rule.activity
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
-        rule.waitUntil(5_000) { rule.activity.isFinishing || rule.activity.isDestroyed }
+        rule.waitUntil(5_000) { activity.isFinishing || activity.isDestroyed }
     }
 
     @Test fun historyTabsSwipeLeftAndRightButADragOnAChartReadsTheChart() {
