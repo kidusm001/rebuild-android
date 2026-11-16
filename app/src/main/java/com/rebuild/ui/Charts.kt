@@ -52,6 +52,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
+import com.rebuild.ui.theme.SignalAmber
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -208,7 +209,8 @@ internal fun TrendChart(
     val days = (to.toEpochDay() - from.toEpochDay()).coerceAtLeast(1)
     val colors = MaterialTheme.colorScheme
     val stroke = accentText()
-    val fill = colors.primaryContainer
+    // The wash under the line belongs with the line: full signal amber, not the softened dark fill.
+    val fill = SignalAmber
     val cardColor = colors.surfaceContainerLowest
     val axisStyle = MaterialTheme.typography.labelSmall
     val chartHeight = 180.dp

@@ -57,8 +57,10 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import com.rebuild.R
+import com.rebuild.ui.theme.SignalAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -576,7 +578,7 @@ internal fun OrderBadge(number: Int, met: Boolean = false, emphasized: Boolean =
     val colors = MaterialTheme.colorScheme
     val background = when {
         met -> colors.tertiaryContainer
-        emphasized -> colors.primaryContainer
+        emphasized -> SignalAmber // a small marker, not a large fill: full signal amber in both themes
         else -> colors.surfaceContainerHighest
     }
     // Grows with the text so the number never clips at large font sizes.
@@ -676,7 +678,8 @@ internal fun SessionTrack(states: List<TrackState>, description: String, modifie
                 Modifier.weight(1f).fillMaxHeight().clip(CircleShape).background(
                     when (state) {
                         TrackState.DONE -> colors.tertiary
-                        TrackState.CURRENT -> colors.primaryContainer
+                        // A mark, not a fill: full signal amber in both themes.
+                        TrackState.CURRENT -> SignalAmber
                         TrackState.PENDING -> colors.outlineVariant
                     }
                 )
@@ -883,11 +886,15 @@ private fun NumberTile(
     }
 }
 
-/** The amber family as text: amber-ink on light surfaces, amber on dark ones. Never used as a fill. */
+/**
+ * The amber family as text, lines and chart marks: amber-ink on light surfaces, full signal amber on dark ones (not
+ * dark's softened primaryContainer, which is only for fills). Never used as a fill.
+ */
 @Composable
-internal fun accentText(): Color =
-    if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) MaterialTheme.colorScheme.primaryContainer
-    else MaterialTheme.colorScheme.secondary
+internal fun accentText(): Color = accentTextFor(MaterialTheme.colorScheme)
+
+internal fun accentTextFor(scheme: ColorScheme): Color =
+    if (scheme.surface.luminance() < 0.5f) SignalAmber else scheme.secondary
 
 /** A logged set's value in the ledger: condensed and large, the same for single sets and sets with drops. */
 @Composable
@@ -965,6 +972,7 @@ internal fun TextButton(
 /** Main actions: signal amber with ink labels, in both themes. */
 @Composable
 internal fun signalButtonColors() = ButtonDefaults.buttonColors(
+    // Fill: softened on dark.
     containerColor = MaterialTheme.colorScheme.primaryContainer,
     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
 )

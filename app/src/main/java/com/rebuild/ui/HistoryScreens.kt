@@ -63,6 +63,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import com.rebuild.ui.theme.Numerals
+import com.rebuild.ui.theme.SignalAmber
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -1087,7 +1088,8 @@ internal fun SetChart(
     val flat = max <= min
     val span = if (flat) 1.0 else max - min
     val color = accentText()
-    val fill = MaterialTheme.colorScheme.primaryContainer
+    // The wash under the line belongs with the line: full signal amber, not the softened dark fill.
+    val fill = SignalAmber
     val faint = MaterialTheme.colorScheme.onSurfaceVariant
     val cardColor = MaterialTheme.colorScheme.surfaceContainerLowest
     val grid = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)

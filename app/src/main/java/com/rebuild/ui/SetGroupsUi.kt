@@ -65,6 +65,7 @@ import com.rebuild.domain.scheduledRoutine
 import com.rebuild.domain.stages
 import com.rebuild.domain.weekStart
 import com.rebuild.domain.workEntries
+import com.rebuild.ui.theme.SignalAmber
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -178,7 +179,7 @@ internal fun GroupRow(
             .heightIn(min = 56.dp)
             .clip(shape)
             .background(colors.surfaceContainerLowest)
-            .then(if (group.open) Modifier.border(2.dp, colors.primaryContainer, shape) else Modifier)
+            .then(if (group.open) Modifier.border(2.dp, SignalAmber, shape) else Modifier) // a ring: full signal amber
             .clickable(onClickLabel = "Edit $label") { onOpen() }
             .semantics(mergeDescendants = true) {
                 contentDescription = groupDescription(label, group, exercise) + if (extra) " Extra set." else ""
