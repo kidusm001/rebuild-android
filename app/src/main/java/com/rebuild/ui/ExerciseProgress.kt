@@ -2,15 +2,12 @@ package com.rebuild.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,18 +28,17 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.rebuild.domain.Exercise
-import com.rebuild.domain.LiftedSet
 import com.rebuild.domain.LoadUnit
 import com.rebuild.domain.LoggedSet
-import com.rebuild.domain.RepComparison
 import com.rebuild.domain.Workout
 import com.rebuild.domain.localDateOf
-import com.rebuild.domain.repComparisons
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -52,8 +48,8 @@ import kotlin.math.floor
 /** The day a workout happened, as its week counts it. */
 internal fun workoutDate(workout: Workout): LocalDate = workout.startDate?.let(LocalDate::parse) ?: localDateOf(workout.startedAt)
 
-/** A session on the top set chart: its heaviest working set, and the session's other sets as faint marks. */
-internal data class TopSetPoint(val date: LocalDate, val top: LoggedSet, val others: List<Double>) {
+/** A workout on the heaviest set chart: its heaviest working set and that set's reps. */
+internal data class TopSetPoint(val date: LocalDate, val top: LoggedSet) {
     val load: Double get() = top.loadValue!!
 }
 
@@ -61,7 +57,30 @@ internal data class TopSetPoint(val date: LocalDate, val top: LoggedSet, val oth
 internal fun topSetPoints(sessions: List<HistorySession>): List<TopSetPoint> = sessions.mapNotNull { s ->
     val loaded = s.sets.filter { it.loadValue != null }
     val top = loaded.maxWithOrNull(compareBy<LoggedSet> { it.loadValue!! }.thenBy { it.reps }) ?: return@mapNotNull null
-    TopSetPoint(workoutDate(s.workout), top, (loaded - top).map { it.loadValue!! })
+    TopSetPoint(workoutDate(s.workout), top)
+}
+
+/** The points a [range] shows, counting back from [today]; All shows every one. */
+internal fun pointsInRange(points: List<TopSetPoint>, range: ChartRange, today: LocalDate): List<TopSetPoint> {
+    if (points.isEmpty()) return points
+    val start = range.start(today, points.first().date)
+    return points.filter { it.date >= start }
+}
+
+/**
+ * Which points get their reps written above them, given each point's x and the room one label needs. The touched
+ * point always does; the rest are taken from the latest back, skipping any that would run into a label already placed,
+ * so a crowded chart keeps every other label instead of a smear of overlapping numbers.
+ */
+internal fun labelledPoints(xs: List<Float>, room: Float, selected: Int?): Set<Int> {
+    val placed = mutableListOf<Float>()
+    val chosen = mutableSetOf<Int>()
+    fun place(i: Int) { chosen += i; placed += xs[i] }
+    selected?.let(::place)
+    for (i in xs.indices.reversed()) {
+        if (i != selected && placed.none { kotlin.math.abs(it - xs[i]) < room }) place(i)
+    }
+    return chosen
 }
 
 /** Lines break where sessions are more than two weeks apart: nothing is drawn across a gap. */
@@ -106,9 +125,9 @@ internal fun readoutDay(date: LocalDate, today: LocalDate): String =
 
 /** The load axis: tick values from top to bottom, each centred on its gridline. */
 @Composable
-private fun LoadAxis(ticks: List<Double>, height: Dp, format: (Double) -> String) {
+private fun LoadAxis(ticks: List<Double>, height: Dp, top: Dp = 0.dp, format: (Double) -> String) {
     Column(
-        Modifier.height(height).width(44.dp).padding(end = 8.dp).clearAndSetSemantics { hideFromAccessibility() },
+        Modifier.height(height).width(44.dp).padding(top = top, end = 8.dp).clearAndSetSemantics { hideFromAccessibility() },
         verticalArrangement = if (ticks.size > 1) Arrangement.SpaceBetween else Arrangement.Center,
         horizontalAlignment = Alignment.End
     ) {
@@ -129,17 +148,28 @@ private fun chartHeight(): Dp = 168.dp * LocalDensity.current.fontScale.coerceIn
 private fun tickText(value: Double, unit: LoadUnit) = if (unit == LoadUnit.PLATES) value.toInt().toString() else formatKg(value)
 
 /**
- * Each session's top set: the heaviest working set that day, placed on its date, with a straight line between
- * sessions that breaks across a gap of more than two weeks. The session's other sets are faint dots. The readout
- * says the set and its reps ("42.5 kg/DB × 10 · 20 Oct 2026"): the latest until a point is touched.
+ * The heaviest set each workout, placed on its date, with its reps written above the dot: what was lifted and how many
+ * times, with nothing to work out. A straight line joins workouts and breaks across a gap of more than two weeks. It
+ * opens on the last three months, with All a tap away once there is older history. The readout says the set
+ * ("42.5 kg/DB × 10 · 20 Oct 2026"): the latest until a point is touched.
  */
 @Composable
-internal fun TopSetChart(sessions: List<HistorySession>, unit: LoadUnit, exercise: Exercise, modifier: Modifier = Modifier) {
-    val points = remember(sessions) { topSetPoints(sessions) }
-    if (points.isEmpty()) return
+internal fun TopSetChart(
+    sessions: List<HistorySession>,
+    unit: LoadUnit,
+    exercise: Exercise,
+    today: LocalDate,
+    modifier: Modifier = Modifier
+) {
+    val all = remember(sessions) { topSetPoints(sessions) }
+    if (all.isEmpty()) return
+    // The choice only appears when it changes something: some workouts are older than three months and some aren't.
+    val choosable = pointsInRange(all, ChartRange.M3, today).size in 1 until all.size
+    var range by rememberSaveable(choosable) { mutableStateOf(if (choosable) ChartRange.M3 else ChartRange.ALL) }
+    val points = remember(all, range, today) { pointsInRange(all, range, today) }
     val segments = remember(points) { topSetSegments(points) }
-    val values = points.flatMap { it.others + it.load }
-    val ticks = loadTicks(values.min(), values.max(), unit)
+    val loads = points.map { it.load }
+    val ticks = loadTicks(loads.min(), loads.max(), unit)
     val low = ticks.first()
     val span = (ticks.last() - low).takeIf { it > 0 } ?: 1.0
     val from = points.first().date
@@ -152,6 +182,10 @@ internal fun TopSetChart(sessions: List<HistorySession>, unit: LoadUnit, exercis
     val density = LocalDensity.current
     val axisStyle = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum")
     val inset = with(density) { axisStyle.lineHeight.toDp() } / 2
+    val repsStyle = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum")
+    val measurer = rememberTextMeasurer()
+    // Room above the highest dot for its reps, so a label never runs off the top of the chart.
+    val headroom = with(density) { repsStyle.lineHeight.toDp() } + 4.dp
     val selection = rememberChartSelection(points)
     val shown = points[selection.value ?: points.lastIndex]
     val value = "${chartLoadText(shown.load, unit, exercise)} × ${shown.top.reps}"
@@ -164,16 +198,19 @@ internal fun TopSetChart(sessions: List<HistorySession>, unit: LoadUnit, exercis
         }
     }
     val title = loadChartTitle(exercise, unit).substringAfter(" · ")
-    val describe = ("Top set chart, $title: ${countLabel(points.size, "session")}, from " +
-        "${chartLoadText(values.min(), unit, exercise)} to ${chartLoadText(values.max(), unit, exercise)}, " +
-        "${dayMonthYear(from)} to ${dayMonthYear(to)}. Each point is that session's heaviest working set." +
+    val describe = ("Heaviest set chart, $title, ${range.label}: ${countLabel(points.size, "workout")}, from " +
+        "${chartLoadText(loads.min(), unit, exercise)} to ${chartLoadText(loads.max(), unit, exercise)}, " +
+        "${dayMonthYear(from)} to ${dayMonthYear(to)}. Each point is that workout's heaviest set and its reps." +
         if (segments.size > 1) " The line breaks at ${countLabel(segments.size - 1, "gap")} of more than two weeks." else "").spokenUnits()
     ChartCard(modifier.testTag("top-set-card")) {
-        Text("Top set · $title", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+        Text("Heaviest set · $title", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+        Text("Each dot is a workout, with the reps you did at that weight.", style = MaterialTheme.typography.bodySmall,
+            color = colors.onSurfaceVariant)
+        if (choosable) RangeChips(range, { range = it }, ranges = listOf(ChartRange.M3, ChartRange.ALL))
         ChartReadout(value, detail, touched = true)
         AxisUnit(unit)
         Row {
-            LoadAxis(ticks, height) { tickText(it, unit) }
+            LoadAxis(ticks, height, top = headroom) { tickText(it, unit) }
             Canvas(
                 Modifier.weight(1f).height(height)
                     .chartSemantics(describe, points.size, selection.value, "$value, $detail".spokenUnits()) { selection.value = it }
@@ -181,10 +218,11 @@ internal fun TopSetChart(sessions: List<HistorySession>, unit: LoadUnit, exercis
                     .testTag("top-set-chart")
             ) {
                 val pad = inset.toPx()
-                val h = size.height - pad * 2
+                val top = headroom.toPx() + pad
+                val h = size.height - top - pad
                 val w = size.width - pad * 2
                 fun x(d: LocalDate) = pad + w * fraction(d)
-                fun y(v: Double) = pad + h * (1f - ((v - low) / span).toFloat())
+                fun y(v: Double) = top + h * (1f - ((v - low) / span).toFloat())
                 ticks.forEach { t ->
                     drawLine(colors.outlineVariant.copy(alpha = 0.7f), Offset(0f, y(t)), Offset(size.width, y(t)), strokeWidth = 1.dp.toPx())
                 }
@@ -192,10 +230,7 @@ internal fun TopSetChart(sessions: List<HistorySession>, unit: LoadUnit, exercis
                     val gx = x(points[i].date)
                     drawLine(colors.outline, Offset(gx, 0f), Offset(gx, size.height), strokeWidth = 1.dp.toPx())
                 }
-                points.forEach { p ->
-                    p.others.forEach { v -> drawCircle(colors.onSurfaceVariant.copy(alpha = 0.4f), radius = 3.dp.toPx(), center = Offset(x(p.date), y(v))) }
-                }
-                // Straight segments: sets are discrete, and a curve would invent loads between sessions.
+                // Straight segments: sets are discrete, and a curve would invent loads between workouts.
                 segments.forEach { segment ->
                     val pts = segment.map { Offset(x(it.date), y(it.load)) }
                     if (pts.size > 1) {
@@ -204,9 +239,27 @@ internal fun TopSetChart(sessions: List<HistorySession>, unit: LoadUnit, exercis
                     }
                     pts.forEach { drawCircle(line, radius = 3.dp.toPx(), center = it) }
                 }
+                val shownIndex = selection.value ?: points.lastIndex
                 val c = Offset(x(shown.date), y(shown.load))
                 drawCircle(card, radius = 7.dp.toPx(), center = c)
                 drawCircle(line, radius = 7.dp.toPx(), center = c, style = Stroke(width = 2.5.dp.toPx()))
+                // Reps over each dot that has room; touching any dot always shows its own.
+                val room = measurer.measure("×15", repsStyle).size.width + 6.dp.toPx()
+                val labelled = labelledPoints(points.map { x(it.date) }, room, selection.value)
+                labelled.forEach { i ->
+                    val p = points[i]
+                    val emphasis = i == shownIndex
+                    val text = measurer.measure(
+                        "×${p.top.reps}",
+                        repsStyle.copy(
+                            color = if (emphasis) colors.onSurface else colors.onSurfaceVariant,
+                            fontWeight = if (emphasis) FontWeight.Bold else null
+                        )
+                    )
+                    val lift = (if (emphasis) 9 else 5).dp.toPx()
+                    val tx = (x(p.date) - text.size.width / 2f).coerceIn(0f, size.width - text.size.width)
+                    drawText(text, topLeft = Offset(tx, y(p.load) - lift - text.size.height))
+                }
             }
         }
         DateAxis(from, to, days)

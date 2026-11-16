@@ -34,7 +34,7 @@ class ExerciseProgressTest {
     }
 
     @Test fun theTopSetLineBreaksAcrossMoreThanTwoWeeks() {
-        fun point(date: String) = TopSetPoint(LocalDate.parse(date), LoggedSet(date, 40.0, 8, null, false, 0), emptyList())
+        fun point(date: String) = TopSetPoint(LocalDate.parse(date), LoggedSet(date, 40.0, 8, null, false, 0))
         val segments = topSetSegments(listOf(point("2026-09-01"), point("2026-09-15"), point("2026-09-30"), point("2026-10-07")))
         assertEquals(listOf(2, 2), segments.map { it.size })
     }
@@ -42,5 +42,23 @@ class ExerciseProgressTest {
     @Test fun platesNeverGetAHalfPlateTick() {
         assertEquals(true, loadTicks(4.0, 5.0, LoadUnit.PLATES).all { it == kotlin.math.floor(it) })
         assertEquals(listOf(35.0, 40.0, 45.0), loadTicks(35.0, 42.5, LoadUnit.KG))
+    }
+
+    @Test fun threeMonthsCountsBackFromTodayAndAllKeepsEveryWorkout() {
+        fun point(date: String) = TopSetPoint(LocalDate.parse(date), LoggedSet(date, 40.0, 8, null, false, 0))
+        val points = listOf(point("2026-06-01"), point("2026-08-09"), point("2026-08-10"), point("2026-11-01"))
+        assertEquals(listOf("2026-08-10", "2026-11-01"),
+            pointsInRange(points, ChartRange.M3, today).map { it.date.toString() })
+        assertEquals(4, pointsInRange(points, ChartRange.ALL, today).size)
+    }
+
+    @Test fun crowdedRepsLabelsSkipNeighboursButTheTouchedOneAlwaysShows() {
+        // Ten pixels apart with labels needing 25: every third from the latest back.
+        val xs = List(7) { it * 10f }
+        assertEquals(setOf(6, 3, 0), labelledPoints(xs, 25f, null))
+        // Touching the second point labels it, and its neighbours give way.
+        assertEquals(setOf(1, 6), labelledPoints(xs, 25f, 1))
+        // With room, every point keeps its reps.
+        assertEquals(xs.indices.toSet(), labelledPoints(xs, 8f, null))
     }
 }

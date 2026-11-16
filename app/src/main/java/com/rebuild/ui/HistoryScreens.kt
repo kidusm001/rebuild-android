@@ -1018,7 +1018,7 @@ internal fun ExerciseHistoryScreen(
             // Stages aren't separate sets, so charts plot normal working sets only; groups are listed below.
             val charted = sessions.filter { it.sets.isNotEmpty() }
             if (charted.any { s -> s.sets.any { it.loadValue != null } }) {
-                item(key = "top-set-chart") { TopSetChart(charted, unit, exercise) }
+                item(key = "top-set-chart") { TopSetChart(charted, unit, exercise, localDateOf(env.clock())) }
             }
             val perLeg = charted.map { it.perLeg }
             val perLegNote = when {
