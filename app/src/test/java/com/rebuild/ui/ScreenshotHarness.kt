@@ -163,21 +163,17 @@ class ScreenshotHarness {
         tapTag("rest-sound-chime")
         tapTag("rest-visual-flash")
         shot("$mode-19-rest-alert")
-        compose.mainClock.autoAdvance = false
-        tapTagNoWait("rest-alert-try")
+        tryAlertPaused()
         compose.mainClock.advanceTimeBy(140)
         shot("$mode-20-rest-end-flash")
-        compose.mainClock.advanceTimeBy(5_000)
-        tapTagNoWait("rest-visual-sweep")
-        compose.mainClock.advanceTimeBy(500)
-        tapTagNoWait("rest-alert-try")
+        resumeClock()
+        tapTag("rest-visual-sweep")
+        tryAlertPaused()
         compose.mainClock.advanceTimeBy(250)
         shot("$mode-21-rest-end-sweep-rising")
         compose.mainClock.advanceTimeBy(700)
         shot("$mode-22-rest-end-sweep-hold")
-        compose.mainClock.advanceTimeBy(5_000)
-        compose.mainClock.autoAdvance = true
-        compose.waitForIdle()
+        resumeClock()
         tapTag("rest-sound-alarm")
         tapTag("rest-visual-none")
         tapTag("rest-alert-try")
@@ -225,8 +221,23 @@ class ScreenshotHarness {
         compose.waitForIdle()
     }
 
-    private fun tapTagNoWait(tag: String) {
-        compose.onAllNodes(hasTestTag(tag)).onFirst().performScrollTo().performClick()
+    /**
+     * Presses "Try alert" and freezes time right there, so a shot can catch the alert mid-motion. The scroll to the
+     * button happens first, with the clock running: a scroll animation can't finish on a paused clock, and waiting
+     * for it would hang (as it did in landscape, where the button is below the fold).
+     */
+    private fun tryAlertPaused() {
+        compose.onAllNodes(hasTestTag("rest-alert-try")).onFirst().performScrollTo()
+        compose.waitForIdle()
+        compose.mainClock.autoAdvance = false
+        compose.onAllNodes(hasTestTag("rest-alert-try")).onFirst().performClick()
+    }
+
+    /** Lets the alert finish and time run normally again. */
+    private fun resumeClock() {
+        compose.mainClock.advanceTimeBy(6_000)
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
     }
 
     private fun tapTag(tag: String) {
@@ -318,6 +329,8 @@ class ScreenshotHarness {
         }
         val dir = requireNotNull(out).apply { mkdirs() }
         File(dir, "$prefix$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        // Each shot is a full-screen bitmap; let it go now rather than at the end of a four-pass tour.
+        bitmap.recycle()
     }
 
     @Suppress("UNCHECKED_CAST")
