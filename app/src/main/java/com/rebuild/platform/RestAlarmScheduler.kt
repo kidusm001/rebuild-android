@@ -37,6 +37,11 @@ class RestAlarmScheduler(
     private val notificationManager = context.getSystemService(NotificationManager::class.java)
     private val _failure = MutableStateFlow<String?>(null)
     val failure = _failure.asStateFlow()
+    private val _ringingSince = MutableStateFlow<Long?>(null)
+    /** When the rest alarm started ringing, or null while it is quiet; the app shows its Stop bar from this. */
+    val ringingSince = _ringingSince.asStateFlow()
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    private val ringOut = Runnable { _ringingSince.value = null }
 
     init {
         notificationManager.createNotificationChannel(
@@ -114,20 +119,28 @@ class RestAlarmScheduler(
     fun reconcileCurrent(repository: AppRepository) {
         // A queued lifecycle callback must not replace a newer alarm with its captured snapshot.
         val current = repository.state.value
-        reconcile(current.restTimer, current.activeWorkoutId)
+        reconcile(current.restTimer, current.activeWorkoutId, about = current.restTimer?.let { restContext(current, it) })
     }
 
     @Synchronized
-    fun reconcile(timer: RestTimer?, activeWorkoutId: String?, now: Long = System.currentTimeMillis()) {
+    fun reconcile(
+        timer: RestTimer?,
+        activeWorkoutId: String?,
+        now: Long = System.currentTimeMillis(),
+        about: RestContext? = null
+    ) {
         val pending = pendingIntent(timer?.id)
         alarmManager.cancel(pending)
-        if (activeWorkoutId == null || timer != null) notificationManager.cancel(NOTIFICATION_ID)
+        if (activeWorkoutId == null || timer != null) {
+            notificationManager.cancel(NOTIFICATION_ID)
+            quiet()
+        }
         if (timer == null || activeWorkoutId != timer.workoutId || timer.deadline <= now) {
             notificationManager.cancel(COUNTDOWN_NOTIFICATION_ID)
             return
         }
         _failure.value = null
-        showCountdown(timer, now)
+        showCountdown(timer, now, about)
         when (alarmPrecision(Build.VERSION.SDK_INT, canUseExactAlarms())) {
             AlarmPrecision.EXACT -> {
                 try {
@@ -148,18 +161,31 @@ class RestAlarmScheduler(
     }
 
     @Synchronized
-    fun notifyExpired(shortPause: Boolean = false, stillRelevant: () -> Boolean = { true }) {
+    fun notifyExpired(
+        shortPause: Boolean = false,
+        about: RestContext? = null,
+        endedAt: Long = System.currentTimeMillis(),
+        stillRelevant: () -> Boolean = { true }
+    ) {
         if (!stillRelevant() || !notificationsAllowed()) return
-        val chosen = sound()
+        // A rest-pause's short pause comes round every few seconds; ringing until stopped each time would need a free
+        // hand mid-set, so a short pause buzzes instead of ringing.
+        val chosen = sound().let { if (shortPause && it == RestSound.ALARM) RestSound.BUZZ else it }
         val open = PendingIntent.getActivity(
             context, 2, Intent(context, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        if (chosen == RestSound.ALARM && !notificationsAllowedOn(ALARM_CHANNEL_ID)) return
+        // "Rest over" leads, what to do now follows ("Next: set 2 of 3"), and the exercise sits in the header beside
+        // the time it ended, so the shade and lock screen answer "what now?" without opening the app.
         val builder = NotificationCompat.Builder(context, channelFor(chosen))
             .setSmallIcon(R.drawable.ic_rest)
+            .setColor(SIGNAL_AMBER)
             .setContentTitle(context.getString(if (shortPause) R.string.pause_complete else R.string.rest_complete))
-            .setContentText(context.getString(
-                if (shortPause) R.string.pause_complete_body else R.string.rest_complete_body))
+            .setContentText(about?.next)
+            .setSubText(about?.exercise)
+            .setWhen(endedAt)
+            .setShowWhen(true)
             .setContentIntent(open)
             .setAutoCancel(true)
             .setCategory(if (chosen == RestSound.ALARM) NotificationCompat.CATEGORY_ALARM else NotificationCompat.CATEGORY_REMINDER)
@@ -167,7 +193,9 @@ class RestAlarmScheduler(
         if (chosen == RestSound.ALARM) {
             // Rings until stopped: from the notification, by opening Rebuild, or on its own after a few minutes so a
             // phone left in a locker doesn't ring for the rest of the day.
+            // Public, so its Stop action shows on the lock screen too.
             builder.setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setTimeoutAfter(ALARM_LIMIT_MS)
                 .addAction(0, context.getString(R.string.rest_alarm_stop), stopIntent())
         } else {
@@ -177,6 +205,11 @@ class RestAlarmScheduler(
             val notification = builder.build()
             if (chosen == RestSound.ALARM) notification.flags = notification.flags or android.app.Notification.FLAG_INSISTENT
             notificationManager.notify(NOTIFICATION_ID, notification)
+            if (chosen == RestSound.ALARM) {
+                _ringingSince.value = System.currentTimeMillis()
+                main.removeCallbacks(ringOut)
+                main.postDelayed(ringOut, ALARM_LIMIT_MS)
+            } else quiet()
         } catch (error: SecurityException) {
             Log.w("Rebuild", "Notification permission changed at expiry", error)
             _failure.value = "Android blocked the rest notification. Check notification permission."
@@ -188,8 +221,19 @@ class RestAlarmScheduler(
      * its Stop button and the in-app Stop pass [always], since the choice may have changed while it rang.
      */
     fun stopRinging(always: Boolean = false) {
-        if (always || sound() == RestSound.ALARM) notificationManager.cancel(NOTIFICATION_ID)
+        if (always || sound() == RestSound.ALARM || _ringingSince.value != null) {
+            notificationManager.cancel(NOTIFICATION_ID)
+            quiet()
+        }
     }
+
+    private fun quiet() {
+        main.removeCallbacks(ringOut)
+        _ringingSince.value = null
+    }
+
+    private fun notificationsAllowedOn(channel: String): Boolean =
+        notificationManager.getNotificationChannel(channel)?.importance != NotificationManager.IMPORTANCE_NONE
 
     private fun stopIntent(): PendingIntent = PendingIntent.getBroadcast(
         context, 4, Intent(context, RestAlarmReceiver::class.java).setAction(ACTION_STOP),
@@ -200,7 +244,7 @@ class RestAlarmScheduler(
      * The running rest as an ongoing, silent countdown, like a clock app's timer, so it stays in view from the
      * status bar and lock screen while Rebuild is in the background. It removes itself at the deadline.
      */
-    private fun showCountdown(timer: RestTimer, now: Long) {
+    private fun showCountdown(timer: RestTimer, now: Long, about: RestContext?) {
         if (!notificationsAllowed()) return
         val open = PendingIntent.getActivity(
             context, 3, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
@@ -211,7 +255,15 @@ class RestAlarmScheduler(
                 COUNTDOWN_NOTIFICATION_ID,
                 NotificationCompat.Builder(context, COUNTDOWN_CHANNEL_ID)
                     .setSmallIcon(R.drawable.ic_rest)
-                    .setContentTitle(context.getString(if (timer.shortPause) R.string.pause_running else R.string.rest_running))
+                    .setColor(SIGNAL_AMBER)
+                    // The exercise is the headline; what's next sits under it; the countdown runs in the header.
+                    .setContentTitle(about?.exercise
+                        ?: context.getString(if (timer.shortPause) R.string.pause_running else R.string.rest_running))
+                    .setContentText(about?.next)
+                    .setSubText(context.getString(if (timer.shortPause) R.string.pause_running else R.string.rest_running))
+                    // The rest bar's two controls, so a rest can be stretched or ended from the lock screen.
+                    .addAction(0, context.getString(R.string.rest_add_30), restIntent(ACTION_ADD_30, timer.id, 5))
+                    .addAction(0, context.getString(R.string.rest_skip), restIntent(ACTION_SKIP, timer.id, 6))
                     .setUsesChronometer(true)
                     .setChronometerCountDown(true)
                     .setWhen(timer.deadline)
@@ -230,6 +282,12 @@ class RestAlarmScheduler(
         }
     }
 
+    private fun restIntent(action: String, timerId: String, requestCode: Int): PendingIntent = PendingIntent.getBroadcast(
+        context, requestCode,
+        Intent(context, RestAlarmReceiver::class.java).setAction(action).putExtra(EXTRA_TIMER_ID, timerId),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
     private fun pendingIntent(timerId: String?): PendingIntent =
         PendingIntent.getBroadcast(
             context, 1,
@@ -240,6 +298,10 @@ class RestAlarmScheduler(
     companion object {
         const val ACTION_EXPIRE = "com.rebuild.REST_EXPIRED"
         const val ACTION_STOP = "com.rebuild.REST_ALARM_STOP"
+        const val ACTION_ADD_30 = "com.rebuild.REST_ADD_30"
+        const val ACTION_SKIP = "com.rebuild.REST_SKIP"
+        /** The rest bar's signal amber, as the notifications' accent. */
+        const val SIGNAL_AMBER = 0xFFFFB224.toInt()
         const val LONG_CHANNEL_ID = "rest-complete-long"
         const val CHIME_CHANNEL_ID = "rest-complete-chime"
         const val ALARM_CHANNEL_ID = "rest-complete-alarm"

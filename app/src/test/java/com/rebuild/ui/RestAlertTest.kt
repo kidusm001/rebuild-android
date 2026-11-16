@@ -16,23 +16,31 @@ class RestAlertTest {
         RestSound.entries.forEach { sound ->
             RestVisual.entries.forEach { visual ->
                 val expected = !(sound == RestSound.SILENT && visual == RestVisual.NONE)
-                assertEquals("$sound + $visual", expected, RestAlert(sound, RestVisual.PULSE).allows(visual))
+                assertEquals("$sound + $visual", expected, RestAlert(sound, RestVisual.FLASH).allows(visual))
             }
         }
         assertNotNull(RestAlert(RestSound.SILENT, RestVisual.FLASH).blockedReason(RestVisual.NONE))
         assertNull(RestAlert(RestSound.SILENT, RestVisual.FLASH).blockedReason(RestVisual.FLASH))
     }
 
-    @Test fun choosingSilentMovesNothingOnScreenToPulseButKeepsAnotherVisual() {
-        assertEquals(RestAlert(RestSound.SILENT, RestVisual.PULSE), RestAlert().withSound(RestSound.SILENT))
-        assertEquals(RestAlert(RestSound.SILENT, RestVisual.FLASH),
-            RestAlert(visual = RestVisual.FLASH).withSound(RestSound.SILENT))
+    @Test fun choosingSilentMovesNothingOnScreenToFlash() {
+        assertEquals(RestAlert(RestSound.SILENT, RestVisual.FLASH), RestAlert().withSound(RestSound.SILENT))
     }
 
     @Test fun aForbiddenVisualIsIgnored() {
         val silent = RestAlert(RestSound.SILENT, RestVisual.FLASH)
         assertEquals(silent, silent.withVisual(RestVisual.NONE))
-        assertEquals(RestAlert(RestSound.SILENT, RestVisual.PULSE), silent.withVisual(RestVisual.PULSE))
+    }
+
+    @Test fun theFlashSwellsSmoothlyThreeTimesASecondApart() {
+        val samples = (0..2800).map { flashLevel(it.toFloat()) }
+        // Smooth: brightness never jumps between neighbouring milliseconds.
+        samples.zipWithNext().forEach { (a, b) -> assertTrue("jump of ${b - a}", kotlin.math.abs(b - a) < 0.012f) }
+        // Three full peaks, one second apart, dark in between and after.
+        listOf(140, 1140, 2140).forEach { assertEquals(1f, samples[it], 0.001f) }
+        listOf(0, 700, 999, 1700, 2700).forEach { assertEquals(0f, samples[it], 0.001f) }
+        assertEquals(3, samples.zipWithNext().zipWithNext().count { (p, q) -> p.second > p.first && q.second < q.first })
+        assertEquals(0f, flashLevel(-1f))
     }
 
     @Test fun onlyTheAlarmNeedsAStopButton() {

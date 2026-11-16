@@ -131,6 +131,14 @@ class FakePlatform(status: PlatformStatus = PlatformStatus()) : PlatformActions 
     override fun chooseRestore() { calls += "restore" }
     override val restAlert = MutableStateFlow(RestAlert())
     override fun setRestAlert(alert: RestAlert) { restAlert.value = alert }
-    override fun previewRestAlert() { calls += "previewAlert" }
-    override fun stopRestAlarm() { calls += "stopAlarm" }
+    override fun previewRestAlert() {
+        calls += "previewAlert"
+        if (restAlert.value.sound == RestSound.ALARM) alarmRingingSince.value = System.currentTimeMillis()
+    }
+    override fun stopRestAlarm() { calls += "stopAlarm"; alarmRingingSince.value = null }
+    override val alarmRingingSince = MutableStateFlow<Long?>(null)
+    override fun announceRestEnd(timerId: String, shortPause: Boolean) {
+        calls += "announce"
+        if (restAlert.value.sound == RestSound.ALARM && !shortPause) alarmRingingSince.value = System.currentTimeMillis()
+    }
 }

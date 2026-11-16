@@ -68,8 +68,12 @@ class ScreenshotHarness {
         override fun chooseRestore() = Unit
         override val restAlert = MutableStateFlow(RestAlert())
         override fun setRestAlert(alert: RestAlert) { restAlert.value = alert }
-        override fun previewRestAlert() = Unit
-        override fun stopRestAlarm() = Unit
+        override fun previewRestAlert() {
+            if (restAlert.value.sound == RestSound.ALARM) alarmRingingSince.value = now
+        }
+        override fun stopRestAlarm() { alarmRingingSince.value = null }
+        override val alarmRingingSince = MutableStateFlow<Long?>(null)
+        override fun announceRestEnd(timerId: String, shortPause: Boolean) = Unit
     }
 
     @Before fun gate() = assumeTrue("Set REBUILD_SCREENS to render screens", out != null)
@@ -152,22 +156,33 @@ class ScreenshotHarness {
         restAlertScreens(mode)
     }
 
-    /** The rest alert settings, then what a rest ending on screen looks like with the pulse and with the alarm's flash. */
+    /** The rest alert settings, a rest's end mid-flash and mid-sweep, and a ringing alarm's Stop bar. */
     private fun restAlertScreens(mode: String) {
         tap("More")
         tapTag("more-rest-alert")
         tapTag("rest-sound-chime")
-        tapTag("rest-visual-pulse")
-        shot("$mode-19-rest-alert")
-        tapTag("rest-alert-try")
-        compose.mainClock.advanceTimeBy(800)
-        shot("$mode-20-rest-end-pulse")
-        tapTag("rest-end-overlay")
-        tapTag("rest-sound-alarm")
         tapTag("rest-visual-flash")
+        shot("$mode-19-rest-alert")
+        compose.mainClock.autoAdvance = false
+        tapTagNoWait("rest-alert-try")
+        compose.mainClock.advanceTimeBy(32)
+        shot("$mode-20-rest-end-flash")
+        compose.mainClock.advanceTimeBy(5_000)
+        tapTagNoWait("rest-visual-sweep")
+        compose.mainClock.advanceTimeBy(500)
+        tapTagNoWait("rest-alert-try")
+        compose.mainClock.advanceTimeBy(250)
+        shot("$mode-21-rest-end-sweep-rising")
+        compose.mainClock.advanceTimeBy(400)
+        shot("$mode-22-rest-end-sweep-hold")
+        compose.mainClock.advanceTimeBy(5_000)
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        tapTag("rest-sound-alarm")
+        tapTag("rest-visual-none")
         tapTag("rest-alert-try")
-        compose.mainClock.advanceTimeBy(350)
-        shot("$mode-21-rest-end-alarm-flash")
+        compose.mainClock.advanceTimeBy(7_000)
+        shot("$mode-23-rest-alarm-bar")
         tapTag("rest-end-stop")
         platform.restAlert.value = RestAlert()
         back()
@@ -208,6 +223,10 @@ class ScreenshotHarness {
     private fun touchChart(tag: String, fraction: Float) {
         compose.onAllNodes(hasTestTag(tag)).onFirst().performScrollTo().performTouchInput { click(Offset(width * fraction, centerY)) }
         compose.waitForIdle()
+    }
+
+    private fun tapTagNoWait(tag: String) {
+        compose.onAllNodes(hasTestTag(tag)).onFirst().performScrollTo().performClick()
     }
 
     private fun tapTag(tag: String) {

@@ -34,12 +34,11 @@ class RestAlertDeviceTest {
 
         // Silent with nothing on screen would give no sign at all, so it can't be had.
         rule.onNodeWithTag("rest-sound-silent").performScrollTo().performClick()
-        assertEquals(RestAlert(RestSound.SILENT, RestVisual.PULSE), platform.restAlert.value)
-        rule.onNodeWithTag("rest-visual-pulse").assertIsSelected()
+        assertEquals(RestAlert(RestSound.SILENT, RestVisual.FLASH), platform.restAlert.value)
+        rule.onNodeWithTag("rest-visual-flash").assertIsSelected()
         rule.onNodeWithTag("rest-visual-none").performScrollTo().assertIsNotEnabled()
         rule.onNodeWithText("A silent alert needs something on screen.").assertIsDisplayed()
 
-        rule.onNodeWithTag("rest-visual-flash").performScrollTo().performClick()
         rule.onNodeWithTag("rest-sound-alarm").performScrollTo().performClick()
         assertEquals(RestAlert(RestSound.ALARM, RestVisual.FLASH), platform.restAlert.value)
 
@@ -47,11 +46,12 @@ class RestAlertDeviceTest {
         assertTrue("previewAlert" in platform.calls)
         rule.onNodeWithTag("rest-end-stop").assertIsDisplayed().performClick()
         assertTrue("stopAlarm" in platform.calls)
-        rule.waitUntil(2_000) { rule.onAllNodes(hasTestTag("rest-end-overlay")).fetchSemanticsNodes().isEmpty() }
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("rest-end-overlay")).fetchSemanticsNodes().isEmpty() }
+        rule.onNodeWithTag("rest-end-alarm").assertDoesNotExist()
     }
 
     @Test fun aRestEndingOnScreenShowsTheChosenAlertAndAnAlarmWaitsForStop() {
-        val platform = FakePlatform().apply { restAlert.value = RestAlert(RestSound.ALARM, RestVisual.PULSE) }
+        val platform = FakePlatform().apply { restAlert.value = RestAlert(RestSound.ALARM, RestVisual.FLASH) }
         val repo = FakeRepository(seedState(Phase.INTRO_ONE))
         runBlocking { repo.execute(Action.StartWorkout("upper-a", FIXED_NOW)) }
         val workout = repo.state.value.activeWorkout!!
@@ -60,13 +60,49 @@ class RestAlertDeviceTest {
         rule.setContent { RebuildApp(repo, platform) }
 
         rule.onNodeWithTag("rest-end-overlay").assertDoesNotExist()
+        // On screen the rest ends at its deadline, not whenever Android's alarm arrives.
+        rule.waitUntil(5_000) { "announce" in platform.calls }
+        // The real repository ends the rest; the fake one is told to.
+        repo.replace(repo.state.value.copy(restTimer = null))
         rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("rest-end-stop")).fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithText("Rest's up").assertIsDisplayed()
-        // An alarm's screen stays past the few seconds a flash or pulse lasts.
+        rule.onNodeWithTag("rest-end-alarm").assertIsDisplayed()
+        rule.onNodeWithTag("rest-bar").assertDoesNotExist()
+        // The alarm's bar stays past the few seconds a flash lasts.
         rule.mainClock.advanceTimeBy(6_000)
         rule.onNodeWithTag("rest-end-stop").assertIsDisplayed().performClick()
         assertTrue("stopAlarm" in platform.calls)
+        rule.waitUntil(2_000) { rule.onAllNodes(hasTestTag("rest-end-alarm")).fetchSemanticsNodes().isEmpty() }
+    }
+
+    @Test fun aFlashCoversTheScreenBrieflyAndThenGetsOutOfTheWay() {
+        val platform = FakePlatform().apply { restAlert.value = RestAlert(RestSound.CHIME, RestVisual.FLASH) }
+        val repo = FakeRepository(seedState(Phase.INTRO_ONE))
+        runBlocking { repo.execute(Action.StartWorkout("upper-a", FIXED_NOW)) }
+        val workout = repo.state.value.activeWorkout!!
+        val ends = System.currentTimeMillis() + 1_000
+        repo.replace(repo.state.value.copy(restTimer = RestTimer("t1", workout.id, workout.exercises.first().id, ends)))
+        // Time is stepped by hand, so the check sees the flash while it lasts rather than racing a fast clock.
+        rule.mainClock.autoAdvance = false
+        rule.setContent { RebuildApp(repo, platform) }
+        rule.mainClock.advanceTimeBy(1_500)
+        rule.onNodeWithTag("rest-end-overlay").assertExists()
+        assertTrue("announce" in platform.calls)
+        rule.onNodeWithTag("rest-end-stop").assertDoesNotExist()
+        // Three beats a second apart, then gone: it never lingers over the workout.
+        rule.mainClock.advanceTimeBy(3_500)
         rule.onNodeWithTag("rest-end-overlay").assertDoesNotExist()
+    }
+
+    @Test fun aSweepPassesAndLeavesTheScreenAsItWas() {
+        val platform = FakePlatform().apply { restAlert.value = RestAlert(RestSound.BUZZ, RestVisual.SWEEP) }
+        rule.setContent { RebuildApp(FakeRepository(seedState(Phase.INTRO_ONE)), platform, clock = { FIXED_NOW }) }
+        rule.onNodeWithText("More").performClick()
+        rule.onNodeWithTag("more-rest-alert").performScrollTo().performClick()
+        rule.onNodeWithTag("rest-visual-sweep").assertIsSelected()
+        rule.onNodeWithTag("rest-alert-try").performScrollTo().performClick()
+        rule.onNodeWithTag("rest-end-overlay").assertExists()
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("rest-end-overlay")).fetchSemanticsNodes().isEmpty() }
+        rule.onNodeWithTag("rest-alert-try").assertIsDisplayed()
     }
 
     @Test fun theDefaultBuzzAddsNothingOnScreen() {

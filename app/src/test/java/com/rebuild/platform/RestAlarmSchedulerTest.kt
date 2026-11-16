@@ -149,4 +149,28 @@ class RestAlarmSchedulerTest {
         buzz.stopRinging(always = true)
         assertNull(notifications.getNotification(RestAlarmScheduler.NOTIFICATION_ID))
     }
+
+    @Test fun aShortPauseBuzzesEvenWithTheAlarmChosen() {
+        val notifications = shadowOf(context.getSystemService(NotificationManager::class.java))
+        val alarm = RestAlarmScheduler(context) { com.rebuild.ui.RestSound.ALARM }
+        alarm.notifyExpired(shortPause = true)
+        val posted = notifications.getNotification(RestAlarmScheduler.NOTIFICATION_ID)
+        assertEquals(RestAlarmScheduler.CHANNEL_ID, posted.channelId)
+        assertEquals(0, posted.flags and android.app.Notification.FLAG_INSISTENT)
+        assertNull(alarm.ringingSince.value)
+    }
+
+    @Test fun theAlarmReportsRingingUntilStoppedOrANewRestStarts() {
+        val alarm = RestAlarmScheduler(context) { com.rebuild.ui.RestSound.ALARM }
+        alarm.notifyExpired()
+        assertNotNull(alarm.ringingSince.value)
+        val posted = shadowOf(context.getSystemService(NotificationManager::class.java))
+            .getNotification(RestAlarmScheduler.NOTIFICATION_ID)
+        assertEquals("Stop shows on the lock screen", android.app.Notification.VISIBILITY_PUBLIC, posted.visibility)
+        alarm.stopRinging(always = true)
+        assertNull(alarm.ringingSince.value)
+        alarm.notifyExpired()
+        alarm.reconcile(timer, "workout", now)
+        assertNull("A new rest silences the last one's alarm", alarm.ringingSince.value)
+    }
 }

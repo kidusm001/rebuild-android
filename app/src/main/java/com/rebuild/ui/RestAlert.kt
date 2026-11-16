@@ -1,16 +1,22 @@
 package com.rebuild.ui
 
 import android.provider.Settings
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,9 +25,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.MaterialTheme
@@ -29,18 +33,20 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -48,7 +54,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -61,16 +66,16 @@ import kotlinx.coroutines.delay
 enum class RestSound(val title: String, val detail: String) {
     BUZZ("Buzz", "A short double vibration"),
     LONG_BUZZ("Long buzz", "Vibrates for about five seconds"),
-    CHIME("Chime", "Your notification sound, with a buzz"),
-    ALARM("Alarm", "Rings and vibrates until you stop it, for up to 5 minutes"),
-    SILENT("Silent", "No sound or vibration, only the notification")
+    CHIME("Chime", "Your notification sound and a buzz. Silent mode mutes it."),
+    ALARM("Alarm", "Rings through silent mode and Do Not Disturb until you tap Stop or open Rebuild, 5 minutes at most. Short pauses buzz instead."),
+    SILENT("Silent", "Only the notification, with no sound or vibration")
 }
 
 /** What Rebuild shows when a rest ends while it is open. Exactly one is chosen. */
 enum class RestVisual(val title: String, val detail: String) {
-    NONE("Nothing extra", "The rest bar simply closes"),
-    FLASH("Flash", "The screen glows amber three times"),
-    PULSE("Pulse", "Rings ripple out from the middle of the screen")
+    NONE("None", "Sound and vibration only"),
+    FLASH("Flash", "Three quick flashes of the whole screen"),
+    SWEEP("Sweep", "The rest bar's amber passes once up the screen")
 }
 
 /**
@@ -87,7 +92,7 @@ data class RestAlert(val sound: RestSound = RestSound.BUZZ, val visual: RestVisu
         if (allows(visual)) null else "A silent alert needs something on screen."
 
     /** This alert with [sound], moving the on-screen choice off one the new sound can't go with. */
-    fun withSound(sound: RestSound): RestAlert = copy(sound = sound).let { if (it.allows(it.visual)) it else it.copy(visual = RestVisual.PULSE) }
+    fun withSound(sound: RestSound): RestAlert = copy(sound = sound).let { if (it.allows(it.visual)) it else it.copy(visual = RestVisual.FLASH) }
 
     /** This alert with [visual], unless the current sound rules it out. */
     fun withVisual(visual: RestVisual): RestAlert = if (allows(visual)) copy(visual = visual) else this
@@ -112,12 +117,8 @@ internal fun RestAlertScreen(env: AppEnv, onBack: () -> Unit) {
                 { alert.blockedReason(it) ?: it.detail }, enabled = { alert.allows(it) }) {
                 env.platform.setRestAlert(alert.withVisual(it))
             }
-            if (alert.needsStop) {
-                Text("The alarm also shows a Stop button here, and stops when you open Rebuild or tap its notification.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
             SecondaryButton(onClick = { env.previewRestEnd() }, icon = R.drawable.ic_play,
-                modifier = Modifier.testTag("rest-alert-try")) { Text("Try it") }
+                modifier = Modifier.testTag("rest-alert-try")) { Text("Try alert") }
             PlatformLimitations(env.status, env.platform)
         }
     }
@@ -180,104 +181,142 @@ internal fun RestEndWatcher(timer: RestTimer?, clock: () -> Long, onEnd: (RestEn
 }
 
 /**
- * The on-screen part of a rest-end alert, over everything: an amber glow three times (at one flash a second,
- * well under the three-a-second photosensitivity limit), or rings rippling out behind "Rest's up". With the
- * system's animations turned off both hold still. Tapping anywhere closes it; an alarm keeps it up with a Stop button.
+ * The on-screen part of a rest's end, over everything and draw-only, so it never takes a touch.
+ *
+ * - Flash: three smooth swells of light a second apart (far under the three-a-second photosensitivity limit); see
+ *   [flashLevel]. White at 90% on the dark theme; signal amber on the
+ *   light one, where white would barely show. With the system's animations off it is one softer still frame.
+ * - Sweep: [RestEndSweep], the rest bar's amber passing once up the screen; a still amber frame without animations.
+ *
+ * Either way TalkBack hears "Rest over". A ringing alarm's Stop lives in the rest bar's place, not here.
  */
 @Composable
-internal fun RestEndOverlay(end: RestEnd, alert: RestAlert, onStopAlarm: () -> Unit, onDone: () -> Unit) {
+internal fun RestEndOverlay(end: RestEnd, alert: RestAlert, onDone: () -> Unit, restBarTop: Float? = null) {
     val context = LocalContext.current
     val still = remember(context) {
         runCatching { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) }
             .getOrDefault(1f) == 0f
     }
     val done by rememberUpdatedState(onDone)
-    val ringing = alert.needsStop
-    val title = if (end.shortPause) "Pause's up" else "Rest's up"
-    if (alert.visual == RestVisual.NONE && !ringing) {
-        LaunchedEffect(end) { done() }
-        return
-    }
-    LaunchedEffect(end, ringing) {
-        // A flash or pulse lasts a few seconds; an alarm's screen stays until it is stopped.
-        if (!ringing) {
-            delay(if (alert.visual == RestVisual.FLASH) 3_200 else 4_000)
-            done()
-        }
-    }
-    val amber = MaterialTheme.colorScheme.primaryContainer
-    Box(
-        Modifier
-            .fillMaxSize()
-            .testTag("rest-end-overlay")
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                if (ringing) onStopAlarm()
-                done()
-            }
-            .semantics { paneTitle = title },
-        contentAlignment = Alignment.Center
-    ) {
+    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val flashColor = if (dark) Color.White else MaterialTheme.colorScheme.primaryContainer
+    val peak = if (dark) 0.9f else 0.85f
+    Box(Modifier.fillMaxSize().testTag("rest-end-overlay")) {
         when (alert.visual) {
             RestVisual.FLASH -> {
-                val glow = remember(end) { Animatable(0f) }
-                LaunchedEffect(end, still) {
-                    if (still) { glow.snapTo(0.55f); return@LaunchedEffect }
-                    repeat(3) {
-                        glow.animateTo(0.75f, tween(350))
-                        glow.animateTo(0f, tween(650))
+                // One clock runs the whole flash; each beat's brightness is a smooth curve of it, so there is never
+                // a snap or a hard edge in the light, only a swell and a long settle.
+                val clockMs = remember(end) { Animatable(0f) }
+                LaunchedEffect(end) {
+                    if (still) {
+                        // Without animations: one still frame, softer, so a silent alert still shows.
+                        clockMs.snapTo(-1f)
+                        delay(700)
+                    } else {
+                        clockMs.animateTo(FLASH_TOTAL_MS, tween(FLASH_TOTAL_MS.toInt(), easing = LinearEasing))
                     }
+                    done()
                 }
-                Box(Modifier.fillMaxSize().background(amber.copy(alpha = glow.value)))
+                // Drawn, not composed: the light changes in the draw phase without recomposing the screen beneath.
+                Spacer(Modifier.fillMaxSize().drawBehind {
+                    val t = clockMs.value
+                    val a = if (t < 0f) peak * 0.6f else peak * flashLevel(t)
+                    if (a > 0.003f) drawRect(flashColor.copy(alpha = a))
+                })
             }
-            RestVisual.PULSE -> Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.85f)))
-            RestVisual.NONE -> Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.85f)))
+            RestVisual.SWEEP -> {
+                // Amber under the status bar: its icons turn dark for the moment, then go back.
+                val view = LocalView.current
+                DisposableEffect(end) {
+                    val window = (view.context as? android.app.Activity)?.window
+                    val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+                    val before = controller?.isAppearanceLightStatusBars
+                    controller?.isAppearanceLightStatusBars = true
+                    onDispose { if (before != null) controller.isAppearanceLightStatusBars = before }
+                }
+                RestEndSweep(end, still, onFinished = { done() }, startTop = restBarTop)
+            }
+            RestVisual.NONE -> LaunchedEffect(end) { done() }
         }
-        Column(
-            Modifier.safeDrawingPadding().padding(24.dp).widthIn(max = 360.dp)
-                .semantics { liveRegion = LiveRegionMode.Assertive },
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        // Announced once, without stealing focus.
+        Box(Modifier.semantics {
+            contentDescription = if (end.shortPause) "Pause over" else "Rest over"
+            liveRegion = LiveRegionMode.Polite
+        })
+    }
+}
+
+private const val FLASH_BEATS = 3
+private const val FLASH_PERIOD_MS = 1000f
+private const val FLASH_RISE_MS = 140f
+private const val FLASH_FALL_MS = 460f
+private const val FLASH_TOTAL_MS = FLASH_PERIOD_MS * (FLASH_BEATS - 1) + FLASH_RISE_MS + FLASH_FALL_MS
+
+/**
+ * How bright the flash is [t] ms in, from 0 to 1: three beats a second apart (well under three a second). Each beat
+ * swells in 140 ms with an ease-out cubic and settles over 460 ms with a smootherstep, so the light leaves and
+ * reaches its peak with zero speed: no corners anywhere in the curve, which is what makes it read as smooth.
+ */
+internal fun flashLevel(t: Float): Float {
+    if (t < 0f || t >= FLASH_TOTAL_MS) return 0f
+    val beat = (t / FLASH_PERIOD_MS).toInt().coerceAtMost(FLASH_BEATS - 1)
+    val x = t - beat * FLASH_PERIOD_MS
+    return when {
+        x < FLASH_RISE_MS -> {
+            val u = x / FLASH_RISE_MS
+            // Smoothstep in: starts and arrives at rest.
+            u * u * (3f - 2f * u)
+        }
+        x < FLASH_RISE_MS + FLASH_FALL_MS -> {
+            val v = (x - FLASH_RISE_MS) / FLASH_FALL_MS
+            // Smootherstep out: a long, soft settle.
+            1f - v * v * v * (v * (v * 6f - 15f) + 10f)
+        }
+        else -> 0f
+    }
+}
+
+/**
+ * A ringing rest alarm, docked exactly where the rest bar was and in its amber: the overtime counting up in the
+ * countdown's numerals, and one ink Stop pill like the bar's Skip.
+ */
+@Composable
+internal fun RestAlarmBar(since: Long, clock: () -> Long, onStop: () -> Unit) {
+    var now by remember { mutableLongStateOf(clock()) }
+    LaunchedEffect(since) {
+        while (true) {
+            now = clock()
+            delay(1000 - (now - since).mod(1000L))
+        }
+    }
+    val over = ((now - since).coerceAtLeast(0) / 1000).toInt()
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        color = colors.primaryContainer,
+        contentColor = colors.onPrimaryContainer,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        modifier = Modifier.fillMaxWidth().testTag("rest-end-alarm")
+    ) {
+        Row(
+            Modifier.padding(start = 20.dp, end = 12.dp, top = 12.dp, bottom = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (alert.visual == RestVisual.PULSE) {
-                val waves = rememberInfiniteTransition(label = "rest-end-rings")
-                val phase by waves.animateFloat(0f, 1f, infiniteRepeatable(tween(1_600, easing = LinearEasing), RepeatMode.Restart),
-                    label = "rest-end-ring-phase")
-                // Rings ripple outward past the badge's own bounds; the badge stays put in the middle.
-                Box(
-                    Modifier.padding(vertical = 48.dp).size(112.dp).drawBehind {
-                        val center = Offset(size.width / 2, size.height / 2)
-                        val reach = 120.dp.toPx()
-                        repeat(3) { ring ->
-                            val p = if (still) (ring + 1) / 3f else (phase + ring / 3f) % 1f
-                            drawCircle(amber.copy(alpha = (1f - p) * 0.8f), radius = size.minDimension / 2 + reach * p,
-                                center = center, style = Stroke(width = 6.dp.toPx() * (1f - p) + 1.dp.toPx()))
-                        }
-                        drawCircle(amber, radius = size.minDimension / 2, center = center)
-                    },
-                    contentAlignment = Alignment.Center
-                ) {
-                    RebuildIcon(R.drawable.ic_rest, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(48.dp))
-                }
-            }
-            // Over a flash or a still screen the words sit on a card, so they read against whatever is behind.
-            val card = alert.visual != RestVisual.PULSE
-            Column(
-                if (card) Modifier.fillMaxWidth().clip(MaterialTheme.shapes.extraLarge)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(24.dp) else Modifier,
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                if (card) RebuildIcon(R.drawable.ic_rest, contentDescription = null, tint = accentText(),
-                    modifier = Modifier.size(32.dp))
-                Text(title, style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
-                    color = if (card) MaterialTheme.colorScheme.onSurface else androidx.compose.ui.graphics.Color.White,
+            Column(Modifier.weight(1f).clearAndSetSemantics {
+                contentDescription = "Rest over, alarm ringing"
+                liveRegion = LiveRegionMode.Assertive
+            }) {
+                Text("Rest over", style = overlineStyle())
+                Text("+${formatRest(over)}", style = MaterialTheme.typography.displayMedium,
                     modifier = Modifier.testTag("rest-end-title"))
-                if (ringing) {
-                    Button(onClick = { onStopAlarm(); done() }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
-                        .testTag("rest-end-stop")) { Text("Stop alarm") }
-                }
             }
+            FilledTonalButton(
+                onClick = onStop,
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = colors.onPrimaryContainer, contentColor = colors.primaryContainer),
+                contentPadding = PaddingValues(horizontal = 24.dp),
+                modifier = Modifier.heightIn(min = 48.dp).testTag("rest-end-stop")
+                    .semantics { contentDescription = "Stop alarm" }
+            ) { Text("Stop", maxLines = 1) }
         }
     }
 }
