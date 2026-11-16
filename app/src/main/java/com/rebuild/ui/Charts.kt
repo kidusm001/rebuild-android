@@ -59,6 +59,7 @@ import kotlin.math.floor
 import kotlin.math.log10
 import kotlin.math.pow
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
@@ -107,8 +108,10 @@ internal fun Modifier.chartTouch(count: Int, xs: (width: Int) -> List<Float>, on
     if (count == 0) this else pointerInput(count, xs) {
         fun nearest(x: Float): Int = xs(size.width).withIndex().minBy { abs(it.value - x) }.index
         coroutineScope {
-            launch { detectTapGestures(onPress = { onSelect(nearest(it.x)) }) }
-            launch {
+            // Undispatched, so both detectors are listening before the touch that started this block is delivered:
+            // the block only starts on a chart's first touch, and dispatched detectors would miss that touch.
+            launch(start = CoroutineStart.UNDISPATCHED) { detectTapGestures(onPress = { onSelect(nearest(it.x)) }) }
+            launch(start = CoroutineStart.UNDISPATCHED) {
                 detectHorizontalDragGestures(onDragStart = { onSelect(nearest(it.x)) }) { change, _ ->
                     change.consume()
                     onSelect(nearest(change.position.x))
