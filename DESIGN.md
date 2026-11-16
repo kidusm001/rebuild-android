@@ -10,12 +10,16 @@ Everything visual comes from `ui/theme/Theme.kt` and the shared components in
 
 - **Color.** A warm tinted canvas with lighter (light) or raised (dark) cards,
   separated by tone, never by borders or dividers. Light: canvas `#F3EFE9`, cards
-  `#FFFFFF`. Dark: canvas `#0F0E0D`, cards `#1D1B19`. Signal amber with ink labels
-  (`#231500`) is the one action and rest color in both themes: main buttons, the rest
-  sheet, selection and today's progress. It is `#FFB224` on light and a softer
-  `#EBA42A` on dark, where full-strength amber glared against the near-black canvas. Amber as text, focus
-  rings and selected controls uses amber-ink `#7A4D00` on light and `#FFB94A` on
-  dark (`accentText()`), because signal amber is only a fill. Selection is
+  `#FFFFFF`. Dark: canvas `#0F0E0D`, cards `#1D1B19`. Signal amber `#FFB224`
+  (`SignalAmber`) with ink labels (`#231500`) is the one action and rest color in both
+  themes: main buttons, the rest sheet, selection and today's progress. On dark, the
+  large fills (`primaryContainer`: main buttons, the rest and Up next sheets, the
+  alarm bar) soften to `#EBA42A`, where full-strength amber glared against the
+  near-black canvas. Small markers (calendar days, the current exercise's badge, chart
+  bars) stay `#FFB224`, and amber as text, lines and chart marks (`accentText()`:
+  ledger values, chart lines and readouts, quiet text buttons, rings) stays full
+  `#FFB224` on dark and is amber-ink `#6B4E0E` on light. Focus rings and selected
+  controls use `primary`: amber-ink `#7A4D00` on light and `#FFB94A` on dark. Selection is
   `secondaryContainer` everywhere (chips, tabs, segmented controls). `ThemeTest`
   holds every text and control pair at WCAG 4.5:1 (3:1 for outlines) in both themes.
 - **Type.** Roboto for words, the platform's `sans-serif-condensed` Bold for the

@@ -178,7 +178,7 @@ internal fun RestEndTakeover(
     /** The rest bar's top edge, where the sheet grows from; null when there was no bar (a preview). */
     startTop: Float? = null
 ) {
-    val amber = MaterialTheme.colorScheme.primaryContainer
+    val amber = MaterialTheme.colorScheme.primaryContainer // the sheet is a fill: softened on dark
     val ink = MaterialTheme.colorScheme.onPrimaryContainer
     val finished by rememberUpdatedState(onFinished)
     val haptic = LocalHapticFeedback.current

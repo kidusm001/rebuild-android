@@ -43,6 +43,7 @@ import com.rebuild.domain.localDateOf
 import com.rebuild.domain.weekStartOf
 import com.rebuild.domain.weeklySetsByMuscle
 import com.rebuild.domain.workoutDays
+import com.rebuild.ui.theme.SignalAmber
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -107,7 +108,8 @@ private fun CalendarDay(date: LocalDate, today: LocalDate, workouts: List<Workou
         Modifier
             .size(44.dp)
             .clip(CircleShape)
-            .background(if (trained) colors.primaryContainer else colors.surface.copy(alpha = 0f))
+            // A small marker, not a large fill: full signal amber in both themes.
+            .background(if (trained) SignalAmber else colors.surface.copy(alpha = 0f))
             .then(if (date == today && !trained) Modifier.border(1.5.dp, colors.outline, CircleShape) else Modifier)
             .then(if (trained) Modifier.clickable(onClickLabel = "Open ${workouts!!.first().name}") { onOpen(workouts.first()) }
                 else Modifier)
@@ -162,8 +164,9 @@ internal fun WeeklyMuscleSets(env: AppEnv) {
                 Text(muscle.title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(112.dp), maxLines = 1)
                 Box(Modifier.weight(1f).height(12.dp).clip(MaterialTheme.shapes.extraSmall)
                     .background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
+                    // A chart bar, not a fill behind text: full signal amber in both themes.
                     Box(Modifier.fillMaxWidth(sets / most.toFloat()).height(12.dp).clip(MaterialTheme.shapes.extraSmall)
-                        .background(MaterialTheme.colorScheme.primaryContainer))
+                        .background(SignalAmber))
                 }
                 Spacer(Modifier.width(12.dp))
                 Text(sets.toString(), style = MaterialTheme.typography.labelLarge, modifier = Modifier.width(28.dp),

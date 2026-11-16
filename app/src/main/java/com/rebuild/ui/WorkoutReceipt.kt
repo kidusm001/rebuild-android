@@ -53,6 +53,7 @@ import com.rebuild.domain.previousComparable
 import com.rebuild.domain.mainSets
 import com.rebuild.domain.workingCount
 import com.rebuild.domain.workingSetCount
+import com.rebuild.ui.theme.SignalAmber
 import kotlin.math.roundToLong
 
 /** One exercise's line on the receipt: its best normal working set, and what it beat from last time, if anything. */
@@ -130,7 +131,8 @@ internal fun WorkoutReceipt(env: AppEnv, workout: Workout, onView: () -> Unit, o
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Box(
-                    Modifier.size(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
+                    // A small marker, not a large fill: full signal amber in both themes.
+                    Modifier.size(48.dp).clip(CircleShape).background(SignalAmber),
                     contentAlignment = Alignment.Center
                 ) {
                     RebuildIcon(R.drawable.ic_check, contentDescription = null,

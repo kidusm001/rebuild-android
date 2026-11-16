@@ -20,12 +20,20 @@ import androidx.compose.ui.unit.sp
 // Ink + Ember. A warm tinted canvas with lighter (light) or raised (dark) cards, separated by tone, never borders.
 // Filled actions are ink in light and amber in dark; signal amber (primaryContainer) is always a fill with ink on it,
 // never a lone edge on the light canvas.
+
+/**
+ * Full-strength signal amber. It is light's primaryContainer, and on dark it stays the colour of amber used as text,
+ * lines, rings, chart marks and small markers (see accentText()); only dark's large fills soften to its
+ * primaryContainer.
+ */
+internal val SignalAmber = Color(0xFFFFB224)
+
 internal val Light = lightColorScheme(
     // Amber-ink: text, focus and selection controls. Main actions are signal-amber fills (primaryContainer); see
     // the app's Button in Components.kt.
     primary = Color(0xFF7A4D00),
     onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFFFB224),
+    primaryContainer = SignalAmber,
     onPrimaryContainer = Color(0xFF231500),
     secondary = Color(0xFF6B4E0E),
     onSecondary = Color(0xFFFFFAF1),
@@ -57,6 +65,7 @@ internal val Light = lightColorScheme(
 internal val Dark = darkColorScheme(
     primary = Color(0xFFFFB94A),
     onPrimary = Color(0xFF2A1800),
+    // Large fills (main buttons, the rest sheet): softened, since full signal amber glares on near-black.
     primaryContainer = Color(0xFFEBA42A),
     onPrimaryContainer = Color(0xFF231500),
     secondary = Color(0xFFD4C5AC),

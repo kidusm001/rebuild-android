@@ -298,7 +298,7 @@ internal fun RestAlarmBar(since: Long, clock: () -> Long, onStop: () -> Unit) {
     val over = ((now - since).coerceAtLeast(0) / 1000).toInt().coerceAtLeast(1)
     val colors = MaterialTheme.colorScheme
     Surface(
-        color = colors.primaryContainer,
+        color = colors.primaryContainer, // fill: softened on dark
         contentColor = colors.onPrimaryContainer,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         modifier = Modifier.fillMaxWidth().testTag("rest-end-alarm")

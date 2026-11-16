@@ -98,7 +98,7 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
     // A full-width amber sheet docked above the navigation: rounded top corners, square bottom, edge to edge.
     Box(Modifier.fillMaxWidth()) {
         Surface(
-            color = colors.primaryContainer,
+            color = colors.primaryContainer, // fill: softened on dark
             contentColor = colors.onPrimaryContainer,
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             shadowElevation = 0.dp,
@@ -145,7 +145,8 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                     containerColor = Color.White.copy(alpha = 0.38f),
                     contentColor = colors.onPrimaryContainer
                 )
-                // Skip ends the rest: ink on amber, the strongest control on the pill.
+                // Skip ends the rest: ink on amber, the strongest control on the pill. Its label is cut from the sheet's own
+        // (softened on dark) fill.
                 val strong = ButtonDefaults.filledTonalButtonColors(
                     containerColor = colors.onPrimaryContainer,
                     contentColor = colors.primaryContainer

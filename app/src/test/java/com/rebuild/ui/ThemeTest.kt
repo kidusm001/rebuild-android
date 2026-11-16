@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import com.rebuild.ui.theme.Dark
 import com.rebuild.ui.theme.Light
+import com.rebuild.ui.theme.SignalAmber
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -26,6 +27,21 @@ class ThemeTest {
             "FFB4A9", "680003", "5C1D18", "FFDAD5", "0F0E0D", "EDE6DD", "0F0E0D", "EDE6DD",
             "34302C", "CFC5B7", "1D1B19", "171514", "221F1D", "2A2724", "34302C", "958B7E", "3C3833")
         assertEquals(expected.map { (0xFF000000L or it.toLong(16)).toInt() }, actual.map { it.toArgb() })
+    }
+
+    @Test
+    fun onlyDarkFillsSoftenWhileAmberTextAndChartsKeepFullSignalAmber() {
+        assertEquals(0xFFFFB224.toInt(), SignalAmber.toArgb())
+        // Fills: softened on dark, full signal amber on light.
+        assertEquals(0xFFEBA42A.toInt(), Dark.primaryContainer.toArgb())
+        assertEquals(SignalAmber, Light.primaryContainer)
+        // Amber as text, lines and chart marks: full signal amber on dark, amber-ink on light.
+        assertEquals(SignalAmber, accentTextFor(Dark))
+        assertEquals(0xFF6B4E0E.toInt(), accentTextFor(Light).toArgb())
+        with(Dark) {
+            listOf(surface, surfaceContainerLowest, surfaceContainerLow, surfaceContainer,
+                surfaceContainerHigh, surfaceContainerHighest).forEach { contrast(accentTextFor(Dark), it, 4.5) }
+        }
     }
 
     @Test
