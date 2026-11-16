@@ -62,6 +62,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.rebuild.ui.theme.Numerals
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -921,13 +922,6 @@ internal fun ExerciseHistoryScreen(
             }
         }
         LazyBody {
-            item(key = "about") {
-                Text(
-                    "Working sets exactly as logged. Warm-ups excluded.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
             if (sessions.isEmpty()) {
                 item(key = "empty") { Text("No working sets logged yet.") }
                 return@LazyBody
@@ -941,29 +935,19 @@ internal fun ExerciseHistoryScreen(
                         .background(MaterialTheme.colorScheme.surfaceContainerLowest)
                         .semantics(mergeDescendants = true) {}
                         .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("Latest · ${formatDate(latest.workout.startedAt)}", style = MaterialTheme.typography.labelLarge,
-                        color = accentText())
-                    latest.entries.forEach {
-                        Text(entryText(it, exercise), style = ledgerValueStyle())
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Latest · ${formatDate(latest.workout.startedAt)}", style = MaterialTheme.typography.labelLarge,
+                            color = accentText(), modifier = Modifier.weight(1f))
+                        Text(countLabel(sessions.size, "session"), style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text("${countLabel(sessions.size, "session")} since ${formatDate(sessions.first().workout.startedAt)}",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    latest.entries.forEach { HistoryEntryLines(it, exercise, prominent = true) }
                 }
             }
             // Stages aren't separate sets, so charts plot normal working sets only; groups are listed below.
             val charted = sessions.filter { it.sets.isNotEmpty() }
-            if (sessions.any { it.groups.isNotEmpty() }) {
-                item(key = "groups-note") {
-                    Text(
-                        "Charts plot each set as lifted; its drops are listed with it below.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.testTag("charts-normal-only")
-                    )
-                }
-            }
             val kgSeries = charted.map { s -> s.sets.mapNotNull { it.loadValue } }
             if (kgSeries.any { it.isNotEmpty() }) {
                 item(key = "kg-chart") {
@@ -1000,10 +984,8 @@ internal fun ExerciseHistoryScreen(
                     ) {
                         Text(formatDate(s.workout.startedAt), style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
                             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(0.8f))
-                        Column(Modifier.weight(1f)) {
-                            s.entries.forEach {
-                                Text(entryText(it, exercise), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"))
-                            }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            s.entries.forEach { HistoryEntryLines(it, exercise, prominent = false) }
                             if (mixedPerLeg && s.perLeg) {
                                 Text("Reps per leg", style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1014,6 +996,54 @@ internal fun ExerciseHistoryScreen(
             }
         }
     }
+}
+
+/**
+ * One working set as history shows it: the load and reps in numerals, its RIR as a quiet tag at the end instead of
+ * "@ 0 RIR" inline, and each drop or pause on its own indented line beneath, so a set with drops reads as one set.
+ * Spoken as the full line ("72.5 kg × 6 @ 0 RIR, drop 64 kg × 3 @ 0 RIR").
+ */
+@Composable
+private fun HistoryEntryLines(entry: WorkEntry, exercise: Exercise, prominent: Boolean) {
+    val (main, after, method) = when (entry) {
+        is WorkEntry.Single -> Triple(entry.set, emptyList(), null)
+        is WorkEntry.Group -> Triple(entry.mainSet, entry.followUps, entry.group.method)
+    }
+    val valueStyle = if (prominent) ledgerValueStyle()
+        else MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum")
+    val followStyle = if (prominent) MaterialTheme.typography.titleMedium.copy(fontFamily = Numerals, fontFeatureSettings = "tnum")
+        else MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum")
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(
+        Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = entryText(entry, exercise).spokenUnits() },
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(loadAndReps(main, exercise), style = valueStyle, modifier = Modifier.weight(1f))
+            RirTag(main)
+        }
+        after.forEach { stage ->
+            Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(followUpLabel(requireNotNull(method)).lowercase(), style = MaterialTheme.typography.labelMedium, color = muted,
+                    modifier = Modifier.padding(end = 8.dp))
+                Text(loadAndReps(stage, exercise), style = followStyle, modifier = Modifier.weight(1f))
+                RirTag(stage)
+            }
+        }
+        if (entry is WorkEntry.Group && entry.open) {
+            Text("In progress", style = MaterialTheme.typography.labelMedium, color = muted)
+        }
+    }
+}
+
+private fun loadAndReps(set: LoggedSet, exercise: Exercise): String =
+    "${loadText(set.amount, set.loadUnit, set.plates, exercise)} × ${set.reps}"
+
+@Composable
+private fun RirTag(set: LoggedSet) {
+    val rir = set.rir ?: return
+    Text("${formatKg(rir)} RIR", style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
+        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 12.dp))
 }
 
 /** One plotted load in its unit: "5 plates", "42.5 kg/DB", "95 lb". */

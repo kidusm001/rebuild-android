@@ -63,10 +63,10 @@ class SetGroupsDeviceTest {
      * are composed only once scrolled to, so each is found where it is rather than assumed to be composed at once.
      */
     private fun assertLatestAndSessionRowShow(text: String) {
-        val latest = hasText("Latest · ", substring = true) and hasText(text)
+        val latest = hasText("Latest · ", substring = true) and hasContentDescription(text)
         rule.onNode(hasScrollToIndexAction()).performScrollToNode(latest)
         rule.onNode(latest).assertIsDisplayed()
-        val sessionRow = hasText(text) and !hasText("Latest · ", substring = true)
+        val sessionRow = hasContentDescription(text) and !hasText("Latest · ", substring = true)
         rule.onNode(hasScrollToIndexAction()).performScrollToNode(sessionRow)
         rule.onNode(sessionRow).assertIsDisplayed()
     }
@@ -312,8 +312,6 @@ class SetGroupsDeviceTest {
         rule.onAllNodesWithTag("set-row").assertCountEquals(0)
 
         rule.onNodeWithContentDescription("Bench press, ", substring = true).performScrollTo().performClick()
-        rule.onNodeWithTag("charts-normal-only").assertTextEquals(
-            "Charts plot each set as lifted; its drops are listed with it below.")
         rule.onNodeWithText("No working sets logged yet.").assertDoesNotExist()
         // Each set is charted by what it was (40 × 10, 30 × 8); the drops after it never become points.
         rule.onNode(hasContentDescription("Weight · kg chart: 1 sessions, values from 30 to 40,", substring = true))
