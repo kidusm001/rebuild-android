@@ -58,6 +58,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import com.rebuild.R
 import com.rebuild.ui.theme.SignalAmber
+import com.rebuild.ui.theme.InkPress
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ColorScheme
@@ -954,11 +955,11 @@ internal fun TextButton(
             colors = if (colors.contentColor == scheme.primary) ButtonDefaults.textButtonColors(contentColor = accentText())
                 else colors,
             contentPadding = contentPadding, content = content)
-        DialogSlot.CONFIRM -> androidx.compose.material3.Button(
+        DialogSlot.CONFIRM -> InkPress { androidx.compose.material3.Button(
             onClick = onClick, modifier = modifier.heightIn(min = 48.dp), enabled = enabled,
             colors = if (destructive) ButtonDefaults.buttonColors(containerColor = scheme.error, contentColor = scheme.onError)
                 else signalButtonColors(),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), content = content)
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), content = content) }
         DialogSlot.DISMISS, DialogSlot.BODY -> FilledTonalButton(
             onClick = onClick, modifier = modifier.heightIn(min = 48.dp), enabled = enabled,
             colors = ButtonDefaults.filledTonalButtonColors(
@@ -989,8 +990,10 @@ internal fun Button(
     colors: androidx.compose.material3.ButtonColors = signalButtonColors(),
     contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
     content: @Composable RowScope.() -> Unit
-) = androidx.compose.material3.Button(onClick = onClick, modifier = modifier, enabled = enabled, colors = colors,
-    contentPadding = contentPadding, content = content)
+) = InkPress { // a filled pill: an ember press would vanish into the amber
+    androidx.compose.material3.Button(onClick = onClick, modifier = modifier, enabled = enabled, colors = colors,
+        contentPadding = contentPadding, content = content)
+}
 
 /** A row of a grouped list: card tone, 20/4 dp corners from [groupShape], a 2 dp gap above all but the first. */
 @Composable
