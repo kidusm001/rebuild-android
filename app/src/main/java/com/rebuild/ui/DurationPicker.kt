@@ -7,13 +7,16 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Surface
+import androidx.compose.ui.text.font.FontWeight
+import com.rebuild.ui.theme.Numerals
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -42,8 +45,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 
 /** Common rests, one tap each. */
-private val QUICK_RESTS = listOf(30, 60, 90, 120, 180, 240, 300)
+private val QUICK_RESTS = listOf(30, 60, 90, 120, 180, 300)
 private const val SECOND_STEP = 5
+private const val QUICK_COLUMNS = 3
 private val SECOND_STOPS = (0 until 60 step SECOND_STEP).toList()
 
 /**
@@ -107,7 +111,6 @@ internal fun DurationPickerField(
  * Minute and second wheels (seconds in steps of [SECOND_STEP]) with one-tap common rests. [onPick] gets the total in
  * seconds, or null for "Clear" when [allowBlank].
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun DurationPickerDialog(
     title: String,
@@ -143,15 +146,15 @@ internal fun DurationPickerDialog(
                     { "%02d".format(SECOND_STOPS[it]) }) { secondsIndex = it }
                 Text(" s", style = MaterialTheme.typography.titleMedium)
             }
-            @Composable fun Chip(choice: Int) = TonalChip(
+            @Composable fun Chip(choice: Int, modifier: Modifier = Modifier) = QuickChoice(
+                label = formatRest(choice),
                 selected = total == choice,
                 onClick = {
                     minutes = choice / 60
                     secondsIndex = (choice % 60) / SECOND_STEP
                     revision++
                 },
-                label = { Text(formatRest(choice)) },
-                modifier = Modifier.heightIn(min = 48.dp).testTag("duration-quick-$choice")
+                modifier = modifier.testTag("duration-quick-$choice")
                     .semantics { contentDescription = spokenDuration(choice) }
             )
             val choices = quickChoices.filter { it <= maxSeconds }
@@ -159,15 +162,21 @@ internal fun DurationPickerDialog(
                 // A short landscape window keeps the choices to one scrolling row above the wheels, so both fit.
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        choices.forEach { Chip(it) }
+                        choices.forEach { Chip(it, Modifier.width(72.dp)) }
                     }
                     Wheels(Modifier.fillMaxWidth())
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Wheels(Modifier.fillMaxWidth())
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        choices.forEach { Chip(it) }
+                    // An even grid of equal pills, three to a row, instead of chips wrapping to a ragged last line.
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        choices.chunked(QUICK_COLUMNS).forEach { row ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                row.forEach { Chip(it, Modifier.weight(1f)) }
+                                repeat(QUICK_COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
+                            }
+                        }
                     }
                 }
             }
@@ -175,15 +184,31 @@ internal fun DurationPickerDialog(
         confirmButton = {
             TextButton(onClick = { onPick(total) }, modifier = Modifier.testTag("duration-set")) { Text(confirmLabel) }
         },
-        dismissButton = {
-            Row {
-                if (allowBlank && initialSeconds != null) {
-                    TextButton(onClick = { onPick(null) }, modifier = Modifier.testTag("duration-clear")) { Text("Clear") }
-                }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
-            }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        // Clearing removes the time, a different act from backing out, so it sits apart at the start of the row
+        // and Cancel stays beside Set, where every other dialog keeps it.
+        neutralButton = if (allowBlank && initialSeconds != null) {
+            { TextButton(onClick = { onPick(null) }, modifier = Modifier.testTag("duration-clear")) { Text("Clear") } }
+        } else null
     )
+}
+
+/** One common rest as a full pill: a tinted tile on the dialog's surface, amber ink when it is the time on the wheels. */
+@Composable
+private fun QuickChoice(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        selected = selected,
+        onClick = onClick,
+        shape = CircleShape,
+        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+        contentColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
+        modifier = modifier.heightIn(min = 48.dp)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(label, style = MaterialTheme.typography.titleMedium.copy(fontFamily = Numerals, fontFeatureSettings = "tnum"),
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
+        }
+    }
 }
 
 /** The platform NumberPicker: flings, snaps, accepts typed digits and speaks its value with TalkBack. */

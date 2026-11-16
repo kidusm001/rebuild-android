@@ -267,7 +267,9 @@ internal fun AdaptiveDialog(
     title: @Composable () -> Unit,
     text: @Composable () -> Unit,
     confirmButton: @Composable () -> Unit,
-    dismissButton: @Composable () -> Unit = {}
+    dismissButton: @Composable () -> Unit = {},
+    /** An action that is neither confirm nor dismiss (such as Clear), set apart at the start of the button row. */
+    neutralButton: (@Composable () -> Unit)? = null
 ) {
     AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -287,6 +289,11 @@ internal fun AdaptiveDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 itemVerticalAlignment = Alignment.CenterVertically
             ) {
+                if (neutralButton != null) {
+                    Box(Modifier.weight(1f)) {
+                        CompositionLocalProvider(LocalDialogSlot provides DialogSlot.DISMISS) { neutralButton() }
+                    }
+                }
                 CompositionLocalProvider(LocalDialogSlot provides DialogSlot.DISMISS) { dismissButton() }
                 CompositionLocalProvider(LocalDialogSlot provides DialogSlot.CONFIRM) { confirmButton() }
             }
