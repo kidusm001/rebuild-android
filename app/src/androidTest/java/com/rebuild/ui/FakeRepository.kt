@@ -129,4 +129,8 @@ class FakePlatform(status: PlatformStatus = PlatformStatus()) : PlatformActions 
     override fun exportBackup() { calls += "export" }
     override fun shareBackup() { calls += "share" }
     override fun chooseRestore() { calls += "restore" }
+    override val restAlert = MutableStateFlow(RestAlert())
+    override fun setRestAlert(alert: RestAlert) { restAlert.value = alert }
+    override fun previewRestAlert() { calls += "previewAlert" }
+    override fun stopRestAlarm() { calls += "stopAlarm" }
 }

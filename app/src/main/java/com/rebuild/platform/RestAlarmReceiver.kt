@@ -10,6 +10,10 @@ import kotlinx.coroutines.launch
 
 class RestAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == RestAlarmScheduler.ACTION_STOP) {
+            (context.applicationContext as RebuildApplication).alarms.stopRinging(always = true)
+            return
+        }
         if (intent.action != RestAlarmScheduler.ACTION_EXPIRE) return
         val timerId = intent.getStringExtra(RestAlarmScheduler.EXTRA_TIMER_ID) ?: return
         val pending = goAsync()

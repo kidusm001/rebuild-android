@@ -103,6 +103,10 @@ internal fun MoreScreen(env: AppEnv, onNavigate: (String) -> Unit) {
                 }
             }
             SectionHeader("Rest alerts")
+            MoreRow("Rest alert", listOf(env.restAlert.sound.title, env.restAlert.visual.takeIf { it != RestVisual.NONE }?.title)
+                .filterNotNull().joinToString(" · "), R.drawable.ic_rest, Modifier.grouped(0, 0).testTag("more-rest-alert")) {
+                onNavigate(Routes.REST_ALERT)
+            }
             PlatformLimitations(env.status, env.platform, showAllClear = true)
             if (version != null) Text(
                 "Rebuild $version",
