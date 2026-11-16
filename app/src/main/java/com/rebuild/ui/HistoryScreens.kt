@@ -104,6 +104,7 @@ import com.rebuild.domain.measured
 import com.rebuild.domain.openGroup
 import com.rebuild.domain.repRecords
 import com.rebuild.domain.recordSets
+import com.rebuild.domain.repComparisons
 import com.rebuild.domain.localDateOf
 import com.rebuild.domain.warmupSetCount
 import com.rebuild.domain.workEntries
@@ -1025,12 +1026,10 @@ internal fun ExerciseHistoryScreen(
                 perLeg.any { it } -> " (per leg in ${perLeg.count { it }} of ${perLeg.size} sessions)"
                 else -> ""
             }
-            // Loaded sets compare like with like at each rep count; without a load (bodyweight, or assisted, where
-            // heaviest means nothing) the reps themselves are the chart.
+            // Loaded sets are read through the top set chart and the records (same reps, then and now); without a load
+            // (bodyweight, or assisted, where heaviest means nothing) the reps themselves are the chart.
             val loaded = recordSets(env.state.workouts, unit) { it.exercise.identity() == identity }
-            if (loaded.isNotEmpty()) item(key = "rep-compare-chart") {
-                RepCompareChart(loaded, unit, exercise, localDateOf(env.clock()), titleSuffix = perLegNote)
-            } else if (charted.isNotEmpty()) item(key = "reps-chart") {
+            if (loaded.isEmpty() && charted.isNotEmpty()) item(key = "reps-chart") {
                 SetChart(
                     "Reps$perLegNote",
                     charted.map { s -> s.sets.map { it.reps.toDouble() } },
@@ -1039,8 +1038,13 @@ internal fun ExerciseHistoryScreen(
                 )
             }
             val records = repRecords(env.state.workouts, unit) { it.exercise.identity() == identity }
+            // Each record set in the last four weeks says what that rep count stood at before: progress at the same reps,
+            // in words, with no estimate and no chart to learn.
+            val fourWeeksAgo = repComparisons(loaded, localDateOf(env.clock()).minusWeeks(4)).associateBy { it.reps }
             if (records.isNotEmpty()) item(key = "records") {
-                RecordsSection(records, unit, exercise) { onOpenWorkout(it.id) }
+                RecordsSection(records, unit, exercise, was = { recordWas(it, fourWeeksAgo[it.reps], exercise) }) {
+                    onOpenWorkout(it.id)
+                }
             }
             item(key = "sessions-header") { SectionHeader("All sessions") }
             // When only some sessions counted reps per leg, each of those says so; reps are never converted.

@@ -150,14 +150,10 @@ class ScreenshotHarness {
             .performScrollTo().performTouchInput { click(Offset(width * 0.25f, centerY)) }
         compose.waitForIdle()
         shot("$mode-10b-exercise-history-touched")
-        // The second chart: the list's third item, after the latest session and the first chart.
+        // The records, with what each recent record's rep count was four weeks ago: the list's third item.
         compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.ScrollToIndex)).onFirst().performScrollToIndex(2)
         compose.waitForIdle()
-        shot("$mode-10c-exercise-history-second-chart")
-        compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)).onLast()
-            .performTouchInput { click(Offset(width * 0.3f, centerY)) }
-        compose.waitForIdle()
-        shot("$mode-10d-exercise-history-second-touched")
+        shot("$mode-10c-exercise-history-records")
         back()
         tap("More")
         tap("Routines")
