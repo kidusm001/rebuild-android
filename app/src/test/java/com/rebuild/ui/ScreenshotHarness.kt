@@ -135,6 +135,12 @@ class ScreenshotHarness {
         else back()
         tap("History")
         tap("Exercises")
+        shot("$mode-09b-exercises")
+        // The Muscle sort, where the list offers one; the same tour renders a list without it unchanged.
+        if (compose.onAllNodes(hasText("Muscle") and hasClickAction()).fetchSemanticsNodes().isNotEmpty()) {
+            tap("Muscle")
+            shot("$mode-09c-exercises-muscle")
+        }
         tap("Incline dumbbell press")
         shot("$mode-10-exercise-history")
         compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)).onFirst()
@@ -271,6 +277,26 @@ class ScreenshotHarness {
                     repo.execute(Action.SaveSet(past.id, we.id, "p$daysAgo-$e-$s", kg, 10 - s, 2.0, false,
                         start + (e * 10 + s) * 60_000L))
                 }
+            }
+            repo.execute(Action.FinishWorkout(start + 55 * 60_000L, countForWeek = true))
+        }
+        // Pull on other days, so History's exercise list has several muscles and recency to sort by, and a plank,
+        // so it has a measured exercise too.
+        listOf(38, 31, 24, 17, 10, 3).forEach { daysAgo ->
+            val start = now - daysAgo * day
+            repo.execute(Action.StartWorkout("pull", start))
+            val past = requireNotNull(repo.state.value.activeWorkout)
+            past.exercises.forEachIndexed { e, we ->
+                repeat(we.targetSets ?: 2) { s ->
+                    val kg = 46.25 - 7.5 * e - daysAgo / 7 * 1.25
+                    repo.execute(Action.SaveSet(past.id, we.id, "q$daysAgo-$e-$s", kg, 9 - s, 2.0, false,
+                        start + (e * 10 + s) * 60_000L))
+                }
+            }
+            if (daysAgo <= 10) {
+                repo.execute(Action.AddWorkoutExercise(past.id, "plank$daysAgo", "plank"))
+                repo.execute(Action.SaveEffort(past.id, "plank$daysAgo", "pl$daysAgo", 75 - daysAgo, null, null,
+                    start + 50 * 60_000L))
             }
             repo.execute(Action.FinishWorkout(start + 55 * 60_000L, countForWeek = true))
         }

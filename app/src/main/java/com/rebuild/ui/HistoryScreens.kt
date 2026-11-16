@@ -76,7 +76,10 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -176,7 +179,7 @@ internal fun HistoryScreen(
                         onSite = { onNavigate(Routes.site(it)) })
                     finished.isEmpty() -> NoFinishedWorkouts(onOpenToday)
                     page == 0 -> WorkoutsPage(env, finished, onNavigate)
-                    else -> ExercisesPage(finished, onNavigate)
+                    else -> ExercisesPage(env, finished, onNavigate)
                 }
             }
         }
@@ -230,15 +233,16 @@ private fun ColumnScope.WorkoutsPage(env: AppEnv, finished: List<Workout>, onNav
 }
 
 @Composable
-private fun ColumnScope.ExercisesPage(finished: List<Workout>, onNavigate: (String) -> Unit) {
-    val identities = finished.flatMap { w ->
-        w.exercises.filter { e -> e.sets.any { !it.warmup } || e.efforts.isNotEmpty() }.map { w to it.exercise }
+private fun ColumnScope.ExercisesPage(env: AppEnv, finished: List<Workout>, onNavigate: (String) -> Unit) {
+    val summaries = remember(finished) { exerciseSummaries(finished) }
+    // A name listed twice (say, a press logged per dumbbell and as a total) adds its loading so the rows differ.
+    val repeatedNames = remember(summaries) {
+        summaries.groupingBy { it.exercise.name }.eachCount().filterValues { it > 1 }.keys
     }
-        .groupBy { it.second.identity() }
-        .map { (_, list) -> Triple(list.first().second, list.size, list.first().first.startedAt) }
-        .sortedBy { it.first.name.lowercase() }
     var query by rememberSaveable { mutableStateOf("") }
-    val shown = identities.filter { (exercise, _, _) -> query.isBlank() || exercise.name.contains(query.trim(), ignoreCase = true) }
+    var sort by rememberSaveable { mutableStateOf(ExerciseSort.RECENT) }
+    val groups = arrangeExercises(summaries, sort, query)
+    val now = env.clock()
     LazyBody(spacing = 0.dp) {
         item(key = "search") {
             // A filled pill search field, not an outlined form box.
@@ -252,24 +256,85 @@ private fun ColumnScope.ExercisesPage(finished: List<Workout>, onNavigate: (Stri
                     focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp).semantics { contentDescription = "Search your exercises" }
+                // The sort chips' 48 dp touch area below adds its own 8 dp, so the visible gaps above and below them match.
+                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp).semantics { contentDescription = "Search your exercises" }
                     .testTag("history-exercise-search")
             )
         }
-        if (shown.isEmpty()) item(key = "none") {
-            Text("No exercise matches \"${query.trim()}\".", modifier = Modifier.padding(vertical = 12.dp))
-        }
-        itemsIndexed(shown, key = { _, (exercise, _, _) -> Routes.exerciseHistory(exercise) }) { i, (exercise, sessions, last) ->
-            Column(Modifier.groupedRow(i, shown.lastIndex)) {
-                ListRow(
-                    headline = exercise.name,
-                    supporting = "${loadingShort(exercise).replaceFirstChar { it.uppercase() }} · " +
-                        "${countLabel(sessions, "session")}\nLast ${formatDate(last)}",
-                    onClick = { onNavigate(Routes.exerciseHistory(exercise)) },
-                    trailing = { Chevron() }
-                )
+        item(key = "sort") {
+            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ExerciseSort.entries.forEach { option ->
+                    TonalChip(
+                        selected = sort == option,
+                        onClick = { sort = option },
+                        label = { Text(option.label) },
+                        modifier = Modifier.semantics { contentDescription = option.spoken }.testTag("history-sort-${option.name}")
+                    )
+                }
             }
         }
+        if (groups.isEmpty()) item(key = "none") {
+            Text("No exercise matches \"${query.trim()}\".", modifier = Modifier.padding(vertical = 12.dp))
+        }
+        groups.forEach { group ->
+            group.header?.let { header ->
+                item(key = "muscle/$header") { SectionHeader(header, Modifier.padding(top = 8.dp, bottom = 4.dp)) }
+            }
+            itemsIndexed(group.rows, key = { _, row -> Routes.exerciseHistory(row.exercise) }) { i, row ->
+                Box(Modifier.groupedRow(i, group.rows.lastIndex)) {
+                    HistoryExerciseRow(row, now, showLoading = row.exercise.name in repeatedNames) {
+                        onNavigate(Routes.exerciseHistory(row.exercise))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * One exercise in History's list: its name, the latest session's top set (or latest effort) in condensed numerals with
+ * its date, then the session count. Spoken as one sentence: "Lat pulldown, last 46.25 kilograms times 9 on
+ * 10 November, 19 sessions". No arrow or colour says whether it went up or down.
+ */
+@Composable
+private fun HistoryExerciseRow(row: ExerciseSummary, now: Long, showLoading: Boolean, onClick: () -> Unit) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val loading = if (showLoading) loadingShort(row.exercise) else null
+    val count = countLabel(row.sessions, "session")
+    val label = buildString {
+        append(row.exercise.name)
+        loading?.let { append(", $it") }
+        append(", last ")
+        row.latestSpoken?.let { append("$it on ") }
+        append(spokenDate(row.lastAt, now))
+        append(", $count")
+    }
+    val nbsp = ' '
+    val line = buildAnnotatedString {
+        row.latest?.let { append(it.replace(' ', nbsp)) } ?: withStyle(SpanStyle(color = muted)) { append("Last") }
+        withStyle(SpanStyle(color = muted, fontFamily = MaterialTheme.typography.bodyMedium.fontFamily,
+            fontSize = MaterialTheme.typography.bodyMedium.fontSize, fontWeight = FontWeight.Normal)) {
+            append(if (row.latest != null) "  ·  " else " ")
+            append(shortDate(row.lastAt, now).replace(' ', nbsp))
+        }
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clickable(onClick = onClick)
+            // On the clickable node itself, so even a sliver of the row at a scroll edge is named in full.
+            .semantics { contentDescription = label }
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(row.exercise.name, style = MaterialTheme.typography.bodyLarge)
+            Text(line, style = MaterialTheme.typography.titleMedium.copy(fontFamily = Numerals, fontFeatureSettings = "tnum"))
+            Text(listOfNotNull(count, loading).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = muted)
+        }
+        Chevron()
     }
 }
 
