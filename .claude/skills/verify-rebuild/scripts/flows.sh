@@ -14,6 +14,7 @@ root=$(git -C "$here" rev-parse --show-toplevel)
 
 case ${1:-} in
   first-run)
+    "$here/emu.sh" launch >/dev/null
     "$ui" wait "phase-${2:-INTRO_TWO}" 20
     "$ui" tap "phase-${2:-INTRO_TWO}"
     "$ui" tap "Start with"
@@ -36,20 +37,41 @@ case ${1:-} in
     "$ui" tap "log-set"
     "$ui" wait "rest-bar" 10 ;;
   set-rest)
+    # The picker is a dialog window, where test tags aren't visible: its quick times are found by their spoken
+    # names ("1 minute 30 seconds") and the confirm button by its text.
+    spoken=$(python3 -c '
+import sys
+s = int(sys.argv[1]); parts = [(s // 60, "minute"), (s % 60, "second")]
+print(" ".join(f"{n} {u}{chr(115) if n != 1 else str()}" for n, u in parts if n))' "$2")
     "$ui" tap "Rest options"; "$ui" tap "Set time"
-    "$ui" tap "duration-quick-$2"; "$ui" tap "duration-set"
-    "$ui" gone "duration-set" 5 ;;
+    "$ui" wait "$spoken" 5; "$ui" tap "$spoken"; "$ui" tap "Set"
+    # The picker's title, not the time: the rest bar's "Add 30 seconds" would match "30 seconds" too.
+    "$ui" gone "Rest time remaining" 5 ;;
   seed-history)
     # A JVM test writes the snapshot; the app's own restore flow loads it, exactly as a user moving phones would.
     seed=/tmp/rebuild-verify-state/seed.json; mkdir -p "$(dirname "$seed")"
-    (cd "$root" && SEED_OUT="$seed" ./gradlew -q :app:testDebugUnitTest --tests com.rebuild.devseed.SeedHistoryGen)
-    "$adb" push "$seed" /sdcard/Download/rebuild-seed.json >/dev/null
+    # --rerun: Gradle doesn't know SEED_OUT is an input, so it would otherwise skip the test as up to date and
+    # leave a stale (or missing) seed. The old file is removed first so a skipped run can't go unnoticed.
+    rm -f "$seed"
+    (cd "$root" && SEED_OUT="$seed" ./gradlew -q :app:testDebugUnitTest --tests com.rebuild.devseed.SeedHistoryGen --rerun)
+    [ -s "$seed" ] || { echo "the seed test didn't write $seed" >&2; exit 1; }
+    "$adb" push "$seed" /sdcard/Download/rebuild-seed.json >/dev/null 2>&1
+    "$here/emu.sh" launch >/dev/null
     "$ui" wait "Restore a backup" 20; "$ui" tap "Restore a backup"
-    "$ui" wait "Show roots" 10; "$ui" tap "Show roots"; "$ui" tap "Downloads"; sleep 2
-    "$ui" tap "rebuild-seed.json"
+    # The picker reopens in the last folder it showed. Already in Downloads: pick the file. Otherwise open the drawer
+    # and choose its Downloads item ("title=Downloads": the toolbar can say "Downloads" too).
+    "$ui" wait "Show roots" 10; sleep 1
+    if ! "$ui" has "title=rebuild-seed.json"; then
+      "$ui" tap "Show roots"
+      "$ui" wait "title=Downloads" 5; sleep 0.8; "$ui" tap "title=Downloads"
+      "$ui" wait "title=rebuild-seed.json" 10
+    fi
+    "$ui" tap "title=rebuild-seed.json"
     "$ui" wait "Save current backup" 10; "$ui" tap "Save current backup"
     "$ui" wait "SAVE" 10; "$ui" tap "SAVE"
     "$ui" wait "Replace all data" 10; "$ui" tap "Replace all data"
+    # The restore ends with a "Restore complete" message whose OK must be dismissed before anything else responds.
+    "$ui" wait "OK" 15; "$ui" tap "OK"
     "$ui" wait "Today" 15 ;;
   rest-alert)
     "$ui" tap "More"; sleep 1

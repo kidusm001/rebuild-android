@@ -16,6 +16,7 @@ S=.claude/skills/verify-rebuild/scripts
 $S/emu.sh up        # boots rebuild_api34 if no device is attached; returns when the system is usable
 $S/emu.sh install   # ./gradlew installDebug, then grants notifications and exact alarms
 $S/emu.sh reset     # optional: wipe app data to get the first-run screen (a fresh install)
+$S/emu.sh launch    # open the app (install and reset don't; flows.sh first-run and seed-history do it themselves)
 ```
 
 Ready means `emu.sh doctor` passes and the app shows either the first-run screen ("Choose where to start") or Today. The emulator needs about 3 GB of RAM; the host has 14 GB, but Gradle daemons, a second checkout's daemons or the IDE can push it over. Check `doctor`'s RAM line before long runs.
@@ -32,7 +33,7 @@ Read-only. It checks the device is booted, the app is installed (and prints its 
 
 ## Drive
 
-`ui.sh` finds controls by **handle**, in this order: the Compose test tag (the app exposes test tags as resource ids), exact text, content description, then a substring of text or description. Prefer test tags: they're what the device tests use and they don't change with copy. `ui.sh list` prints every handle on screen.
+`ui.sh` finds controls by **handle**, in this order: `id=text` (a resource id and its exact text together, for when the same text shows twice), the Compose test tag (the app exposes test tags as resource ids), exact text, content description, then a substring of text or description. Only controls actually on screen count. Prefer test tags: they're what the device tests use and they don't change with copy. `ui.sh list` prints every handle on screen. If a screen can't be read (the device went away, or it never stopped animating after three tries), `ui.sh` stops with exit 2 rather than guessing.
 
 ```bash
 $S/ui.sh list                       # what's on screen, with tags
@@ -89,7 +90,8 @@ Also put back anything a run changed on a shared device: the system theme (`evid
 - Compose dialogs and popup menus are separate windows; their test tags don't show as resource ids, so find their controls by text or description.
 - A fresh install has no previous sets, so set entry starts empty; `flows.sh log-set` fills both fields.
 - The device tests (`./gradlew connectedDebugAndroidTest`) uninstall the app, so its data is gone afterwards; run `emu.sh install` and the flow you need again.
-- DocumentsUI (the system file picker used by backup and restore) differs between Android versions; `seed-history` is written for this API 34 image.
+- DocumentsUI (the system file picker used by backup and restore) differs between Android versions; `seed-history` is written for this API 34 image. It reopens in the last folder it showed, and its toolbar and drawer can both say "Downloads", so `seed-history` handles both starts and taps `title=Downloads`.
+- `wait` and `gone` keep a real deadline, but a screen read in progress (about a second) can finish after it.
 
 ## Keeping this skill true
 

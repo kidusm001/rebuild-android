@@ -17,7 +17,7 @@ Preconditions:
 
 - `$S/emu.sh reset` has just run.
 
-- **First screen.** Open the app. Run `adb shell am start -n com.rebuild/.MainActivity`, then `$S/ui.sh wait phase-INTRO_ONE 20`. "Choose where to start" and four phases show. The start button reads "Choose a phase" and is disabled.
+- **First screen.** Open the app. Run `$S/emu.sh launch`, then `$S/ui.sh wait phase-INTRO_ONE 20`. "Choose where to start" and four phases show. The start button reads "Choose a phase" and is disabled.
 - **Choose.** Pick Build consistency. Run `$S/ui.sh tap phase-INTRO_TWO`. The button reads "Start with Build consistency".
 - **Start.** Run `$S/ui.sh tap "Start with"`, then `$S/ui.sh wait week-checklist 10`. Today shows the week with 4 workouts.
 - **Persists.** Run `adb shell am force-stop com.rebuild` and open the app again. Today shows again, not the first-run screen.

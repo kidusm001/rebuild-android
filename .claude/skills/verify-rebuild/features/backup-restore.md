@@ -19,7 +19,7 @@ Preconditions:
 
 - For restore: a backup file on the device. `flows.sh seed-history` generates one at `/sdcard/Download/rebuild-seed.json`.
 
-- **Restore from first run.** Run `$S/emu.sh reset` and `$S/flows.sh seed-history`. The preview shows "39 workouts", the safety-backup save, then "Replace all current data?"; after Replace, Today shows the seeded week.
+- **Restore from first run.** Run `$S/emu.sh reset` and `$S/flows.sh seed-history`. The preview shows "39 workouts", the safety-backup save, then "Replace all current data?"; after Replace, "Restore complete" (dismissed with OK), then Today shows the seeded week and History's calendar is full.
 - **Export.** Run `$S/ui.sh tap More`, `$S/ui.sh tap "Backup and restore"`, `$S/ui.sh tap "Export backup file"`, then `$S/ui.sh tap SAVE` in the picker. Back on More, "Last backup" shows today's date.
 - **Side effect.** Run `adb shell ls -la /sdcard/Download/`. The exported `rebuild-backup-*.json` is there.
 - **Proof.** Shots of the restore preview and of More with "Last backup".
