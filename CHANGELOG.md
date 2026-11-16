@@ -4,6 +4,12 @@ Every version installs over the one before it with the same signing key and keep
 on, release APKs are built and published by [GitHub Actions](.github/workflows/release.yml); notes for each are in
 [docs/releases](docs/releases/).
 
+## 0.3.1 (version code 22)
+- During a workout, hold an exercise at the top and drag it to change today's order, or hold and let go to move it a
+  place or remove it from today. A planned exercise is skipped for today and stays in your plan.
+- Dark mode: the amber buttons, rest bar and full-screen rest alerts are softer on black; charts and highlights keep
+  their full amber.
+
 ## 0.3.0 (version code 21)
 - Rest alerts: More > Rest alert chooses how a rest's end is announced: a buzz (as before), long buzz, chime, an
   alarm that rings until stopped, or silent. While Rebuild is open it can also show an edge light around the screen,
