@@ -4,6 +4,18 @@ Every version installs over the one before it with the same signing key and keep
 on, release APKs are built and published by [GitHub Actions](.github/workflows/release.yml); notes for each are in
 [docs/releases](docs/releases/).
 
+## 0.3.0 (version code 21)
+- Rest alerts: More > Rest alert chooses how a rest's end is announced: a buzz (as before), long buzz, chime, an
+  alarm that rings until stopped, or silent. While Rebuild is open it can also show an edge light around the screen,
+  or "Up next", where the rest bar fills the screen with your next set. Choices that contradict each other can't be
+  made.
+- Rest notifications show a large live countdown with the exercise and what's next, plus +30 s and Skip buttons.
+  "Rest over" shows the next set.
+- A rest that ends with Rebuild open ends right on time on screen, and the screen stays on while a rest runs.
+- Rest picker: Clear sits apart from Cancel and Set, and the quick times form an even grid.
+- Exercise history: sets read as clean lines with RIR at the end and drops beneath, without the explanatory notes.
+- Number fields inside dialogs are visible before you tap them.
+
 ## 0.2.0 (version code 20)
 - A new look: warm tonal cards instead of outlines and dividers, bold condensed numbers, amber main buttons and pill
   dialog buttons, in light and dark.
