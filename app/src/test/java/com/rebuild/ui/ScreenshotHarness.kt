@@ -66,6 +66,10 @@ class ScreenshotHarness {
         override fun exportBackup() = Unit
         override fun shareBackup() = Unit
         override fun chooseRestore() = Unit
+        override val restAlert = MutableStateFlow(RestAlert())
+        override fun setRestAlert(alert: RestAlert) { restAlert.value = alert }
+        override fun previewRestAlert() = Unit
+        override fun stopRestAlarm() = Unit
     }
 
     @Before fun gate() = assumeTrue("Set REBUILD_SCREENS to render screens", out != null)
@@ -145,6 +149,28 @@ class ScreenshotHarness {
         shot("$mode-13-phase")
         back()
         bodyScreens(mode)
+        restAlertScreens(mode)
+    }
+
+    /** The rest alert settings, then what a rest ending on screen looks like with the pulse and with the alarm's flash. */
+    private fun restAlertScreens(mode: String) {
+        tap("More")
+        tapTag("more-rest-alert")
+        tapTag("rest-sound-chime")
+        tapTag("rest-visual-pulse")
+        shot("$mode-19-rest-alert")
+        tapTag("rest-alert-try")
+        compose.mainClock.advanceTimeBy(800)
+        shot("$mode-20-rest-end-pulse")
+        tapTag("rest-end-overlay")
+        tapTag("rest-sound-alarm")
+        tapTag("rest-visual-flash")
+        tapTag("rest-alert-try")
+        compose.mainClock.advanceTimeBy(350)
+        shot("$mode-21-rest-end-alarm-flash")
+        tapTag("rest-end-stop")
+        platform.restAlert.value = RestAlert()
+        back()
     }
 
     private fun bodyScreens(mode: String) {

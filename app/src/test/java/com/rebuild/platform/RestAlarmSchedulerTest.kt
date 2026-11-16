@@ -119,4 +119,34 @@ class RestAlarmSchedulerTest {
         scheduler.notifyExpired()
         assertEquals(0, shadowOf(manager).size())
     }
+
+    @Test fun eachSoundPostsOnItsOwnChannelAndOnlyTheAlarmKeepsRinging() {
+        val notifications = shadowOf(context.getSystemService(NotificationManager::class.java))
+        com.rebuild.ui.RestSound.entries.forEach { sound ->
+            val chosen = RestAlarmScheduler(context) { sound }
+            chosen.notifyExpired()
+            val posted = notifications.getNotification(RestAlarmScheduler.NOTIFICATION_ID)
+            assertEquals(RestAlarmScheduler.channelFor(sound), posted.channelId)
+            val insistent = posted.flags and android.app.Notification.FLAG_INSISTENT != 0
+            assertEquals("$sound rings until stopped", sound == com.rebuild.ui.RestSound.ALARM, insistent)
+            assertEquals(if (sound == com.rebuild.ui.RestSound.ALARM) 1 else 0, posted.actions?.size ?: 0)
+        }
+        assertEquals(com.rebuild.ui.RestSound.entries.map { RestAlarmScheduler.channelFor(it) }.toSet().size,
+            com.rebuild.ui.RestSound.entries.size)
+    }
+
+    @Test fun openingRebuildStopsOnlyAnAlarm() {
+        val notifications = shadowOf(context.getSystemService(NotificationManager::class.java))
+        val buzz = RestAlarmScheduler(context) { com.rebuild.ui.RestSound.BUZZ }
+        buzz.notifyExpired()
+        buzz.stopRinging()
+        assertNotNull(notifications.getNotification(RestAlarmScheduler.NOTIFICATION_ID))
+        val alarm = RestAlarmScheduler(context) { com.rebuild.ui.RestSound.ALARM }
+        alarm.notifyExpired()
+        alarm.stopRinging()
+        assertNull(notifications.getNotification(RestAlarmScheduler.NOTIFICATION_ID))
+        alarm.notifyExpired()
+        buzz.stopRinging(always = true)
+        assertNull(notifications.getNotification(RestAlarmScheduler.NOTIFICATION_ID))
+    }
 }

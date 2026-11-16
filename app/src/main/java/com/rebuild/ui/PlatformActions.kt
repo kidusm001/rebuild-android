@@ -22,4 +22,12 @@ interface PlatformActions {
     fun exportBackup()
     fun shareBackup()
     fun chooseRestore()
+
+    /** This phone's rest-end alert choice. */
+    val restAlert: StateFlow<RestAlert>
+    fun setRestAlert(alert: RestAlert)
+    /** Sounds the chosen alert now, the way a real rest end would, so it can be tried from settings. */
+    fun previewRestAlert()
+    /** Silences a ringing rest alarm. */
+    fun stopRestAlarm()
 }

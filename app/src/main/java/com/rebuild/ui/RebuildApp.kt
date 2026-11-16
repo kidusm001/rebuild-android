@@ -101,6 +101,7 @@ internal object Routes {
     const val PHASE = "phase"
     const val BACKUP = "backup"
     const val HELP = "help"
+    const val REST_ALERT = "rest-alert"
     const val EXERCISES = "exercises"
     const val ROUTINES = "routines"
     const val NEW_ROUTINE = "routine-new"
@@ -184,6 +185,8 @@ fun RebuildApp(
     RebuildTheme {
         val state by repository.state.collectAsStateWithLifecycle()
         val status by platform.status.collectAsStateWithLifecycle()
+        val restAlert by platform.restAlert.collectAsStateWithLifecycle()
+        val restEnd = remember { RestEndState() }
         val runner: ActionRunner = viewModel(key = "rebuild-runner-${System.identityHashCode(repository)}") {
             ActionRunner(repository)
         }
@@ -223,9 +226,14 @@ fun RebuildApp(
 
         // One instance per real change of its inputs. Every screen takes it, so a fresh instance on each recomposition
         // here (a tab tap, a back press, the lifecycle) would recompose every screen on the stack for nothing.
-        val env = remember(state, status, platform, runner, clock, readClock, effortDrafts, today) {
-            AppEnv(state, status, platform, runner, clock, readClock, effortDrafts)
+        val env = remember(state, status, platform, runner, clock, readClock, effortDrafts, today, restAlert) {
+            AppEnv(state, status, platform, runner, clock, readClock, effortDrafts, restAlert, previewRestEnd = {
+                platform.previewRestAlert()
+                restEnd.current = RestEnd("preview-${clock()}", shortPause = false, preview = true)
+            })
         }
+        // A rest ending in front of the user gets its on-screen alert; the sound comes from its notification.
+        RestEndWatcher(state.restTimer?.takeIf { it.workoutId == state.activeWorkoutId }, clock) { restEnd.current = it }
         val nav = rememberSaveable(saver = Navigator.Saver) { Navigator(listOf(Tab.HOME.route)) }
 
         // A workout that just finished here ends on its receipt; a discarded one or a restore never shows one.
@@ -340,6 +348,9 @@ fun RebuildApp(
                 }
             }
         }
+        restEnd.current?.let { end ->
+            RestEndOverlay(end, restAlert, onStopAlarm = platform::stopRestAlarm, onDone = { restEnd.current = null })
+        }
         state.workouts.find { it.id == receiptFor }?.let { finished ->
             WorkoutReceipt(env, finished,
                 onView = { receiptFor = null; nav.push(Routes.workoutDetail(finished.id)) },
@@ -356,7 +367,10 @@ internal class AppEnv(
     val runner: ActionRunner,
     val clock: () -> Long,
     val monotonic: () -> Monotonic,
-    val effortDrafts: EffortDrafts = EffortDrafts()
+    val effortDrafts: EffortDrafts = EffortDrafts(),
+    val restAlert: RestAlert = RestAlert(),
+    /** Shows and sounds the chosen rest-end alert now, from the settings screen. */
+    val previewRestEnd: () -> Unit = {}
 ) {
     fun exercise(id: String): Exercise? = state.exercises.find { it.id == id }
 }
@@ -511,6 +525,7 @@ private fun RouteContent(env: AppEnv, nav: Navigator, route: String) {
         route == Routes.PHASE -> PhaseSettingsScreen(env, onBack = { nav.pop() })
         route == Routes.BACKUP -> BackupScreen(env, onBack = { nav.pop() })
         route == Routes.HELP -> HelpScreen(onBack = { nav.pop() })
+        route == Routes.REST_ALERT -> RestAlertScreen(env, onBack = { nav.pop() })
         route == Routes.EXERCISES -> ExerciseLibraryScreen(env, onBack = { nav.pop() })
         route == Routes.BODYWEIGHT -> BodyweightScreen(env, onBack = { nav.pop() })
         route == Routes.MEASUREMENTS -> MeasurementsScreen(env, onBack = { nav.pop() }, onMeasure = { nav.push(Routes.MEASURE) },

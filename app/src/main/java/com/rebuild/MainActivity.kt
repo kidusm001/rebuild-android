@@ -42,6 +42,7 @@ import androidx.lifecycle.lifecycleScope
 import com.rebuild.platform.BackupViewModel
 import com.rebuild.ui.PlatformActions
 import com.rebuild.ui.PlatformStatus
+import com.rebuild.ui.RestAlert
 import com.rebuild.ui.RebuildApp
 import com.rebuild.ui.RestPip
 import com.rebuild.ui.theme.RebuildTheme
@@ -203,6 +204,8 @@ class MainActivity : ComponentActivity(), PlatformActions {
     override fun onResume() {
         super.onResume()
         refreshStatus()
+        // Coming back to Rebuild answers a ringing rest alarm.
+        app.alarms.stopRinging()
         lifecycleScope.launch {
             try {
                 model.repository.value?.let { app.alarms.reconcileCurrent(it) }
@@ -288,6 +291,10 @@ class MainActivity : ComponentActivity(), PlatformActions {
     }
 
     override fun exportBackup() { model.beginExport(false) { saveBackup.launch(it) } }
+    override val restAlert: StateFlow<RestAlert> get() = app.restAlerts.alert
+    override fun setRestAlert(alert: RestAlert) = app.restAlerts.set(alert)
+    override fun previewRestAlert() = app.alarms.notifyExpired()
+    override fun stopRestAlarm() = app.alarms.stopRinging(always = true)
     override fun chooseRestore() { openBackup.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }
     override fun shareBackup() {
         model.prepareShare { file ->

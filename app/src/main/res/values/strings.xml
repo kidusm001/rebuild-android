@@ -10,4 +10,13 @@
     <string name="rest_running">Resting</string>
     <string name="pause_running">Short pause</string>
     <string name="pause_complete_body">Ready for your next mini-set when you are.</string>
+    <string name="rest_long_channel_name">Rest complete: long buzz</string>
+    <string name="rest_long_channel_description">Vibrates for about five seconds when a rest ends.</string>
+    <string name="rest_chime_channel_name">Rest complete: chime</string>
+    <string name="rest_chime_channel_description">Plays your notification sound with a buzz when a rest ends.</string>
+    <string name="rest_alarm_channel_name">Rest complete: alarm</string>
+    <string name="rest_alarm_channel_description">Rings with your alarm sound until you stop it, for up to 5 minutes.</string>
+    <string name="rest_silent_channel_name">Rest complete: silent</string>
+    <string name="rest_silent_channel_description">A notification with no sound or vibration when a rest ends.</string>
+    <string name="rest_alarm_stop">Stop</string>
 </resources>
