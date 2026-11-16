@@ -314,10 +314,11 @@ class SetGroupsDeviceTest {
         rule.onNodeWithContentDescription("Bench press, ", substring = true).performScrollTo().performClick()
         rule.onNodeWithText("No working sets logged yet.").assertDoesNotExist()
         // Each set is charted by what it was (40 × 10, 30 × 8); the drops after it never become points.
-        rule.onNode(hasContentDescription("Weight · kg chart: 1 sessions, values from 30 to 40,", substring = true))
-            .performScrollTo().assertExists()
-        rule.onNode(hasContentDescription("Reps chart: 1 sessions, values from 8 to 10,", substring = true))
-            .performScrollTo().assertExists()
+        listOf("Weight · kg chart: 1 sessions, values from 30 to 40,", "Reps chart: 1 sessions, values from 8 to 10,").forEach {
+            val chart = hasContentDescription(it, substring = true)
+            rule.onNode(hasScrollToIndexAction()).performScrollToNode(chart)
+            rule.onNode(chart).assertExists()
+        }
         // The latest-session summary and the session list both show every stage, in its unit.
         assertLatestAndSessionRowShow("40 kg × 10, drop 30 kg × 8, drop 20 kg × 6")
         assertLatestAndSessionRowShow("30 kg × 8, pause 30 kg × 3")
@@ -332,10 +333,12 @@ class SetGroupsDeviceTest {
         }
         runBlocking { repo.execute(Action.FinishWorkout(FIXED_NOW - 600_000)) }
         rule.waitForIdle()
-        rule.onNode(hasContentDescription("Weight · kg chart: 2 sessions, values from 30 to 42.5,", substring = true))
-            .performScrollTo().assertExists()
-        rule.onNode(hasContentDescription("Reps chart: 2 sessions, values from 6 to 10,", substring = true))
-            .performScrollTo().assertExists()
+        // The charts sit below the latest-session card in a lazy list, so each is scrolled to before it is checked.
+        listOf("Weight · kg chart: 2 sessions, values from 30 to 42.5,", "Reps chart: 2 sessions, values from 6 to 10,").forEach {
+            val chart = hasContentDescription(it, substring = true)
+            rule.onNode(hasScrollToIndexAction()).performScrollToNode(chart)
+            rule.onNode(chart).assertExists()
+        }
         assertLatestAndSessionRowShow("35 kg × 6, drop 25 kg × 6")
     }
 
