@@ -1,5 +1,19 @@
 package com.rebuild.ui
 
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.rememberUpdatedState
+import kotlinx.coroutines.launch
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.foundation.shape.CircleShape
@@ -227,8 +241,8 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
         val watch = env.state.stopwatch?.takeIf { it.workoutId == workout.id }
         val keyboardUp = WindowInsets.isImeVisible && (landscape || entryFocused)
         if (workout.exercises.isNotEmpty() && !keyboardUp) {
-            ExerciseRail(workout, focusedIndex, watch, onAdd = { adding = true }, addEnabled = !env.runner.busy,
-                onSelect = ::select)
+            ExerciseRail(env, workout, focusedIndex, watch, onAdd = { adding = true }, addEnabled = !env.runner.busy,
+                onSelect = ::select, onNotice = { notice = it })
         }
         // An unlogged stopwatch effort on another exercise stays in sight until it's logged or discarded.
         if (watch != null && !watch.running && watch.exerciseId != focused?.id && !WindowInsets.isImeVisible) {
@@ -314,29 +328,293 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
 /**
  * Exercise switcher: each pill shows its order, name and working-set progress; the focused one is filled. The last
  * item adds an exercise.
+ *
+ * Hold a pill to act on it. Hold and drag: it lifts (a haptic tick), follows the finger while the others slide
+ * aside (a light tick as it passes each), the strip scrolls at its edges, and dropping it saves today's order once.
+ * Hold and let go without moving: a small menu on the pill moves it a place either way or removes it from today
+ * (a planned exercise is skipped for today and stays in the plan; one added today is removed, after a confirmation
+ * when sets are logged). Tap still just selects. Screen readers get the same three actions on each pill.
  */
 @Composable
 private fun ExerciseRail(
+    env: AppEnv,
     workout: Workout,
     focusedIndex: Int,
     watch: Stopwatch?,
     onAdd: () -> Unit,
     addEnabled: Boolean,
-    onSelect: (String) -> Unit
+    onSelect: (String) -> Unit,
+    onNotice: (String) -> Unit = {}
 ) {
     val listState = rememberLazyListState()
-    LaunchedEffect(focusedIndex) { listState.animateScrollToItem(focusedIndex) }
+    val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    val peek = with(density) { 48.dp.roundToPx() }
+    // Bring the focused pill into view only when it isn't already, with a peek of its neighbour, so a drop or a tap
+    // never makes the strip jump.
+    LaunchedEffect(focusedIndex) {
+        val info = listState.layoutInfo
+        val item = info.visibleItemsInfo.firstOrNull { it.index == focusedIndex }
+        val inView = item != null && item.offset >= info.viewportStartOffset &&
+            item.offset + item.size <= info.viewportEndOffset
+        if (!inView) listState.animateScrollToItem(focusedIndex, scrollOffset = -peek)
+    }
+    // The order shown: the workout's, except while a pill is being dragged, when it follows the finger.
+    val saved = workout.exercises.map { it.id }
+    var order by remember { mutableStateOf(saved) }
+    var dragging by remember { mutableStateOf<String?>(null) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+    var menuFor by remember { mutableStateOf<String?>(null) }
+    var removing by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(saved) { if (dragging == null) order = saved }
+    val byId = workout.exercises.associateBy { it.id }
+    val gap = with(density) { 8.dp.toPx() }
+
+    // A hold also reaches the pill's tap handling when the finger lifts; that tap must not switch exercises.
+    var heldTap by remember { mutableStateOf(false) }
+    // Edge scrolling waits for a deliberate drag: a pill held still near an edge must not scroll (and so reorder).
+    var dragMoved by remember { mutableStateOf(false) }
+
+    /** Moves an exercise for today; returns false (nothing sent) when another change is still saving. */
+    fun move(id: String, to: Int): Boolean {
+        if (env.runner.busy) return false
+        val target = to.coerceIn(0, workout.exercises.lastIndex)
+        // If the save fails the strip goes back to the saved order, so its numbers never claim a move that didn't happen.
+        val before = saved
+        if (before.indexOf(id) != target) env.runner.run(Action.MoveWorkoutExercise(workout.id, id, target),
+            // The runner already shows the failure in the snackbar; here the strip only goes back.
+            onError = { order = before })
+        return true
+    }
+    fun removeFromToday(we: WorkoutExercise): Boolean {
+        if (env.runner.busy) return false
+        removeBlocked(we, watch)?.let { onNotice(it); return false }
+        if (we.optional) removing = we.id
+        else env.runner.run(Action.SetSkipped(workout.id, we.id, !we.skipped))
+        return true
+    }
+    // The gesture handler outlives a recomposition, so it reads these through their latest values.
+    val currentSaved by rememberUpdatedState(saved)
+    val currentMove by rememberUpdatedState(::move)
+
+    /** While dragging: swap with a neighbour once the pill's centre passes the neighbour's, and scroll at the edges. */
+    fun followDrag(id: String, delta: Float) {
+        dragOffset += delta
+        val items = listState.layoutInfo.visibleItemsInfo
+        val current = items.firstOrNull { it.key == id } ?: return
+        val centre = current.offset + dragOffset + current.size / 2f
+        val index = order.indexOf(id)
+        val next = items.firstOrNull { it.key == order.getOrNull(index + 1) }
+        val previous = items.firstOrNull { it.key == order.getOrNull(index - 1) }
+        when {
+            next != null && centre > next.offset + next.size / 2f -> {
+                order = order.toMutableList().apply { add(index + 1, removeAt(index)) }
+                dragOffset -= next.size + gap
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            }
+            previous != null && centre < previous.offset + previous.size / 2f -> {
+                order = order.toMutableList().apply { add(index - 1, removeAt(index)) }
+                dragOffset += previous.size + gap
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            }
+        }
+    }
+
+    // While a pill is held near either edge the strip keeps scrolling, every frame, even if the thumb rests there.
+    LaunchedEffect(dragging, dragMoved) {
+        val id = dragging ?: return@LaunchedEffect
+        if (!dragMoved) return@LaunchedEffect
+        val edge = with(density) { 48.dp.toPx() }
+        val step = with(density) { 10.dp.toPx() }
+        while (true) {
+            withFrameNanos { }
+            val info = listState.layoutInfo
+            val current = info.visibleItemsInfo.firstOrNull { it.key == id } ?: continue
+            val left = current.offset + dragOffset
+            val right = left + current.size
+            val scroll = when {
+                right > info.viewportEndOffset - edge && listState.canScrollForward -> step
+                left < info.viewportStartOffset + edge && listState.canScrollBackward -> -step
+                else -> 0f
+            }
+            if (scroll != 0f) {
+                dragOffset += listState.scrollBy(scroll)
+                followDrag(id, 0f)
+            }
+        }
+    }
+
     LazyRow(
         state = listState,
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
+        userScrollEnabled = dragging == null,
         modifier = Modifier.readableWidth().selectableGroup().testTag("exercise-picker")
     ) {
-        itemsIndexed(workout.exercises, key = { _, it -> it.id }) { index, ex ->
-            ExercisePill(index, workout.exercises.size, ex, selected = index == focusedIndex,
-                watch = watch?.takeIf { it.exerciseId == ex.id }) { onSelect(ex.id) }
+        itemsIndexed(order.mapNotNull { byId[it] }, key = { _, it -> it.id }) { index, ex ->
+            val lifted = dragging == ex.id
+            Box(
+                Modifier
+                    .zIndex(if (lifted) 1f else 0f)
+                    .then(if (lifted) Modifier else Modifier.animateItem())
+                    .graphicsLayer {
+                        if (lifted) {
+                            translationX = dragOffset
+                            scaleX = 1.06f
+                            scaleY = 1.06f
+                            shadowElevation = 8.dp.toPx()
+                            shape = RoundedCornerShape(12.dp)
+                            clip = false
+                        }
+                    }
+                    .pointerInput(ex.id, workout.id) {
+                        var travelled = 0f
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = {
+                                travelled = 0f
+                                dragMoved = false
+                                heldTap = true
+                                dragging = ex.id
+                                dragOffset = 0f
+                                order = currentSaved
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            },
+                            onDrag = { change, amount ->
+                                change.consume()
+                                travelled += kotlin.math.abs(amount.x) + kotlin.math.abs(amount.y)
+                                if (travelled > viewConfiguration.touchSlop) dragMoved = true
+                                followDrag(ex.id, amount.x)
+                            },
+                            onDragEnd = {
+                                val moved = travelled > viewConfiguration.touchSlop
+                                val to = order.indexOf(ex.id)
+                                dragging = null
+                                dragOffset = 0f
+                                heldTap = false
+                                dragMoved = false
+                                // Held still: the menu, over the saved order. Dragged: today's new order, saved once (or, if a change is
+                                // still saving, back where it was, with a word why).
+                                if (!moved) {
+                                    order = currentSaved
+                                    menuFor = ex.id
+                                } else if (!currentMove(ex.id, to)) {
+                                    order = currentSaved
+                                    onNotice("Still saving. Try the move again in a moment.")
+                                }
+                            },
+                            onDragCancel = {
+                                // A hold released in place ends here too (the pill's tap handling takes the finger
+                                // up), so a hold that never moved still opens the menu.
+                                val held = travelled <= viewConfiguration.touchSlop
+                                dragging = null
+                                dragOffset = 0f
+                                dragMoved = false
+                                order = currentSaved
+                                if (held) menuFor = ex.id
+                            }
+                        )
+                    }
+            ) {
+                ExercisePill(index, workout.exercises.size, ex, selected = workout.exercises.indexOf(ex) == focusedIndex,
+                    watch = watch?.takeIf { it.exerciseId == ex.id }, lifted = lifted,
+                    actions = listOfNotNull(
+                        CustomAccessibilityAction("Move earlier") { move(ex.id, saved.indexOf(ex.id) - 1) }
+                            .takeIf { saved.indexOf(ex.id) > 0 },
+                        CustomAccessibilityAction("Move later") { move(ex.id, saved.indexOf(ex.id) + 1) }
+                            .takeIf { saved.indexOf(ex.id) < saved.lastIndex },
+                        CustomAccessibilityAction(removeLabel(ex)) { removeFromToday(ex) }
+                    )) { if (heldTap) heldTap = false else onSelect(ex.id) }
+                if (menuFor == ex.id) ExerciseHoldMenu(
+                    we = ex,
+                    canMoveEarlier = saved.indexOf(ex.id) > 0,
+                    canMoveLater = saved.indexOf(ex.id) < saved.lastIndex,
+                    busy = env.runner.busy,
+                    blocked = removeBlocked(ex, watch),
+                    onDismiss = { menuFor = null },
+                    onMoveEarlier = { menuFor = null; move(ex.id, saved.indexOf(ex.id) - 1) },
+                    onMoveLater = { menuFor = null; move(ex.id, saved.indexOf(ex.id) + 1) },
+                    onRemove = { menuFor = null; removeFromToday(ex) }
+                )
+            }
         }
         item(key = "add-exercise") { AddExercisePill(onAdd, addEnabled) }
+    }
+    removing?.let { id -> byId[id] }?.let { we ->
+        RemoveEntryDialog(env, workout, we, onDismiss = { removing = null })
+    }
+}
+
+/**
+ * Why this exercise can't come out of today right now, or null. The workout's rules refuse it with a set or
+ * cluster still open, with the stopwatch holding it, or (for a planned one) once its target is done.
+ */
+private fun removeBlocked(we: WorkoutExercise, watch: Stopwatch?): String? = when {
+    !we.optional && we.skipped -> null
+    we.openGroup() != null -> "Finish the set in progress first"
+    watch?.exerciseId == we.id -> "Log or discard its stopwatch effort first"
+    !we.optional && we.goalReached() -> "Its target is done, so there's nothing to skip"
+    else -> null
+}
+
+/** What removing means for this exercise today: a planned one is skipped (and can come back); an added one goes. */
+private fun removeLabel(we: WorkoutExercise): String = when {
+    we.optional -> "Remove from today"
+    we.skipped -> "Bring back to today"
+    else -> "Remove from today"
+}
+
+/** The menu a held pill opens: move it a place, or take it out of today. */
+@Composable
+private fun ExerciseHoldMenu(
+    we: WorkoutExercise,
+    canMoveEarlier: Boolean,
+    canMoveLater: Boolean,
+    busy: Boolean,
+    blocked: String?,
+    onDismiss: () -> Unit,
+    onMoveEarlier: () -> Unit,
+    onMoveLater: () -> Unit,
+    onRemove: () -> Unit
+) {
+    DropdownMenu(
+        expanded = true,
+        onDismissRequest = onDismiss,
+        shape = MaterialTheme.shapes.medium,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.testTag("exercise-hold-menu")
+    ) {
+        Text(we.exercise.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).widthIn(max = 240.dp))
+        DropdownMenuItem(
+            text = { Text("Move earlier") }, enabled = canMoveEarlier && !busy, onClick = onMoveEarlier,
+            leadingIcon = { RebuildIcon(R.drawable.ic_arrow_left, contentDescription = null) },
+            modifier = Modifier.testTag("hold-move-earlier")
+        )
+        DropdownMenuItem(
+            text = { Text("Move later") }, enabled = canMoveLater && !busy, onClick = onMoveLater,
+            leadingIcon = { RebuildIcon(R.drawable.ic_arrow_right, contentDescription = null) },
+            modifier = Modifier.testTag("hold-move-later")
+        )
+        val back = !we.optional && we.skipped
+        DropdownMenuItem(
+            text = {
+                Column {
+                    Text(removeLabel(we))
+                    Text(
+                        when {
+                            blocked != null -> blocked
+                            back -> "Its target is back for today"
+                            we.optional -> if (we.recordCount() > 0) "Asks first: its logged sets go too" else "It was only added today"
+                            else -> "Skipped today; it stays in your plan"
+                        },
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            enabled = !busy && blocked == null, onClick = onRemove,
+            leadingIcon = { RebuildIcon(if (back) R.drawable.ic_undo_2 else R.drawable.ic_x, contentDescription = null) },
+            modifier = Modifier.testTag("hold-remove")
+        )
     }
 }
 
@@ -347,6 +625,8 @@ private fun ExercisePill(
     we: WorkoutExercise,
     selected: Boolean,
     watch: Stopwatch?,
+    lifted: Boolean = false,
+    actions: List<CustomAccessibilityAction> = emptyList(),
     onClick: () -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
@@ -370,10 +650,13 @@ private fun ExercisePill(
             .clip(shape)
             // Filled, never outlined: the current exercise is the amber-tinted pill, the rest sit on tone.
             .background(if (selected) colors.secondaryContainer else colors.surfaceContainerHigh)
+            // Held: an amber edge marks the pill being moved.
+            .then(if (lifted) Modifier.border(2.dp, colors.primaryContainer, shape) else Modifier)
             .selectable(selected = selected, role = Role.Tab, onClick = onClick)
             .semantics {
                 contentDescription = "Exercise ${index + 1} of $count: ${we.exercise.name}, " +
                     we.progressDescription() + progress
+                if (actions.isNotEmpty()) customActions = actions
             }
             .testTag("exercise-chip-$index"),
         contentAlignment = Alignment.CenterStart
