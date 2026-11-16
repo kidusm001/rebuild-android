@@ -53,6 +53,9 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -176,7 +179,7 @@ internal class Navigator(initial: List<String>) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalComposeUiApi::class)
 @Composable
 fun RebuildApp(
     repository: AppRepository,
@@ -273,7 +276,10 @@ fun RebuildApp(
             !Routes.isEditor(route)
         // Wide windows (landscape phones, tablets) put the destinations in a rail so content keeps its height.
         val wide = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.width.toDp() } >= 600.dp
-        Row(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+        // Test tags double as Android resource IDs, so an on-device driver (uiautomator, the verify-rebuild skill) can
+        // find controls by the same stable handles the tests use instead of by visible text. Nothing visible changes.
+        Row(modifier.fillMaxSize().semantics { testTagsAsResourceId = true }
+            .background(MaterialTheme.colorScheme.surface)) {
             if (showNav && wide) {
                 NavigationRail(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
                     Spacer(Modifier.weight(1f))

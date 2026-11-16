@@ -6,7 +6,10 @@ import com.rebuild.domain.*
 import org.junit.Test
 import java.io.File
 
-/** Local design-review helper (not committed): builds 10 weeks of realistic history and writes the snapshot. */
+/**
+ * Verification seed (used by .claude/skills/verify-rebuild, flows.sh seed-history): builds ~10 weeks of realistic
+ * history and writes the snapshot to SEED_OUT. Without SEED_OUT it does nothing, so the normal test run skips it.
+ */
 class SeedHistoryGen {
     @Test
     fun generate() {
