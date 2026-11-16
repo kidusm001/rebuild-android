@@ -765,6 +765,8 @@ sealed interface Action {
     data object DiscardWorkout : Action
     data class AdjustRest(val timerId: String, val deadline: Long) : Action
     data object SkipRest : Action
+    /** Ends this rest if it is still the running one; a rest started since is left alone. */
+    data class SkipRestOf(val timerId: String) : Action
     data class MarkBackup(val revision: Long, val now: Long) : Action
 }
 

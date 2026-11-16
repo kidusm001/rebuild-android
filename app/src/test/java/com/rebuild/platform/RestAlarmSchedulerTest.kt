@@ -173,4 +173,15 @@ class RestAlarmSchedulerTest {
         alarm.reconcile(timer, "workout", now)
         assertNull("A new rest silences the last one's alarm", alarm.ringingSince.value)
     }
+
+    @Test fun eachRestsButtonsAreTheirOwnIntents() {
+        val notifications = shadowOf(context.getSystemService(NotificationManager::class.java))
+        scheduler.reconcile(timer, "workout", now)
+        val first = notifications.getNotification(RestAlarmScheduler.COUNTDOWN_NOTIFICATION_ID).actions.map { it.actionIntent }
+        scheduler.reconcile(timer.copy(id = "next"), "workout", now)
+        val second = notifications.getNotification(RestAlarmScheduler.COUNTDOWN_NOTIFICATION_ID).actions.map { it.actionIntent }
+        // A tap on the older notification's +30 s or Skip still names the older rest.
+        first.zip(second).forEach { (old, new) -> assertFalse(old == new) }
+        assertEquals("timer", shadowOf(first[1]).savedIntent.getStringExtra(RestAlarmScheduler.EXTRA_TIMER_ID))
+    }
 }

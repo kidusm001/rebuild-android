@@ -242,7 +242,7 @@ fun RebuildApp(
         }
         // A rest ending in front of the user gets its on-screen alert; the sound comes from its notification.
         val runningRest = state.restTimer?.takeIf { it.workoutId == state.activeWorkoutId }
-        RestEndWatcher(runningRest, clock, about = { runningRest?.let { com.rebuild.platform.restContext(state, it) } }) {
+        RestEndWatcher(runningRest, clock, about = { com.rebuild.platform.restContext(state, it) }) {
             restEnd.current = it
             platform.announceRestEnd(it.id, it.shortPause)
         }

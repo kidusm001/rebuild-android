@@ -23,6 +23,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.dismiss
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.height
@@ -222,6 +225,11 @@ internal fun RestEndTakeover(
         modifier
             .fillMaxSize()
             .testTag("rest-end-takeover")
+            // TalkBack and Switch Access can send it away early too, not only a finger.
+            .semantics {
+                onClick(label = "Dismiss") { early.complete(Unit); true }
+                dismiss(label = "Dismiss") { early.complete(Unit); true }
+            }
             .pointerInput(key) {
                 awaitPointerEventScope {
                     while (true) {

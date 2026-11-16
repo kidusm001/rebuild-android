@@ -63,4 +63,15 @@ class RestContextTest {
         assertEquals("All sets done", RestContext("Bench press").headline)
         assertEquals("Go again", RestContext("Bench press", shortPause = true).headline)
     }
+
+    @Test fun skippingOneRestNeverClearsANewerOne() {
+        var s = started()
+        val w = s.activeWorkout!!
+        s = StateChanges.apply(s, Action.SaveSet(w.id, w.exercises.first().id, "a", 40.0, 10, 2.0, false, now + 60_000))
+        val first = s.restTimer!!
+        s = StateChanges.apply(s, Action.SaveSet(w.id, w.exercises.first().id, "b", 40.0, 10, 2.0, false, now + 120_000))
+        val second = s.restTimer!!
+        assertEquals(second, StateChanges.apply(s, Action.SkipRestOf(first.id)).restTimer)
+        assertEquals(null, StateChanges.apply(s, Action.SkipRestOf(second.id)).restTimer)
+    }
 }

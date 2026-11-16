@@ -455,6 +455,7 @@ internal object StateChanges {
                 state.copy(restTimer = state.restTimer.copy(deadline = action.deadline)) else state
         }
         Action.SkipRest -> state.copy(restTimer = null)
+        is Action.SkipRestOf -> if (state.restTimer?.id == action.timerId) state.copy(restTimer = null) else state
         is Action.MarkBackup -> {
             ensure(action.revision in 0..state.revision, "The saved backup revision is invalid or newer than your data.")
             SnapshotCodec.timestamp(action.now)

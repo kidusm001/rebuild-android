@@ -33,7 +33,8 @@ class RestAlarmReceiver : BroadcastReceiver() {
                     RestAlarmScheduler.ACTION_ADD_30 -> if (timer?.id == timerId) {
                         repository.execute(Action.AdjustRest(timer.id, maxOf(timer.deadline + 30_000, now + 1_000)))
                     }
-                    RestAlarmScheduler.ACTION_SKIP -> if (timer?.id == timerId) repository.execute(Action.SkipRest)
+                    // The ID is checked inside the save itself, so a rest started meanwhile is never the one skipped.
+                    RestAlarmScheduler.ACTION_SKIP -> repository.execute(Action.SkipRestOf(timerId))
                     else -> {
                         val workoutId = timer?.workoutId
                         val about = timer?.takeIf { it.id == timerId }?.let { restContext(state, it) }

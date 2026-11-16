@@ -310,7 +310,11 @@ class RestAlarmScheduler(
 
     private fun restIntent(action: String, timerId: String, requestCode: Int): PendingIntent = PendingIntent.getBroadcast(
         context, requestCode,
-        Intent(context, RestAlarmReceiver::class.java).setAction(action).putExtra(EXTRA_TIMER_ID, timerId),
+        // The rest's ID is part of the intent's identity (its data), so Android keeps each rest's buttons apart
+        // instead of rewriting an older notification's +30 s or Skip to point at the newest rest.
+        Intent(context, RestAlarmReceiver::class.java).setAction(action)
+            .setData(android.net.Uri.fromParts("rebuild-rest", timerId, action))
+            .putExtra(EXTRA_TIMER_ID, timerId),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 

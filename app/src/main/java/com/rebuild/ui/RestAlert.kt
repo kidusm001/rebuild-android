@@ -67,7 +67,7 @@ enum class RestSound(val title: String, val detail: String) {
     BUZZ("Buzz", "A short double vibration"),
     LONG_BUZZ("Long buzz", "Vibrates for about five seconds"),
     CHIME("Chime", "Your notification sound and a buzz. Silent mode mutes it."),
-    ALARM("Alarm", "Rings through silent mode and Do Not Disturb until you tap Stop or open Rebuild, 5 minutes at most. Short pauses buzz instead."),
+    ALARM("Alarm", "Rings with your alarm sound until you tap Stop or open Rebuild, 5 minutes at most. It plays in silent mode, and through Do Not Disturb only if that allows alarms. Short pauses buzz instead."),
     SILENT("Silent", "Only the notification, with no sound or vibration")
 }
 
@@ -176,19 +176,36 @@ internal data class RestEnd(
 internal fun RestEndWatcher(
     timer: RestTimer?,
     clock: () -> Long,
-    about: () -> com.rebuild.platform.RestContext? = { null },
+    about: (RestTimer) -> com.rebuild.platform.RestContext? = { null },
     onEnd: (RestEnd) -> Unit
 ) {
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val resumed = lifecycle.isAtLeast(Lifecycle.State.RESUMED)
     val report by rememberUpdatedState(onEnd)
     val describe by rememberUpdatedState(about)
+    // Android's alarm and this watcher both act at the deadline. Whichever ends the rest first, the screen alert must
+    // still show: so the last rest seen is kept, and a rest that vanishes at its deadline counts as ended (a skip
+    // vanishes early, so it never does). Each rest is reported once.
+    var last by remember { mutableStateOf<RestTimer?>(null) }
+    var reported by remember { mutableStateOf<String?>(null) }
+    fun reportOnce(ended: RestTimer) {
+        if (reported == ended.id) return
+        reported = ended.id
+        report(RestEnd(ended.id, ended.shortPause, about = describe(ended)))
+    }
     LaunchedEffect(timer?.id, timer?.deadline, resumed) {
-        if (timer == null || !resumed) return@LaunchedEffect
+        if (timer != null) last = timer
+        if (!resumed) return@LaunchedEffect
+        if (timer == null) {
+            val gone = last ?: return@LaunchedEffect
+            val since = clock() - gone.deadline
+            if (since >= -1_000 && since < 5_000) reportOnce(gone)
+            return@LaunchedEffect
+        }
         val wait = timer.deadline - clock()
         if (wait < -1_000) return@LaunchedEffect
         if (wait > 0) delay(wait)
-        report(RestEnd(timer.id, timer.shortPause, about = describe()))
+        reportOnce(timer)
     }
 }
 

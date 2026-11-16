@@ -113,6 +113,23 @@ class RestAlertDeviceTest {
         rule.onNodeWithTag("rest-alert-try").assertIsDisplayed()
     }
 
+    @Test fun theScreenAlertStillShowsWhenAndroidsAlarmEndsTheRestFirst() {
+        val platform = FakePlatform().apply { restAlert.value = RestAlert(RestSound.CHIME, RestVisual.FLASH) }
+        val repo = FakeRepository(seedState(Phase.INTRO_ONE))
+        runBlocking { repo.execute(Action.StartWorkout("upper-a", FIXED_NOW)) }
+        val workout = repo.state.value.activeWorkout!!
+        val ends = System.currentTimeMillis() + 600
+        repo.replace(repo.state.value.copy(restTimer = RestTimer("t1", workout.id, workout.exercises.first().id, ends)))
+        rule.mainClock.autoAdvance = false
+        rule.setContent { RebuildApp(repo, platform) }
+        rule.mainClock.advanceTimeBy(100)
+        // The deadline passes and Android's alarm ends the rest before the screen's own timer gets to it.
+        Thread.sleep(800)
+        repo.replace(repo.state.value.copy(restTimer = null))
+        rule.mainClock.advanceTimeBy(100)
+        rule.onNodeWithTag("rest-end-overlay").assertExists()
+    }
+
     @Test fun theDefaultBuzzAddsNothingOnScreen() {
         val platform = FakePlatform()
         val repo = FakeRepository(seedState(Phase.INTRO_ONE))
