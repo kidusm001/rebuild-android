@@ -79,8 +79,10 @@ What counts as proof:
 ## Cleanup
 
 ```bash
-$S/emu.sh down      # stops only an emulator this skill started; stops Gradle daemons; keeps evidence
+$S/emu.sh down      # stops only an emulator this skill started; keeps evidence
 ```
+
+`down` leaves Gradle daemons running on purpose: `./gradlew --stop` stops every daemon on the machine, which kills builds in other checkouts or worktrees. Run it yourself only when nothing else is building.
 
 Also put back anything a run changed on a shared device: the system theme (`evidence.sh theme light` if you switched it) and font scale. Never `pkill` by name: a `pkill -f` pattern can match the shell running it and kill the command itself.
 

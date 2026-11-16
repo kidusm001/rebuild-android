@@ -5,7 +5,7 @@
 #   emu.sh reset     wipe the app's data (fresh install state) and grant again
 #   emu.sh launch    open the app (it is not opened by install or reset)
 #   emu.sh doctor    read-only: is this device and app worth driving? exits non-zero if not
-#   emu.sh down      stop the emulator this skill started (never one it didn't), stop Gradle daemons
+#   emu.sh down      stop the emulator this skill started (never one it didn't); Gradle daemons are left running
 # Env: ANDROID_HOME (default /opt/android-sdk), AVD (default rebuild_api34), REBUILD_EVIDENCE (default /tmp/rebuild-verify).
 set -euo pipefail
 ANDROID_HOME=${ANDROID_HOME:-/opt/android-sdk}
@@ -86,7 +86,8 @@ case ${1:-} in
     else
       echo "no emulator started by this skill is running; leaving any other device alone"
     fi
-    (cd "$root" && ./gradlew --stop -q) || true
+    # Gradle daemons are left alone: ./gradlew --stop stops every daemon on the machine, including builds running
+    # in other checkouts. Stop them yourself (./gradlew --stop) only when nothing else is building.
     echo "evidence kept in $EVIDENCE"
     ;;
   *) sed -n '2,10p' "$0"; exit 2 ;;
