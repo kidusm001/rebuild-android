@@ -350,7 +350,7 @@ class FlexibleWorkoutDeviceTest {
         rule.onNodeWithTag("week-credit-toggle").assertDoesNotExist()
         rule.onNodeWithContentDescription(", No target", substring = true).assertExists()
         rule.onNodeWithContentDescription("Cable face pull, ", substring = true).performScrollTo().performClick()
-        rule.onNode(hasText("Latest · ${formatDate(FIXED_NOW)}") and hasText("15 kg × 15")).assertExists()
+        rule.onNode(hasText("Latest · ${formatDate(FIXED_NOW)}") and hasContentDescription("15 kg × 15")).assertExists()
     }
 
     @Test
