@@ -10,6 +10,8 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.onNodeWithTag
@@ -17,6 +19,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasScrollToNodeAction
@@ -147,6 +150,14 @@ class ScreenshotHarness {
             .performScrollTo().performTouchInput { click(Offset(width * 0.25f, centerY)) }
         compose.waitForIdle()
         shot("$mode-10b-exercise-history-touched")
+        // The second chart: the list's third item, after the latest session and the first chart.
+        compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.ScrollToIndex)).onFirst().performScrollToIndex(2)
+        compose.waitForIdle()
+        shot("$mode-10c-exercise-history-second-chart")
+        compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)).onLast()
+            .performTouchInput { click(Offset(width * 0.3f, centerY)) }
+        compose.waitForIdle()
+        shot("$mode-10d-exercise-history-second-touched")
         back()
         tap("More")
         tap("Routines")
@@ -266,15 +277,28 @@ class ScreenshotHarness {
     private suspend fun seeded(): RebuildRepository {
         val repo = RebuildRepository.fromPersistence(MemoryPersistence()) { now }
         repo.execute(Action.SelectPhase(Phase.BASELINE))
-        // Two earlier weeks of the same routine, so history and "Last time" have real numbers.
-        listOf(42, 35, 28, 21, 14, 7).forEach { daysAgo ->
+        // Ten weeks of the same routine with a three-week break, so history, its charts and "Last time" have real
+        // numbers: loads and reps move between 8 and 12 the way a real double progression does. Each session lists
+        // the first exercise's sets (kg per dumbbell × reps); the others follow 5 kg lighter per exercise.
+        val pushes = listOf(
+            70 to listOf(32.5 to 12, 32.5 to 11),
+            63 to listOf(35.0 to 10, 32.5 to 12),
+            56 to listOf(35.0 to 11, 35.0 to 9),
+            49 to listOf(37.5 to 9, 35.0 to 10),
+            28 to listOf(35.0 to 10, 35.0 to 9),
+            21 to listOf(37.5 to 10, 37.5 to 8),
+            14 to listOf(40.0 to 8, 37.5 to 9),
+            7 to listOf(40.0 to 10, 40.0 to 9)
+        )
+        pushes.forEach { (daysAgo, sets) ->
             val start = now - daysAgo * day
             repo.execute(Action.StartWorkout("push", start))
             val past = requireNotNull(repo.state.value.activeWorkout)
             past.exercises.take(4).forEachIndexed { e, we ->
                 repeat(we.targetSets ?: 2) { s ->
-                    val kg = if (we.exercise.loading == LoadingType.BODYWEIGHT) null else 40.0 - 5 * e - daysAgo / 7 * 2.5
-                    repo.execute(Action.SaveSet(past.id, we.id, "p$daysAgo-$e-$s", kg, 10 - s, 2.0, false,
+                    val (load, reps) = sets[s % sets.size]
+                    val kg = if (we.exercise.loading == LoadingType.BODYWEIGHT) null else load - 5 * e
+                    repo.execute(Action.SaveSet(past.id, we.id, "p$daysAgo-$e-$s", kg, reps, 2.0, false,
                         start + (e * 10 + s) * 60_000L))
                 }
             }

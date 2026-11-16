@@ -103,6 +103,8 @@ import com.rebuild.domain.mainSet
 import com.rebuild.domain.measured
 import com.rebuild.domain.openGroup
 import com.rebuild.domain.repRecords
+import com.rebuild.domain.recordSets
+import com.rebuild.domain.localDateOf
 import com.rebuild.domain.warmupSetCount
 import com.rebuild.domain.workEntries
 import com.rebuild.domain.workingCount
@@ -1014,21 +1016,23 @@ internal fun ExerciseHistoryScreen(
             }
             // Stages aren't separate sets, so charts plot normal working sets only; groups are listed below.
             val charted = sessions.filter { it.sets.isNotEmpty() }
-            val kgSeries = charted.map { s -> s.sets.mapNotNull { it.loadValue } }
-            if (kgSeries.any { it.isNotEmpty() }) {
-                item(key = "kg-chart") {
-                    SetChart(loadChartTitle(exercise, unit), kgSeries, charted.map { it.workout.startedAt },
-                        readFormat = { chartLoadText(it, unit, exercise) })
-                }
+            if (charted.any { s -> s.sets.any { it.loadValue != null } }) {
+                item(key = "top-set-chart") { TopSetChart(charted, unit, exercise) }
             }
-            if (charted.isNotEmpty()) item(key = "reps-chart") {
-                val perLeg = charted.map { it.perLeg }
+            val perLeg = charted.map { it.perLeg }
+            val perLegNote = when {
+                perLeg.all { it } -> " (per leg)"
+                perLeg.any { it } -> " (per leg in ${perLeg.count { it }} of ${perLeg.size} sessions)"
+                else -> ""
+            }
+            // Loaded sets compare like with like at each rep count; without a load (bodyweight, or assisted, where
+            // heaviest means nothing) the reps themselves are the chart.
+            val loaded = recordSets(env.state.workouts, unit) { it.exercise.identity() == identity }
+            if (loaded.isNotEmpty()) item(key = "rep-compare-chart") {
+                RepCompareChart(loaded, unit, exercise, localDateOf(env.clock()), titleSuffix = perLegNote)
+            } else if (charted.isNotEmpty()) item(key = "reps-chart") {
                 SetChart(
-                    "Reps" + when {
-                        perLeg.all { it } -> " (per leg)"
-                        perLeg.any { it } -> " (per leg in ${perLeg.count { it }} of ${perLeg.size} sessions)"
-                        else -> ""
-                    },
+                    "Reps$perLegNote",
                     charted.map { s -> s.sets.map { it.reps.toDouble() } },
                     charted.map { it.workout.startedAt },
                     readFormat = { countLabel(it.toInt(), "rep") }
