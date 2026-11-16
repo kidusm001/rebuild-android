@@ -44,7 +44,7 @@ data class RestContext(
     val detail: String
         get() = when {
             shortPause -> exercise
-            nextSet != null -> listOfNotNull(ofSets?.let { "of $it" }, exercise).joinToString(" · ")
+            nextSet != null -> listOfNotNull(ofSets?.let { "of $it" }, exercise.takeIf { it.isNotBlank() }).joinToString(" · ")
             nextExercise != null -> "after $exercise"
             else -> exercise
         }

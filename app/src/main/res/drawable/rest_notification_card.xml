@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- The rest bar's amber, as a card inside the "rest over" notification. -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="@color/rest_notification_card" />
-    <corners android:radius="16dp" />
-</shape>

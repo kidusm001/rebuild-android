@@ -181,23 +181,27 @@ class RestAlarmScheduler(
         // "Rest over" leads, what to do now follows ("Next: set 2 of 3"), and the exercise sits in the header beside
         // the time it ended, so the shade and lock screen answer "what now?" without opening the app.
         val title = context.getString(if (shortPause) R.string.pause_complete else R.string.rest_complete)
-        // The amber card: "REST OVER" small, the next set big ("Set 2"), and what it belongs to when expanded. The
-        // plain title and text stay set for the lock screen's redacted form, watches and screen readers.
-        fun card(layout: Int) = RemoteViews(context.packageName, layout).apply {
-            setTextViewText(R.id.rest_over_label, title.uppercase())
-            setTextViewText(R.id.rest_over_headline, about?.headline ?: title)
-            if (layout == R.layout.notification_rest_over_big) setTextViewText(R.id.rest_over_detail, about?.detail ?: "")
+        // The next set large in the accent ("Set 2"), "Rest over" beside it, and the exercise under that: the same
+        // shape as the countdown, so the two read as one family. The plain title and text stay set for the lock
+        // screen's redacted form, watches and screen readers.
+        fun views(layout: Int) = RemoteViews(context.packageName, layout).apply {
+            // "Set 2" with " of 2" dimmed beside it, so the count stays with its number; the exercise alone below.
+            setTextViewText(R.id.rest_over_headline, about?.headline ?: "")
+            setTextViewText(R.id.rest_over_of, about?.takeIf { it.nextSet != null }?.ofSets?.let { " of $it" } ?: "")
+            setTextViewText(R.id.rest_over_label, title)
+            setTextViewText(R.id.rest_over_detail, about?.let {
+                if (it.nextSet != null || it.shortPause) it.exercise else it.detail
+            } ?: "")
         }
         val builder = NotificationCompat.Builder(context, channelFor(chosen))
             .setSmallIcon(R.drawable.ic_rest)
             .setColor(SIGNAL_AMBER)
             .setContentTitle(title)
             .setContentText(about?.next)
-            .setSubText(about?.exercise)
             .setStyle(NotificationCompat.DecoratedCustomViewStyle())
-            .setCustomContentView(card(R.layout.notification_rest_over))
-            .setCustomBigContentView(card(R.layout.notification_rest_over_big))
-            .setCustomHeadsUpContentView(card(R.layout.notification_rest_over))
+            .setCustomContentView(views(R.layout.notification_rest_over))
+            .setCustomBigContentView(views(R.layout.notification_rest_over_big))
+            .setCustomHeadsUpContentView(views(R.layout.notification_rest_over))
             .setWhen(endedAt)
             .setShowWhen(true)
             .setContentIntent(open)

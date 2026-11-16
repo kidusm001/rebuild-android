@@ -99,9 +99,17 @@ class RestAlertDeviceTest {
         rule.onNodeWithText("More").performClick()
         rule.onNodeWithTag("more-rest-alert").performScrollTo().performClick()
         rule.onNodeWithTag("rest-visual-sweep").assertIsSelected()
-        rule.onNodeWithTag("rest-alert-try").performScrollTo().performClick()
+        rule.onNodeWithTag("rest-alert-try").performScrollTo()
+        // Time is stepped by hand, so the check sees the takeover while it holds rather than racing a fast clock.
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithTag("rest-alert-try").performClick()
+        rule.mainClock.advanceTimeBy(1_000)
         rule.onNodeWithTag("rest-end-overlay").assertExists()
-        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("rest-end-overlay")).fetchSemanticsNodes().isEmpty() }
+        rule.onNodeWithTag("rest-end-headline", useUnmergedTree = true).assertExists()
+        // It leaves on its own after the hold, and the settings are back exactly as they were.
+        rule.mainClock.advanceTimeBy(3_000)
+        rule.onNodeWithTag("rest-end-overlay").assertDoesNotExist()
+        rule.mainClock.autoAdvance = true
         rule.onNodeWithTag("rest-alert-try").assertIsDisplayed()
     }
 

@@ -277,7 +277,8 @@ internal fun RestAlarmBar(since: Long, clock: () -> Long, onStop: () -> Unit) {
             delay(1000 - (now - since).mod(1000L))
         }
     }
-    val over = ((now - since).coerceAtLeast(0) / 1000).toInt()
+    // Counted from the first second, so it never reads "+0:00" as if nothing had happened.
+    val over = ((now - since).coerceAtLeast(0) / 1000).toInt().coerceAtLeast(1)
     val colors = MaterialTheme.colorScheme
     Surface(
         color = colors.primaryContainer,
@@ -286,7 +287,7 @@ internal fun RestAlarmBar(since: Long, clock: () -> Long, onStop: () -> Unit) {
         modifier = Modifier.fillMaxWidth().testTag("rest-end-alarm")
     ) {
         Row(
-            Modifier.padding(start = 20.dp, end = 12.dp, top = 12.dp, bottom = 14.dp),
+            Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f).clearAndSetSemantics {

@@ -237,7 +237,7 @@ fun RebuildApp(
             AppEnv(state, status, platform, runner, clock, readClock, effortDrafts, restAlert, previewRestEnd = {
                 platform.previewRestAlert()
                 restEnd.current = RestEnd("preview-${clock()}", shortPause = false, preview = true,
-                    about = com.rebuild.platform.RestContext("Your next exercise", nextSet = 2, ofSets = 3))
+                    about = com.rebuild.platform.RestContext("", nextSet = 2, ofSets = 3))
             })
         }
         // A rest ending in front of the user gets its on-screen alert; the sound comes from its notification.

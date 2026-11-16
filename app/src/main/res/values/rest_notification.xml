@@ -1,8 +1,4 @@
 <resources>
     <!-- The rest notifications' accent: amber ink on the light shade, signal amber on the dark one. -->
     <color name="rest_notification_accent">#7A4D00</color>
-    <color name="rest_notification_card">#FFB224</color>
-    <color name="rest_notification_card_ink">#231500</color>
-    <color name="rest_notification_card_ink_soft">#B3231500</color>
-    <color name="rest_notification_rule">#33808080</color>
 </resources>

@@ -23,15 +23,29 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.background
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.animation.core.AnimationVector1D
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -51,18 +65,18 @@ private val Arrive = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
 
 
 /**
- * Edge light: the rest's end glows in from every edge of the screen, hottest at the rim and feathering to nothing
- * inward, along rounded corners that follow the display, three smooth beats a second apart ([flashLevel]). The
- * middle of the screen, where the workout is, stays readable; the edges carry the signal, which is what reads from
- * across a room. White-hot rim into amber on the dark theme, deep amber on the light one. Draw-only: it takes no
- * touches. With [still] it is one soft, unmoving glow for 700 ms.
+ * Edge light: the rest's end shows as light around the screen's edge, three beats a second apart that settle (peaks
+ * 1.0, 0.8, 0.65; see [flashLevel]). It is a halo following the display's own rounded corners: a crisp signal-amber
+ * core at the glass, a bloom, and a wide ember spill, each blurred once into a bitmap, so there are no seams and
+ * nothing is redrawn per frame; only the layer's opacity animates. On the dark theme the layer is added to the screen
+ * (Plus blending) rather than laid over it, so it can only brighten: never a brown film on near-black. The middle of
+ * the screen, where the workout is, stays readable. Draw-only: it takes no touches. With [still] it is one soft,
+ * unmoving glow for 700 ms.
  */
 @Composable
 internal fun RestEndGlow(key: Any, still: Boolean, onFinished: () -> Unit, modifier: Modifier = Modifier) {
-    val amber = MaterialTheme.colorScheme.primaryContainer
     val dark = MaterialTheme.colorScheme.surface.run { red + green + blue } < 1.5f
-    val rim = if (dark) Color.White else amber
-    val body = if (dark) amber else Color(0xFFFF9500)
+    val view = LocalView.current
     val finished by rememberUpdatedState(onFinished)
     val clock = remember(key) { Animatable(0f) }
     LaunchedEffect(key) {
@@ -78,53 +92,77 @@ internal fun RestEndGlow(key: Any, still: Boolean, onFinished: () -> Unit, modif
         modifier
             .fillMaxSize()
             .testTag("rest-end-glow")
-            // The beat only changes the layer's opacity: the glow is drawn once, so each frame costs a composite,
-            // not seven new gradients.
             .graphicsLayer {
                 val t = clock.value
-                alpha = if (t < 0f) 0.6f else flashLevel(t)
+                alpha = if (t < 0f) 0.6f else flashLevel(t) * BEAT_PEAKS[(t / 1000f).toInt().coerceIn(0, 2)]
+                if (dark) {
+                    blendMode = BlendMode.Plus
+                    compositingStrategy = CompositingStrategy.Offscreen
+                }
             }
             .drawWithCache {
-                val d = size.minDimension * 0.30f
-                val w = size.width
-                val h = size.height
-                // One falloff for every piece, so edges and corners meet seamlessly: hot at the glass, warm, gone.
-                val stops = arrayOf(
-                    0f to rim,
-                    0.18f to lerp(rim, body, 0.6f).copy(alpha = 0.95f),
-                    0.5f to body.copy(alpha = 0.5f),
-                    1f to body.copy(alpha = 0f)
-                )
-                val inward = stops.map { (f, c) -> (1f - f) to c }.reversed().toTypedArray()
-                val top = Brush.verticalGradient(*stops, startY = 0f, endY = d)
-                val bottom = Brush.verticalGradient(*stops, startY = h, endY = h - d)
-                val left = Brush.horizontalGradient(*stops, startX = 0f, endX = d)
-                val right = Brush.horizontalGradient(*stops, startX = w, endX = w - d)
-                // Corners: the same falloff radially from inside each corner, so the glow rounds it instead of
-                // doubling up in it.
-                val corners = listOf(Offset(0f, 0f), Offset(w - d, 0f), Offset(0f, h - d), Offset(w - d, h - d)).map { at ->
-                    at to Brush.radialGradient(*inward,
-                        center = Offset(if (at.x == 0f) d else at.x, if (at.y == 0f) d else at.y), radius = d)
-                }
-                onDrawBehind {
-                    // A faint veil lifts the whole screen with the beat; the rim does the talking.
-                    drawRect(body.copy(alpha = 0.08f))
-                    drawRect(top, Offset(d, 0f), Size(w - 2 * d, d))
-                    drawRect(bottom, Offset(d, h - d), Size(w - 2 * d, d))
-                    drawRect(left, Offset(0f, d), Size(d, h - 2 * d))
-                    drawRect(right, Offset(w - d, d), Size(d, h - 2 * d))
-                    corners.forEach { (at, brush) -> drawRect(brush, at, Size(d, d)) }
-                }
+                val glow = edgeGlowBitmap(size.width.toInt(), size.height.toInt(), displayCornerPx(view, size.minDimension),
+                    density, light = !dark)
+                onDrawBehind { drawImage(glow, dstSize = IntSize(size.width.toInt(), size.height.toInt())) }
             }
     )
 }
 
+/** Each beat a little softer than the last, so the light settles instead of ticking like a metronome. */
+private val BEAT_PEAKS = floatArrayOf(1f, 0.8f, 0.65f)
+
+/** The display's corner radius where Android reports it (API 31+), else a typical modern phone's. */
+private fun displayCornerPx(view: android.view.View, shortSide: Float): Float {
+    if (android.os.Build.VERSION.SDK_INT >= 31) {
+        view.rootWindowInsets?.getRoundedCorner(android.view.RoundedCorner.POSITION_TOP_LEFT)?.let {
+            return it.radius.toFloat()
+        }
+    }
+    return shortSide * 0.07f
+}
+
 /**
- * Up next: the rest bar becomes the whole screen and says what to do now. Its top edge springs from where the bar
- * was to the top of the screen while its corners square off; "Rest over", the next set in huge numerals ("Set 2")
- * and what it belongs to ("of 3 · Bench press") rise into place one after another; it holds for a breath, then the
- * whole sheet drops away and the workout is back exactly as it was. A tap anywhere sends it away early; nothing
- * beneath can be pressed blind while it covers the screen. With [still] it is the finished frame for 1.5 s.
+ * The halo, drawn once at half resolution (blur hides the difference and it costs a quarter of the memory): three
+ * strokes along the screen's rounded edge, each blurred, from a crisp core out to a wide spill. Strokes sit on the
+ * edge, so their outer half falls off-screen and the light reads as coming from the glass.
+ */
+private fun edgeGlowBitmap(width: Int, height: Int, cornerPx: Float, density: Float, light: Boolean): ImageBitmap {
+    val scale = 0.5f
+    val w = (width * scale).toInt().coerceAtLeast(1)
+    val h = (height * scale).toInt().coerceAtLeast(1)
+    val bitmap = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+    val edge = android.graphics.RectF(0f, 0f, w.toFloat(), h.toFloat())
+    val r = cornerPx * scale
+    fun dp(v: Float) = v * density * scale
+    // (stroke width, blur radius, colour, alpha): core, bloom, spill. On the light theme the spill is kept narrow and
+    // faint, or it turns the cream canvas into an orange haze.
+    val layers = listOf(
+        Triple(dp(2.5f), 0f, 0xFFFFB224.toInt()) to 1f,
+        Triple(dp(14f), dp(22f), 0xFFFF9A1F.toInt()) to 0.85f,
+        Triple(dp(if (light) 32f else 40f), dp(48f), 0xFFFF7A00.toInt()) to if (light) 0.15f else 0.28f
+    )
+    layers.asReversed().forEach { (spec, alpha) ->
+        val (stroke, blur, color) = spec
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            style = android.graphics.Paint.Style.STROKE
+            strokeWidth = stroke * 2
+            this.color = color
+            this.alpha = (alpha * 255).toInt()
+            if (blur > 0f) maskFilter = android.graphics.BlurMaskFilter(blur, android.graphics.BlurMaskFilter.Blur.NORMAL)
+        }
+        canvas.drawRoundRect(edge, r, r, paint)
+    }
+    return bitmap.asImageBitmap()
+}
+
+/**
+ * Up next: the rest bar becomes the whole screen and says what to do now, with the number as the hero. The sheet
+ * springs from where the bar was to the top of the screen; "Rest over" and the exercise fade in; the set numeral
+ * rolls like an odometer, the finished set's number leaving upward as the next one arrives, so the motion itself says
+ * the count went up; one firm tick when the sheet lands. A thin ink line under the status bar drains through the hold,
+ * telling the user it leaves on its own; then the words go and the sheet drops away. A tap sends it early, and
+ * nothing beneath can be pressed blind while it covers the screen. With [still] it is the finished frame for 1.5 s.
  */
 @Composable
 internal fun RestEndTakeover(
@@ -140,23 +178,46 @@ internal fun RestEndTakeover(
     val amber = MaterialTheme.colorScheme.primaryContainer
     val ink = MaterialTheme.colorScheme.onPrimaryContainer
     val finished by rememberUpdatedState(onFinished)
-    val cover = remember(key) { Animatable(if (still) 1f else 0f) }
-    val words = remember(key) { Animatable(if (still) 1f else 0f) }
+    val haptic = LocalHapticFeedback.current
+    val start = if (still) 1f else 0f
+    val cover = remember(key) { Animatable(start) }
+    val words = remember(key) { Animatable(start) }
+    val roll = remember(key) { Animatable(start) }
+    val hold = remember(key) { Animatable(0f) }
+    val wordsOut = remember(key) { Animatable(0f) }
     val leave = remember(key) { Animatable(0f) }
     val early = remember(key) { kotlinx.coroutines.CompletableDeferred<Unit>() }
+    val nextSet = about?.nextSet?.takeIf { !shortPause }
     LaunchedEffect(key) {
         if (!still) coroutineScope {
-            launch { cover.animateTo(1f, spring(dampingRatio = 0.86f, stiffness = Spring.StiffnessMediumLow)) }
-            launch { delay(110); words.animateTo(1f, tween(620, easing = Arrive)) }
+            // A firm spring: it arrives with intent and settles without drifting; one tick as it lands.
+            launch {
+                cover.animateTo(1f, spring(dampingRatio = 0.92f, stiffness = 420f))
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
+            // Once the sheet is most of the way up: the small lines simply fade in, the numeral rolls.
+            launch { delay(180); words.animateTo(1f, tween(150, easing = LinearEasing)) }
+            launch { delay(170); roll.animateTo(1f, tween(420, easing = Arrive)) }
         }
-        // Hold long enough to read "Set 2" from arm's length, unless a tap asks it to go.
-        kotlinx.coroutines.withTimeoutOrNull(if (still) 1_500 else 1_650) { early.await() }
-        if (!still) leave.animateTo(1f, tween(340, easing = Leave))
+        // Hold long enough to read from arm's length, the ink line draining as it goes, unless a tap asks it to go.
+        if (still) kotlinx.coroutines.withTimeoutOrNull(1_500) { early.await() }
+        else kotlinx.coroutines.withTimeoutOrNull(HOLD_MS.toLong()) {
+            coroutineScope {
+                val drain = launch { hold.animateTo(1f, tween(HOLD_MS, easing = LinearEasing)) }
+                early.await()
+                drain.cancel()
+            }
+        }
+        if (!still) {
+            // The words leave first, so they don't ride the sheet down like a sticker; then the sheet drops.
+            wordsOut.animateTo(1f, tween(120, easing = LinearEasing))
+            leave.animateTo(1f, tween(280, easing = Leave))
+        }
         finished()
     }
-    val headline = about?.headline ?: if (shortPause) "Go again" else "Rest over"
-    val detail = about?.detail
-    val long = headline.length > 9
+    val numeral = MaterialTheme.typography.displayLarge.copy(fontFamily = Numerals, fontWeight = FontWeight.Bold,
+        fontSize = 240.sp, lineHeight = 200.sp, letterSpacing = (-6).sp)
+    val name = MaterialTheme.typography.headlineMedium.copy(fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.Medium)
     Box(
         modifier
             .fillMaxSize()
@@ -173,38 +234,89 @@ internal fun RestEndTakeover(
             .graphicsLayer { translationY = size.height * leave.value }
             .drawBehind {
                 val from = (startTop ?: (size.height - 120.dp.toPx())).coerceIn(0f, size.height)
-                val c = cover.value
+                val c = cover.value.coerceIn(0f, 1f)
                 val top = from * (1f - c)
-                val radius = 24.dp.toPx() * (1f - c).coerceIn(0f, 1f)
+                val radius = 24.dp.toPx() * (1f - c)
                 drawRoundRect(amber, topLeft = Offset(0f, top), size = Size(size.width, size.height - top + radius),
                     cornerRadius = CornerRadius(radius))
             }
     ) {
+        // The hold, as a line under the status bar that drains away: it leaves on its own.
+        Box(
+            Modifier
+                .align(Alignment.TopStart)
+                .statusBarsPadding()
+                .fillMaxWidth()
+                .height(3.dp)
+                .graphicsLayer {
+                    alpha = words.value * (1f - wordsOut.value)
+                    scaleX = 1f - hold.value
+                    transformOrigin = TransformOrigin(0f, 0.5f)
+                }
+                .background(ink.copy(alpha = 0.3f))
+        )
         Column(
             Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
-                .safeDrawingPadding()
-                .padding(start = 28.dp, end = 28.dp, bottom = 120.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+                .navigationBarsPadding()
+                .padding(start = 28.dp, end = 28.dp, bottom = 40.dp)
+                .graphicsLayer {
+                    alpha = 1f - wordsOut.value
+                    translationY = -8.dp.toPx() * wordsOut.value
+                }
         ) {
-            // Each line rises a little and fades in after the one above it.
-            fun Modifier.rise(from: Float, to: Float) = graphicsLayer {
-                val p = ((words.value - from) / (to - from)).coerceIn(0f, 1f)
-                alpha = p
-                translationY = (1f - p) * 28.dp.toPx()
+            val fade = Modifier.graphicsLayer { alpha = words.value }
+            // One small label above the hero: "Up next" says it all when the exercise is done.
+            val movingOn = nextSet == null && !shortPause && about?.nextExercise != null
+            if (!movingOn) Text(if (shortPause) "Pause over" else "Rest over", color = ink.copy(alpha = 0.7f),
+                style = MaterialTheme.typography.titleMedium, modifier = fade)
+            val exercise = about?.exercise?.takeIf { it.isNotBlank() }
+            when {
+                nextSet != null -> {
+                    if (exercise != null) Text(exercise, color = ink, style = name, maxLines = 2,
+                        overflow = TextOverflow.Ellipsis, modifier = fade.padding(top = 4.dp))
+                    Row(Modifier.testTag("rest-end-headline")) {
+                        // The odometer: the finished set's number leaves upward as the next arrives from below. Both
+                        // sit on one baseline with "of 3", which is where the eye reads them together.
+                        Box(Modifier.alignByBaseline().clipToBounds()) {
+                            if (nextSet > 1) Text("${nextSet - 1}", color = ink, style = numeral,
+                                modifier = Modifier.graphicsLayer {
+                                    translationY = -size.height * roll.value
+                                    // Gone by the time it is half out, so it never shows as a clipped stub.
+                                    alpha = (1f - roll.value * 2f).coerceIn(0f, 1f)
+                                })
+                            Text("$nextSet", color = ink, style = numeral, modifier = Modifier.graphicsLayer {
+                                translationY = size.height * (1f - roll.value)
+                            })
+                        }
+                        about.ofSets?.let { of ->
+                            Text("of $of", color = ink.copy(alpha = 0.55f), modifier = fade.alignByBaseline().padding(start = 8.dp),
+                                style = MaterialTheme.typography.displaySmall.copy(fontFamily = Numerals,
+                                    fontWeight = FontWeight.Bold, fontSize = 40.sp))
+                        }
+                    }
+                }
+                else -> {
+                    // No set number to roll: the next exercise, or the plain fact, set large.
+                    val (small, big) = when {
+                        shortPause -> exercise to "Go"
+                        about?.nextExercise != null -> "Up next" to about.nextExercise
+                        else -> exercise to "All sets done"
+                    }
+                    if (small != null) Text(small, color = ink, style = name, modifier = fade.padding(top = 4.dp))
+                    Text(big, color = ink, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        style = numeral.copy(fontSize = if (big.length > 3) 64.sp else 240.sp,
+                            lineHeight = if (big.length > 3) 66.sp else 200.sp,
+                            letterSpacing = if (big.length > 3) 0.sp else (-6).sp),
+                        modifier = Modifier.graphicsLayer {
+                            alpha = roll.value
+                            translationY = (1f - roll.value) * 32.dp.toPx()
+                        }.testTag("rest-end-headline"))
+                }
             }
-            Text(if (shortPause) "PAUSE OVER" else "REST OVER", color = ink.copy(alpha = 0.72f),
-                style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 2.sp, fontWeight = FontWeight.Bold),
-                modifier = Modifier.rise(0f, 0.55f))
-            Text(headline, color = ink, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.displayLarge.copy(fontFamily = Numerals, fontWeight = FontWeight.Bold,
-                    fontSize = if (long) 56.sp else 112.sp, lineHeight = if (long) 58.sp else 108.sp,
-                    letterSpacing = if (long) 0.sp else (-2).sp),
-                modifier = Modifier.rise(0.12f, 0.75f).testTag("rest-end-headline"))
-            if (detail != null) Text(detail, color = ink.copy(alpha = 0.8f), maxLines = 2,
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Medium),
-                modifier = Modifier.rise(0.28f, 1f))
         }
     }
 }
+
+private const val HOLD_MS = 1_800
