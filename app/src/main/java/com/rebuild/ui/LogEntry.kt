@@ -57,6 +57,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -551,6 +555,23 @@ private fun ToggleChip(label: String, selected: Boolean, onToggle: () -> Unit, m
     )
 }
 
+/**
+ * The Next button's label: a small "Next" over the exercise name, centred, so a long name breaks in one known place
+ * and keeps a whole line rather than wrapping "Next: Rope triceps" / "pushdown" against the left edge. Read as
+ * one phrase, "Next: Rope triceps pushdown".
+ */
+@Composable
+internal fun NextExerciseLabel(name: String) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clearAndSetSemantics { text = AnnotatedString("Next: $name") }
+    ) {
+        Text("Next", style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        Text(name, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center,
+            maxLines = 2, overflow = TextOverflow.Ellipsis)
+    }
+}
+
 /** Shown in place of the entry once today's target is logged: the next step is primary, extra sets stay possible. */
 @Composable
 internal fun TargetMetPanel(
@@ -588,7 +609,7 @@ internal fun TargetMetPanel(
         @Composable fun Primary(modifier: Modifier) {
             if (onNext != null && nextName != null) {
                 Button(onClick = onNext, modifier = modifier.heightIn(min = 60.dp).testTag("next-exercise")) {
-                    Text("Next: $nextName", maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    NextExerciseLabel(nextName)
                 }
             } else {
                 Button(onClick = onFinish, enabled = finishEnabled,

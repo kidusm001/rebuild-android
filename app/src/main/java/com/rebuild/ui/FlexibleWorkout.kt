@@ -9,7 +9,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -562,7 +565,7 @@ internal fun SkippedPanel(
         @Composable fun Primary(modifier: Modifier) {
             if (onNext != null && nextName != null) {
                 Button(onClick = onNext, modifier = modifier.heightIn(min = 56.dp).testTag("next-exercise")) {
-                    Text("Next: $nextName", maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    NextExerciseLabel(nextName)
                 }
             } else {
                 Button(onClick = onFinish, enabled = !env.runner.busy,
@@ -583,8 +586,9 @@ internal fun SkippedPanel(
             Primary(Modifier.fillMaxWidth())
             Undo(Modifier.fillMaxWidth())
         } else {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Undo(Modifier)
+            // Undo matches Next's height, so a two-line Next never leaves it floating beside a taller pill.
+            Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Undo(Modifier.fillMaxHeight())
                 Primary(Modifier.weight(1f))
             }
         }

@@ -64,7 +64,9 @@ No score, streak or celebration beyond a confirming tick.
 A drop that continues the set just logged is the first item of the set-type menu,
 "Add drop to set 2", so the dock keeps one chip (Warm-up). After the target is met,
 Next (or Finish workout) is the one full-width action; "Add drop to set N" and
-"Extra set" sit quietly beneath it.
+"Extra set" sit quietly beneath it. Next's label is a small "Next" over the
+exercise name, centred, so a long name gets a whole line and breaks in one known
+place; it is read as "Next: *name*".
 
 A drop is part of its set, never a set of its own and never a relabelling of it.
 Set 2 keeps reading as set 2 everywhere (the ledger, a finished workout, an
@@ -194,7 +196,8 @@ and target line say it is optional ("Added today · optional, no target", or its
 optional goal). Its options list holds Goal and rest, Save to *routine* plan… and
 Remove from this workout. A planned exercise below target adds Skip today · target
 stays. A skipped exercise's entry becomes a short panel that keeps its target in
-words, with Next (or Finish workout) and Undo skip, stacked at large text. Reorder
+words, with Next (or Finish workout) and Undo skip, the same height side by side
+and stacked at large text. Reorder
 is a dialog of rows with labeled 48 dp Move up and Move down icon buttons, for
 this workout only. An extra workout opens on one clear action, Add your first
 exercise, and its header says it is outside the plan. Its Finish dialog asks for
