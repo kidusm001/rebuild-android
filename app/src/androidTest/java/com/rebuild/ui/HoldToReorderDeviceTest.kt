@@ -49,6 +49,25 @@ class HoldToReorderDeviceTest {
         rule.onNodeWithTag("exercise-hold-menu").assertDoesNotExist()
     }
 
+    @Test fun aMenuMoveMadeWhileTheHoldIsStillSettlingShowsInTheStrip() {
+        val repo = workout()
+        rule.onNodeWithTag("exercise-chip-0").assertIsDisplayed()
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithTag("exercise-chip-0").performTouchInput { down(center) }
+        rule.mainClock.advanceTimeBy(1_000)
+        rule.onNodeWithTag("exercise-chip-0").performTouchInput { up() }
+        // The menu is up while the pill is still easing back down (180 ms): move it right away.
+        rule.mainClock.advanceTimeByFrame()
+        rule.onNodeWithTag("hold-move-later").performClick()
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.autoAdvance = true
+        rule.waitUntil(5_000) { names(repo) == listOf("db-press", "bench") }
+        rule.waitForIdle()
+        // The strip shows the saved order, not the one from before the move.
+        rule.onNodeWithTag("exercise-chip-0").assert(hasContentDescription(DB_PRESS.name, substring = true))
+        rule.onNodeWithTag("exercise-chip-1").assert(hasContentDescription(BENCH.name, substring = true))
+    }
+
     @Test fun holdingAndDraggingPastTheNextPillReordersTodayOnDrop() {
         val repo = workout()
         rule.onNodeWithTag("exercise-chip-0").performTouchInput {
@@ -61,6 +80,53 @@ class HoldToReorderDeviceTest {
         // One move, saved once on drop: never a stream of reorders while the finger moves.
         assertEquals(1, repo.actions.count { it is Action.MoveWorkoutExercise })
         rule.onNodeWithTag("exercise-hold-menu").assertDoesNotExist()
+    }
+
+    /** Five exercises today, so a pill can be dragged past more than one neighbour. */
+    private fun longWorkout(): FakeRepository {
+        val extra = listOf("pulldown" to "Lat pulldown", "lateral" to "Lateral raise", "curl" to "Cable curl")
+            .map { (id, name) -> com.rebuild.domain.Exercise(id, name) }
+        val base = seedState(Phase.INTRO_ONE)
+        val repo = FakeRepository(base.copy(exercises = base.exercises + extra))
+        runBlocking {
+            repo.execute(Action.StartWorkout("upper-a", FIXED_NOW))
+            val id = repo.state.value.activeWorkout!!.id
+            extra.forEach { repo.execute(Action.AddWorkoutExercise(id, "add-${it.id}", it.id)) }
+        }
+        rule.setContent { RebuildApp(repo, FakePlatform(), clock = { FIXED_NOW }) }
+        rule.onNodeWithText("Resume workout").performClick()
+        return repo
+    }
+
+    /** A pill's full bounds, even where it runs off the screen (bounds in root are clipped to it). */
+    private fun box(index: Int): androidx.compose.ui.geometry.Rect {
+        val node = rule.onNodeWithTag("exercise-chip-$index").fetchSemanticsNode()
+        return androidx.compose.ui.geometry.Rect(node.positionInRoot,
+            androidx.compose.ui.geometry.Size(node.size.width.toFloat(), node.size.height.toFloat()))
+    }
+
+    @Test fun aQuickDragLandsWhereThePillIsDropped() {
+        val repo = longWorkout()
+        val first = names(repo).first()
+        // Where the first pill's centre must get to before it passes the third pill: with the first pill taken out
+        // the second starts where the first did, and the third sits one dragged pill further right than that.
+        val (a, b, c) = listOf(box(0), box(1), box(2))
+        val gap = b.left - a.right
+        val thirdLeft = a.left + b.width + gap
+        val passesThird = thirdLeft + a.width + gap + c.width / 2f
+        val distance = passesThird + 30f - a.center.x
+        rule.onNodeWithTag("exercise-chip-0").performTouchInput { down(center) }
+        // The hold is recognised on the clock, so let it pass before the moves arrive.
+        rule.mainClock.advanceTimeBy(1_000)
+        // Ten quick moves with no frame between them, the way a flick arrives, then the drop.
+        rule.onNodeWithTag("exercise-chip-0").performTouchInput {
+            repeat(10) { moveBy(androidx.compose.ui.geometry.Offset(distance / 10f, 0f)) }
+            up()
+        }
+        rule.waitUntil(5_000) { names(repo).indexOf(first) != 0 }
+        rule.waitForIdle()
+        assertEquals("dropped just past the third pill", 2, names(repo).indexOf(first))
+        assertEquals(1, repo.actions.count { it is Action.MoveWorkoutExercise })
     }
 
     @Test fun removingAPlannedExerciseSkipsItForTodayAndItCanComeBack() {
