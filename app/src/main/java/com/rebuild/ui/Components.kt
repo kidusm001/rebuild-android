@@ -10,6 +10,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Surface
 import androidx.compose.foundation.border
 import androidx.compose.ui.text.TextStyle
@@ -65,6 +67,7 @@ import com.rebuild.R
 import com.rebuild.ui.theme.SignalAmber
 import com.rebuild.ui.theme.InkPress
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Checkbox
@@ -284,7 +287,11 @@ internal fun AdaptiveDialog(
         title = title,
         text = {
             CompositionLocalProvider(LocalDialogSlot provides DialogSlot.BODY) { KeyboardFirstBack(onDismissRequest) {
-                Column(Modifier.verticalScroll(rememberScrollState()).testTag("dialog-body"),
+                // A long body (large text, a short window) fades where it continues, so nothing looks missing.
+                val scroll = rememberScrollState()
+                Column(Modifier.fadingEdges(scroll, if (LocalDensity.current.fontScale > 1.3f) 48.dp else 32.dp,
+                        background = AlertDialogDefaults.containerColor)
+                    .verticalScroll(scroll).testTag("dialog-body"),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) { text() }
             }
             }
@@ -820,10 +827,12 @@ internal fun TonalChip(
  */
 internal fun Modifier.fadingEdges(
     scroll: androidx.compose.foundation.ScrollState,
-    edge: androidx.compose.ui.unit.Dp = 32.dp
+    edge: androidx.compose.ui.unit.Dp = 32.dp,
+    /** What the content sits on; a dialog passes its own container colour. */
+    background: Color? = null
 ): Modifier = composed {
     // Painted over the content in the page colour, with no offscreen layer, so accessibility still sees every row.
-    val page = MaterialTheme.colorScheme.surface
+    val page = background ?: MaterialTheme.colorScheme.surface
     drawWithContent {
         drawContent()
         val top = if (scroll.canScrollBackward) edge.toPx().coerceAtMost(size.height / 4) else 0f
@@ -1109,7 +1118,12 @@ internal fun PillTab(
     label: String,
     modifier: Modifier = Modifier,
     selectedContentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
-    unselectedContentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant
+    unselectedContentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    /** Tab for pages; [PillChoice] passes RadioButton for a choice that applies a value. */
+    role: Role = Role.Tab,
+    enabled: Boolean = true,
+    /** More than one line only where the label may wrap (large text in a narrow segment). */
+    maxLines: Int = 1
 ) {
     val presses = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val pressed by presses.collectIsPressedAsState()
@@ -1120,8 +1134,8 @@ internal fun PillTab(
     Box(
         modifier
             .heightIn(min = 48.dp)
-            .selectable(selected = selected, onClick = onClick, role = Role.Tab, interactionSource = presses,
-                indication = null),
+            .selectable(selected = selected, onClick = onClick, enabled = enabled, role = role,
+                interactionSource = presses, indication = null),
         contentAlignment = Alignment.Center
     ) {
         Box(
@@ -1134,8 +1148,53 @@ internal fun PillTab(
                 .indication(presses, androidx.compose.material3.ripple(
                     color = if (selected) selectedContentColor else Color.Unspecified))
         )
-        Text(label, style = MaterialTheme.typography.titleSmall, maxLines = 1, softWrap = false,
+        Text(label, style = MaterialTheme.typography.titleSmall, maxLines = maxLines, softWrap = maxLines > 1,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             color = if (selected) selectedContentColor else unselectedContentColor,
-            modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale }.padding(horizontal = 16.dp))
+            modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale }.padding(horizontal = 16.dp, vertical = 8.dp))
+    }
+}
+
+/**
+ * A small single choice that applies at once (a set's type), drawn like History's tabs: a tonal pill track with the
+ * chosen option as a pill inside it, the same press and the same squish. Options share the width equally; at large
+ * text a label wraps to a second line rather than being cut off.
+ */
+@Composable
+internal fun <T> PillChoice(
+    options: List<T>,
+    selected: T,
+    onSelect: (T) -> Unit,
+    label: (T) -> String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    tag: (T) -> String = { "" }
+) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .clip(CircleShape)
+            .background(tonalFill())
+            .selectableGroup()
+    ) {
+        options.forEach { option ->
+            val chosen = option == selected
+            val pill by androidx.compose.animation.animateColorAsState(
+                if (chosen) colors.secondaryContainer else Color.Transparent, label = "choice-pill")
+            Box(Modifier.weight(1f).fillMaxHeight()) {
+                Box(Modifier.matchParentSize().padding(4.dp).clip(CircleShape).background(pill))
+                PillTab(
+                    selected = chosen,
+                    onClick = { if (!chosen) onSelect(option) },
+                    label = label(option),
+                    role = Role.RadioButton,
+                    enabled = enabled,
+                    maxLines = 2,
+                    modifier = Modifier.fillMaxSize().testTag(tag(option))
+                )
+            }
+        }
     }
 }

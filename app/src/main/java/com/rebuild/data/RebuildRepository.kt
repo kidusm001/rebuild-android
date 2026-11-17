@@ -118,7 +118,12 @@ class RebuildRepository private constructor(
     )
 
     companion object {
-        private val openMutex = Mutex()
+        /**
+         * Held while the saved snapshot is read. Device tests hold it themselves to keep the app on its loading screen
+         * for as long as they need, instead of hoping a large snapshot loads slowly enough to be seen.
+         */
+        @androidx.annotation.VisibleForTesting
+        internal val openMutex = Mutex()
         @Volatile private var instance: RebuildRepository? = null
 
         /** Activities and alarm receivers share this application-scoped instance and its write lock. */

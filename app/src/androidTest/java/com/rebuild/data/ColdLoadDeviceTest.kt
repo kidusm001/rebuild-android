@@ -33,25 +33,42 @@ class ColdLoadDeviceTest {
         val padded = json + " ".repeat(bytes - json.toByteArray(Charsets.UTF_8).size)
         SqliteSnapshotPersistence(context).use { it.write(padded) }
 
-        ActivityScenario.launch(MainActivity::class.java).use {
-            rule.onNodeWithText("Opening your saved workouts").assertIsDisplayed()
-            rule.onNodeWithText("Choose where to start").assertDoesNotExist()
-            rule.onNodeWithTag("start-scheduled").assertDoesNotExist()
-            rule.onNodeWithTag("log-set").assertDoesNotExist()
-            rule.waitUntil(timeoutMillis = 30_000) {
-                rule.onAllNodes(hasText("Today")).fetchSemanticsNodes().isNotEmpty()
-            }
-            rule.onNodeWithText("Opening your saved workouts").assertDoesNotExist()
-            val loaded = runBlocking { (context as RebuildApplication).repository().state.value }
-            assertEquals(saved, loaded)
-            SqliteSnapshotPersistence(context).use { store ->
-                store.readableDatabase.rawQuery(
-                    "SELECT length(CAST(payload AS BLOB)) FROM snapshot WHERE id = 1", null
-                ).use { cursor ->
-                    assertTrue(cursor.moveToFirst())
-                    assertEquals("Loading must not reseed or rewrite the snapshot", bytes, cursor.getInt(0))
+        // Hold the open lock so the app stays on its loading screen until the checks below are done. Timing alone
+        // was flaky: a fast emulator finished loading before the first check, and a slow one never settled.
+        // Every path out releases it, a failed launch included: tests share a process, and a lock left held would
+        // stall every later open.
+        val lock = RebuildRepository.openMutex
+        runBlocking { lock.lock() }
+        // Only ever our own hold: once released, the app takes this lock itself to load, and that hold isn't ours.
+        var held = true
+        fun release() { if (held) { held = false; lock.unlock() } }
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use {
+                try {
+                    rule.onNodeWithText("Opening your saved workouts").assertIsDisplayed()
+                    rule.onNodeWithText("Choose where to start").assertDoesNotExist()
+                    rule.onNodeWithTag("start-scheduled").assertDoesNotExist()
+                    rule.onNodeWithTag("log-set").assertDoesNotExist()
+                } finally {
+                    release()
+                }
+                rule.waitUntil(timeoutMillis = 30_000) {
+                    rule.onAllNodes(hasText("Today")).fetchSemanticsNodes().isNotEmpty()
+                }
+                rule.onNodeWithText("Opening your saved workouts").assertDoesNotExist()
+                val loaded = runBlocking { (context as RebuildApplication).repository().state.value }
+                assertEquals(saved, loaded)
+                SqliteSnapshotPersistence(context).use { store ->
+                    store.readableDatabase.rawQuery(
+                        "SELECT length(CAST(payload AS BLOB)) FROM snapshot WHERE id = 1", null
+                    ).use { cursor ->
+                        assertTrue(cursor.moveToFirst())
+                        assertEquals("Loading must not reseed or rewrite the snapshot", bytes, cursor.getInt(0))
+                    }
                 }
             }
+        } finally {
+            release()
         }
     }
 }
