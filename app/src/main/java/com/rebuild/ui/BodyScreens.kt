@@ -39,7 +39,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.unit.dp
 import com.rebuild.R
 import com.rebuild.domain.Action
@@ -182,7 +181,7 @@ internal fun BodyweightDialog(env: AppEnv, existing: BodyweightEntry?, onDismiss
                 supportingText = error ?: last?.let { "Last: ${massText(it.value, it.unit)} · ${dayText(it.localDate())}" },
                 imeAction = ImeAction.Done, onDone = ::save)
             MassUnitChips(unit) { if (it != unit) { unit = it; error = null } }
-            OutlinedTextField(note, { note = limitUserText(it, MAX_NOTE_CHARS) }, label = { Text("Note (optional)") },
+            InputField(note, { note = limitUserText(it, MAX_NOTE_CHARS) }, label = "Note (optional)",
                 singleLine = true, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences,
                     imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { save() }),
                 modifier = Modifier.fillMaxWidth().testTag("bodyweight-note"))

@@ -46,7 +46,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.TabPosition
 import androidx.compose.material3.TabRow
@@ -718,13 +717,14 @@ private fun HistoryExerciseNote(
         return
     }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        OutlinedTextField(
+        InputField(
             value = note,
             onValueChange = {
                 onOpenChange(true)
                 drafts.edit(we.id, we.notes, limitUserText(it, MAX_NOTE_CHARS))
             },
-            label = { Text("Exercise note") },
+            label = "Exercise note",
+            singleLine = false,
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(focus)
@@ -765,10 +765,11 @@ private fun WorkoutNote(env: AppEnv, workout: Workout, drafts: NoteDrafts) {
     }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (open || note != workout.notes) {
-            OutlinedTextField(
+            InputField(
                 value = note,
                 onValueChange = { drafts.edit(WORKOUT_NOTE_KEY, workout.notes, limitUserText(it, MAX_NOTE_CHARS)) },
-                label = { Text("Workout note") },
+                label = "Workout note",
+                singleLine = false,
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focus)

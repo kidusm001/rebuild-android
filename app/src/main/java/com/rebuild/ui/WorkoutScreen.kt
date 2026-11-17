@@ -60,7 +60,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -979,13 +978,14 @@ internal fun ExerciseNoteField(env: AppEnv, workoutId: String, we: WorkoutExerci
         }
         return
     }
-    OutlinedTextField(
+    InputField(
         value = note,
         onValueChange = {
             editing = true
             drafts.edit(we.id, we.notes, limitUserText(it, MAX_NOTE_CHARS))
         },
-        label = { Text("Exercise note") },
+        label = "Exercise note",
+        singleLine = false,
         modifier = Modifier
             .fillMaxWidth()
             .focusRequester(focus)
@@ -1024,7 +1024,8 @@ internal fun NoteDialog(
         title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = text, onValueChange = { text = limitUserText(it, MAX_NOTE_CHARS) }, label = { Text("Note") }, modifier = Modifier.fillMaxWidth())
+                InputField(value = text, onValueChange = { text = limitUserText(it, MAX_NOTE_CHARS) }, label = "Note", singleLine = false,
+                    modifier = Modifier.fillMaxWidth())
                 ErrorText(error)
             }
         },
