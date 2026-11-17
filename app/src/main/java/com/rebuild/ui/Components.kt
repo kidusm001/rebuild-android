@@ -15,7 +15,12 @@ import androidx.compose.foundation.border
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TextField
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.PaddingValues
@@ -66,8 +71,6 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedIconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -366,51 +369,104 @@ internal fun NumberField(
             filterNumericInput, errorSemantics, valueStyle)
         return
     }
-    // A filled field with a hairline edge: tone and edge show where to type before it's touched (even on a dialog,
-    // whose surface matches the usual fill), and focus draws a 2 dp ring.
-    var focused by remember { mutableStateOf(false) }
-    val colors = MaterialTheme.colorScheme
-    val accentRing = accentText()
-    val fill = tonalFill()
-    val ring = when {
-        isError -> colors.error
-        focused -> accentRing
-        else -> idleFieldEdge()
-    }
-    val ringWidth = if (isError || focused) 2.dp else 1.dp
-    TextField(
-        // A hint, never mistaken for a value: lighter and regular weight.
-        placeholder = placeholder?.let { { Text(it, maxLines = 1, style = valueStyle.copy(fontWeight = FontWeight.Normal),
-            color = colors.onSurfaceVariant.copy(alpha = 0.6f)) } },
+    InputField(
         value = value,
         onValueChange = { new -> onValueChange(if (filterNumericInput)
             new.filter { it.isDigit() || (decimal && (it == '.' || it == ',')) } else new) },
-        label = { Text(label, maxLines = 2) },
-        singleLine = true,
-        textStyle = valueStyle,
-        shape = MaterialTheme.shapes.small,
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = colors.surfaceContainerLowest,
-            unfocusedContainerColor = fill,
-            errorContainerColor = fill,
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            errorIndicatorColor = Color.Transparent,
-            disabledIndicatorColor = Color.Transparent,
-            focusedLabelColor = colors.onSurfaceVariant,
-            unfocusedLabelColor = colors.onSurfaceVariant
-        ),
+        label = label,
+        modifier = modifier,
         isError = isError,
-        supportingText = supportingText?.let { { Text(it) } },
+        supportingText = supportingText,
+        errorSemantics = errorSemantics,
+        // A hint, never mistaken for a value: lighter and regular weight.
+        placeholder = placeholder?.let { { Text(it, maxLines = 1, style = valueStyle.copy(fontWeight = FontWeight.Normal),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) } },
+        textStyle = valueStyle,
         keyboardOptions = KeyboardOptions(
             keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number,
             imeAction = imeAction
         ),
-        keyboardActions = KeyboardActions(onDone = { onDone() }),
-        modifier = (if (isError && errorSemantics != null) modifier.semantics { error(errorSemantics) } else modifier)
-            .onFocusChanged { focused = it.isFocused }
-            .border(ringWidth, ring, MaterialTheme.shapes.small)
+        keyboardActions = KeyboardActions(onDone = { onDone() })
     )
+}
+
+/**
+ * Every typed form field in the app: a filled box with a hairline edge, so where to type shows before it's touched
+ * (even on a dialog, whose surface matches the usual fill), and a 2 dp ring on focus or error. The ring wraps the box
+ * only: supporting text such as "Last: 79 kg" or an error sits beneath it, outside. Searches keep their own pill.
+ */
+@Composable
+internal fun InputField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    isError: Boolean = false,
+    supportingText: String? = null,
+    errorSemantics: String? = supportingText,
+    placeholder: (@Composable () -> Unit)? = null,
+    singleLine: Boolean = true,
+    textStyle: TextStyle = MaterialTheme.typography.bodyLarge,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default
+) {
+    val interactions = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val focused by interactions.collectIsFocusedAsState()
+    val colors = MaterialTheme.colorScheme
+    val shape = MaterialTheme.shapes.small
+    val fill = tonalFill()
+    val ring = when {
+        isError -> colors.error
+        focused -> accentText()
+        else -> idleFieldEdge()
+    }
+    val ringWidth = if (isError || focused) 2.dp else 1.dp
+    val fieldColors = TextFieldDefaults.colors(
+        focusedContainerColor = colors.surfaceContainerLowest,
+        unfocusedContainerColor = fill,
+        errorContainerColor = fill,
+        focusedLabelColor = colors.onSurfaceVariant,
+        unfocusedLabelColor = colors.onSurfaceVariant,
+        cursorColor = accentText()
+    )
+    val textColor = if (isError) fieldColors.errorTextColor
+        else if (focused) fieldColors.focusedTextColor else fieldColors.unfocusedTextColor
+    CompositionLocalProvider(LocalTextSelectionColors provides fieldColors.textSelectionColors) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            // The caller's modifier (tag, focus, weight) goes on the field itself, so it is the node that takes text.
+            modifier = (if (isError && errorSemantics != null) modifier.semantics { error(errorSemantics) } else modifier)
+                .defaultMinSize(minWidth = TextFieldDefaults.MinWidth, minHeight = TextFieldDefaults.MinHeight),
+            textStyle = textStyle.merge(TextStyle(color = textColor)),
+            cursorBrush = SolidColor(if (isError) fieldColors.errorCursorColor else fieldColors.cursorColor),
+            keyboardOptions = keyboardOptions,
+            keyboardActions = keyboardActions,
+            singleLine = singleLine,
+            maxLines = if (singleLine) 1 else Int.MAX_VALUE,
+            interactionSource = interactions,
+            decorationBox = { inner ->
+                TextFieldDefaults.DecorationBox(
+                    value = value,
+                    innerTextField = inner,
+                    enabled = true,
+                    singleLine = singleLine,
+                    visualTransformation = VisualTransformation.None,
+                    interactionSource = interactions,
+                    isError = isError,
+                    label = { Text(label, maxLines = 2) },
+                    placeholder = placeholder,
+                    supportingText = supportingText?.let { { Text(it) } },
+                    shape = shape,
+                    colors = fieldColors,
+                    container = {
+                        Box(Modifier.background(if (focused) colors.surfaceContainerLowest else fill, shape)
+                            .border(ringWidth, ring, shape))
+                    }
+                )
+            }
+        )
+    }
 }
 
 @Composable

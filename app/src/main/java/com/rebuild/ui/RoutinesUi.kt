@@ -31,8 +31,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -1000,18 +998,13 @@ internal fun RoutineEditorScreen(
                 Text(intro, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             item(key = "name") {
-                OutlinedTextField(
+                InputField(
                     draft.name,
                     { draft = draft.copy(name = it.take(MAX_ROUTINE_NAME)) },
-                    label = { Text("Routine name") },
-                    singleLine = true,
+                    label = "Routine name",
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences,
                         imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.secondary,
-                        focusedLabelColor = MaterialTheme.colorScheme.secondary
-                    ),
                     modifier = Modifier.fillMaxWidth().testTag("routine-name")
                 )
             }
