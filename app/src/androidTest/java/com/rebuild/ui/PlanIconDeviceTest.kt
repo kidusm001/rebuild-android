@@ -32,7 +32,7 @@ class PlanIconDeviceTest {
         val repo = FakeRepository(Seed.initialState().copy(phase = Phase.BASELINE))
         rule.setContent { RebuildApp(repo, FakePlatform(), clock = { FIXED_NOW + 86_400_000 }) }
         rule.onNodeWithTag("start-scheduled").assertTextContains("Start Pull").performClick()
-        rule.onNodeWithTag("target-line").assertTextContains("Today's target: 3 working sets · 8–12 reps · 2 RIR")
+        rule.onNodeWithTag("target-line").assertTextContains("Target: 3 sets · 8–12 reps · 2 RIR", substring = true)
         rule.onNodeWithTag("entry-kg").assert(
             SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("")))
         assertEquals("pulldown", repo.state.value.activeWorkout!!.exercises.first().exercise.id)

@@ -67,9 +67,10 @@ import com.rebuild.domain.workingCount
  * The parts of a goal the user set, in the exercise's own terms: "3 working sets · 8–12 reps", "3 timed sets of at
  * least 0:30" or "at least 20:00 in total". Null without one.
  */
-internal fun goalSummary(we: WorkoutExercise): String? = when (we.exercise.measure) {
+/** The goal in words; the workout header says "sets" beside its own count, History keeps "working sets". */
+internal fun goalSummary(we: WorkoutExercise, setNoun: String = "working set"): String? = when (we.exercise.measure) {
     Measure.REPS -> listOfNotNull(
-        we.targetSets?.let { countLabel(it, "working set") },
+        we.targetSets?.let { countLabel(it, setNoun) },
         if (we.minReps != null && we.maxReps != null) "${we.minReps}–${we.maxReps} reps" else null
     ).takeIf { it.isNotEmpty() }?.joinToString(" · ")
     else -> measuredGoalText(we.exercise.measure, we.targetSets, we.measuredGoal)
@@ -136,15 +137,14 @@ internal fun WorkoutExercise.progressDescription(): String {
 /** The line under an exercise's name: today's target, a skip, or an optional goal. */
 internal fun targetLine(workout: Workout, we: WorkoutExercise): String {
     val sets = we.targetSets
-    val goal = goalSummary(we)
+    val goal = goalSummary(we, setNoun = "set")
     return when {
         we.exercise.measure != Measure.REPS && !we.optional && goal != null ->
-            if (we.showsSkipped()) "Skipped today · target $goal" else "Today's target: $goal"
+            if (we.showsSkipped()) "Skipped today · target $goal" else "Target: $goal"
         we.exercise.measure == Measure.REPS && !we.optional && sets != null && we.showsSkipped() ->
-            "Skipped today · target ${countLabel(sets, "working set")} · ${we.minReps}–${we.maxReps} reps"
+            "Skipped today · target ${countLabel(sets, "set")} · ${we.minReps}–${we.maxReps} reps"
         we.exercise.measure == Measure.REPS && !we.optional && sets != null ->
-            "Today's target: $sets working ${if (sets == 1) "set" else "sets"} · " +
-                "${we.minReps}–${we.maxReps} reps · ${we.targetRir} RIR"
+            "Target: ${countLabel(sets, "set")} · ${we.minReps}–${we.maxReps} reps · ${we.targetRir} RIR"
         else -> goal?.let { "Optional goal: $it" }
             ?: if (workout.extra) "No target · log what you do" else "Added today · optional, no target"
     }

@@ -123,7 +123,7 @@ class SetGroupsDeviceTest {
         assertNotNull("A drop never leaves a set open", group.finishedAt)
         val dropRest = requireNotNull(repo.state.value.restTimer)
         assertNotEquals("The set got longer, so its rest starts again", normalRest.id, dropRest.id)
-        rule.onNodeWithTag("working-count").assertTextContains("Working sets: 1 of 4", substring = true)
+        rule.onNodeWithTag("working-count").assert(hasContentDescription("Working sets: 1 of 4", substring = true))
         rule.onNode(hasTestTag("group-row") and hasContentDescription(
             "Set 1: 40 kg × 10, with 2 drops: 30 kg × 8; 20 kg × 6.", substring = true)).performScrollTo().assertIsDisplayed()
 
@@ -138,7 +138,7 @@ class SetGroupsDeviceTest {
         val platesStages = row(repo).stages(platesGroup.id)
         assertEquals(listOf(8, 6), platesStages.map { it.plates })
         assertTrue(platesStages.all { it.loadUnit == LoadUnit.PLATES && it.kg == null && !it.warmup })
-        rule.onNodeWithTag("working-count").assertTextContains("Working sets: 2 of 4", substring = true)
+        rule.onNodeWithTag("working-count").assert(hasContentDescription("Working sets: 2 of 4", substring = true))
 
         chooseType("rest_pause")
         logEntry(repo, "6", "10", "entry-plates")
@@ -162,7 +162,7 @@ class SetGroupsDeviceTest {
         assertTrue(we.setGroups.all { it.finishedAt != null })
         assertEquals(LoadUnit.KG, we.sets.first().loadUnit)
         assertEquals(40.0, we.sets.first().kg)
-        rule.onNodeWithTag("working-count").assertTextContains("Working sets: 3 of 4", substring = true)
+        rule.onNodeWithTag("working-count").assert(hasContentDescription("Working sets: 3 of 4", substring = true))
     }
 
     @Test fun correctingAStageKeepsTheOthersAndStartsNoTimer() {
@@ -382,7 +382,7 @@ class SetGroupsDeviceTest {
         rule.onNodeWithTag("start-scheduled").performClick()
         val target = requireNotNull(row(repo).targetSets)
         repeat(target) { logEntry(repo, "40", "${10 - it}") }
-        rule.onNodeWithTag("working-count").assertTextContains("Working sets: $target of $target", substring = true)
+        rule.onNodeWithTag("working-count").assert(hasContentDescription("Working sets: $target of $target", substring = true))
         // The target-done panel's own button, the way it's used after the last set.
         rule.onNodeWithText("Add drop to set $target").performScrollTo().performClick()
         rule.waitForIdle()
@@ -394,7 +394,7 @@ class SetGroupsDeviceTest {
         logEntry(repo, "20", "5")
         assertEquals(listOf(30.0, 20.0), (row(repo).workEntries().last() as WorkEntry.Group).followUps.map { it.kg })
         assertEquals(target, row(repo).workingCount())
-        rule.onNodeWithTag("working-count").assertTextContains("Working sets: $target of $target", substring = true)
+        rule.onNodeWithTag("working-count").assert(hasContentDescription("Working sets: $target of $target", substring = true))
         rule.onNode(hasText("Above the advisory upper", substring = true)).assertDoesNotExist()
         rule.onNode(hasText("extra", substring = true) and hasAnyAncestor(hasTestTag("group-row"))).assertDoesNotExist()
         rule.onNode(hasTestTag("group-row") and hasContentDescription("Set $target: 40 kg ×", substring = true)).assertExists()

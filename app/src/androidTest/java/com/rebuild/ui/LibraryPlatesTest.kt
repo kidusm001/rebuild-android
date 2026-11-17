@@ -304,7 +304,8 @@ class LibraryPlatesTest {
 
         rule.onNodeWithTag("exercise-chip-0").assertIsSelected()
         rule.onNode(hasText("Machine chest press") and isHeading()).assertExists()
-        rule.onNodeWithText("External load · kg total").assertExists()
+        rule.onNodeWithTag("target-line").assertTextContains("Target: ", substring = true)
+        rule.onNodeWithText("External load", substring = true).assertDoesNotExist()
         rule.onNodeWithTag("entry-plates").assertDoesNotExist()
         assertEquals("40", editable("entry-kg"))
 
@@ -313,7 +314,7 @@ class LibraryPlatesTest {
         rule.onNodeWithTag("exercise-chip-0").assertIsNotSelected()
         rule.onNode(hasText("Seated cable row") and isHeading()).assertExists()
         rule.onNode(hasText("Machine chest press") and isHeading()).assertDoesNotExist()
-        rule.onNodeWithText("External load · plates per stack").assertExists()
+        rule.onNodeWithTag("target-line").assertTextContains("External load · plates per stack · Target: ", substring = true)
         rule.onNodeWithContentDescription("Previous set 1: 7 plates/stack × 12", substring = true).assertExists()
         rule.onNodeWithTag("entry-kg").assertDoesNotExist()
         assertEquals("7", editable("entry-plates"))
@@ -344,7 +345,8 @@ class LibraryPlatesTest {
         rule.onNodeWithTag("exercise-chip-1").assertIsNotSelected()
         rule.onNode(hasText("Machine chest press") and isHeading()).assertExists()
         rule.onNode(hasText("Seated cable row") and isHeading()).assertDoesNotExist()
-        rule.onNodeWithText("External load · kg total").assertExists()
+        rule.onNodeWithTag("target-line").assertTextContains("Target: ", substring = true)
+        rule.onNodeWithText("External load", substring = true).assertDoesNotExist()
         rule.onNodeWithContentDescription("Previous set 1: 40 kg × 10", substring = true).assertExists()
         rule.onNodeWithTag("entry-plates").assertDoesNotExist()
         assertEquals("40", editable("entry-kg"))
