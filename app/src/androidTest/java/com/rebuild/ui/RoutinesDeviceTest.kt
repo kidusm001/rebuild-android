@@ -127,6 +127,15 @@ class RoutinesDeviceTest {
     private fun editable(tag: String) =
         rule.onNodeWithTag(tag).fetchSemanticsNode().config[SemanticsProperties.EditableText].text
 
+    /**
+     * The save bar sits above the keyboard, so it is still moving while the keyboard's insets settle after Save clears
+     * focus. An immediate check can land mid-move (seen on CI); this waits for the message to be on screen.
+     */
+    private fun assertShownSoon(text: String) {
+        rule.waitUntil(5_000) { runCatching { rule.onNodeWithText(text).assertIsDisplayed() }.isSuccess }
+        rule.onNodeWithText(text).assertIsDisplayed()
+    }
+
     private fun hideKeyboard() {
         rule.runOnIdle {
             keyboard?.hide()
@@ -238,11 +247,11 @@ class RoutinesDeviceTest {
 
         // Nothing is saved until it has a name and reviewed exercises.
         rule.onNodeWithTag("routine-save").assertTextContains("Save routine").performClick()
-        rule.onNodeWithText("Name the routine.").assertIsDisplayed()
+        assertShownSoon("Name the routine.")
         rule.onNodeWithTag("routine-name").performTextReplacement("Arms")
         hideKeyboard()
         rule.onNodeWithTag("routine-save").performClick()
-        rule.onNodeWithText("Add at least one exercise.").assertIsDisplayed()
+        assertShownSoon("Add at least one exercise.")
         assertTrue(repo.state.value.routines.isEmpty())
 
         // A new exercise starts with blank targets and the visible default rest; it can't be added blank.
