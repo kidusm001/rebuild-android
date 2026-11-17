@@ -377,7 +377,10 @@ private fun ExerciseRail(
     val scope = rememberCoroutineScope()
     var menuFor by remember { mutableStateOf<String?>(null) }
     var removing by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(saved) { if (dragging == null) order = saved }
+    // A save that lands while a pill is held or settling waits for it to finish, then shows: the strip never keeps an
+    // order older than what's saved (say a quick "Move later" from the menu while the hold is still settling).
+    var savedWhileDragging by remember { mutableStateOf(false) }
+    LaunchedEffect(saved) { if (dragging == null) order = saved else savedWhileDragging = true }
     val byId = workout.exercises.associateBy { it.id }
     val gap = with(density) { 8.dp.toPx() }
     // The strip's own coordinates: they never move, so the finger is measured in them rather than in the lifted
@@ -519,7 +522,11 @@ private fun ExerciseRail(
                             // The pill eases from under the finger into its slot, then drops its lift.
                             scope.launch {
                                 lift.animateTo(0f, tween(180, easing = FastOutSlowInEasing))
-                                if (lift.targetValue == 0f) dragging = null
+                                if (lift.targetValue == 0f) {
+                                    dragging = null
+                                    if (savedWhileDragging) order = currentSaved
+                                    savedWhileDragging = false
+                                }
                             }
                         }
                         detectDragGesturesAfterLongPress(
@@ -528,6 +535,7 @@ private fun ExerciseRail(
                                 dragMoved = false
                                 heldTap = true
                                 order = currentSaved
+                                savedWhileDragging = false
                                 pillStart = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == ex.id }
                                     ?.offset?.toFloat() ?: 0f
                                 fingerStart = stripX(at) ?: 0f

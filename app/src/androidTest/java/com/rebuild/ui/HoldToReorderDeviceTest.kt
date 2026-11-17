@@ -49,6 +49,25 @@ class HoldToReorderDeviceTest {
         rule.onNodeWithTag("exercise-hold-menu").assertDoesNotExist()
     }
 
+    @Test fun aMenuMoveMadeWhileTheHoldIsStillSettlingShowsInTheStrip() {
+        val repo = workout()
+        rule.onNodeWithTag("exercise-chip-0").assertIsDisplayed()
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithTag("exercise-chip-0").performTouchInput { down(center) }
+        rule.mainClock.advanceTimeBy(1_000)
+        rule.onNodeWithTag("exercise-chip-0").performTouchInput { up() }
+        // The menu is up while the pill is still easing back down (180 ms): move it right away.
+        rule.mainClock.advanceTimeByFrame()
+        rule.onNodeWithTag("hold-move-later").performClick()
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.autoAdvance = true
+        rule.waitUntil(5_000) { names(repo) == listOf("db-press", "bench") }
+        rule.waitForIdle()
+        // The strip shows the saved order, not the one from before the move.
+        rule.onNodeWithTag("exercise-chip-0").assert(hasContentDescription(DB_PRESS.name, substring = true))
+        rule.onNodeWithTag("exercise-chip-1").assert(hasContentDescription(BENCH.name, substring = true))
+    }
+
     @Test fun holdingAndDraggingPastTheNextPillReordersTodayOnDrop() {
         val repo = workout()
         rule.onNodeWithTag("exercise-chip-0").performTouchInput {
