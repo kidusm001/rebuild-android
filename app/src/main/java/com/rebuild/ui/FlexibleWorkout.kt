@@ -9,10 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -39,6 +36,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -564,7 +564,8 @@ internal fun SkippedPanel(
         }
         @Composable fun Primary(modifier: Modifier) {
             if (onNext != null && nextName != null) {
-                Button(onClick = onNext, modifier = modifier.heightIn(min = 56.dp).testTag("next-exercise")) {
+                Button(onClick = onNext, contentPadding = NextButtonPadding,
+                    modifier = modifier.heightIn(min = 56.dp).testTag("next-exercise")) {
                     NextExerciseLabel(nextName)
                 }
             } else {
@@ -586,13 +587,46 @@ internal fun SkippedPanel(
             Primary(Modifier.fillMaxWidth())
             Undo(Modifier.fillMaxWidth())
         } else {
-            // Undo matches Next's height, so a two-line Next never leaves it floating beside a taller pill.
-            Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Undo(Modifier.fillMaxHeight())
-                Primary(Modifier.weight(1f))
-            }
+            SideBySideOrStacked(gap = 12.dp, first = { Undo(it) }, second = { Primary(it) })
         }
         ErrorText(error)
+    }
+}
+
+/**
+ * [first] beside [second] at one shared height when [second] fits its widest single-line form in the space left;
+ * otherwise [second] at full width above [first]. Undo skip and Next use it, so a long name puts Next on its own row
+ * instead of squeezing it into a three-line pill. Intrinsics only, no subcomposition, so it measures each child once.
+ */
+@Composable
+internal fun SideBySideOrStacked(
+    gap: Dp,
+    first: @Composable (Modifier) -> Unit,
+    second: @Composable (Modifier) -> Unit
+) {
+    Layout(content = { first(Modifier); second(Modifier) }) { (a, b), constraints ->
+        val space = gap.roundToPx()
+        val width = constraints.maxWidth
+        val aWidth = a.maxIntrinsicWidth(Constraints.Infinity)
+        val side = aWidth + space + b.maxIntrinsicWidth(Constraints.Infinity) <= width
+        if (side) {
+            val bWidth = width - aWidth - space
+            val height = maxOf(a.minIntrinsicHeight(aWidth), b.minIntrinsicHeight(bWidth))
+            val pa = a.measure(Constraints.fixed(aWidth, height))
+            val pb = b.measure(Constraints.fixed(bWidth, height))
+            layout(width, height) {
+                pa.placeRelative(0, 0)
+                pb.placeRelative(aWidth + space, 0)
+            }
+        } else {
+            val full = Constraints(minWidth = width, maxWidth = width)
+            val pb = b.measure(full)
+            val pa = a.measure(full)
+            layout(width, pb.height + space + pa.height) {
+                pb.placeRelative(0, 0)
+                pa.placeRelative(0, pb.height + space)
+            }
+        }
     }
 }
 

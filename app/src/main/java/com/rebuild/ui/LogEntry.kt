@@ -57,6 +57,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.semantics.text
@@ -555,20 +558,33 @@ private fun ToggleChip(label: String, selected: Boolean, onToggle: () -> Unit, m
     )
 }
 
+/** Next's padding: a little narrower than a Button's default, so a long exercise name gets more of the pill. */
+internal val NextButtonPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+
 /**
- * The Next button's label: a small "Next" over the exercise name, centred, so a long name breaks in one known place
- * and keeps a whole line rather than wrapping "Next: Rope triceps" / "pushdown" against the left edge. Read as
- * one phrase, "Next: Rope triceps pushdown".
+ * The Next button's label. "Next: Seated cable row" on one centred line whenever it fits; otherwise a quieter "Next"
+ * over the centred name, so a long name breaks in one known place rather than wrapping "Next: Overhead cable" /
+ * "triceps extension" against the left edge. Either way it is read as one phrase, "Next: <name>".
  */
 @Composable
 internal fun NextExerciseLabel(name: String) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clearAndSetSemantics { text = AnnotatedString("Next: $name") }
-    ) {
-        Text("Next", style = MaterialTheme.typography.labelMedium, maxLines = 1)
-        Text(name, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center,
-            maxLines = 2, overflow = TextOverflow.Ellipsis)
+    val oneLine = "Next: $name"
+    Layout(
+        content = {
+            Text(oneLine, maxLines = 1, softWrap = false, textAlign = TextAlign.Center)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Next", style = MaterialTheme.typography.labelMedium,
+                    color = LocalContentColor.current.copy(alpha = 0.8f), maxLines = 1)
+                Text(name, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center,
+                    maxLines = 3, overflow = TextOverflow.Ellipsis)
+            }
+        },
+        modifier = Modifier.clearAndSetSemantics { text = AnnotatedString(oneLine) }
+    ) { (line, stacked), constraints ->
+        // Measures just one of the two, so the label still answers the intrinsic queries its row makes.
+        val fits = line.maxIntrinsicWidth(Constraints.Infinity) <= constraints.maxWidth
+        val placeable = (if (fits) line else stacked).measure(constraints.copy(minWidth = 0, minHeight = 0))
+        layout(placeable.width, placeable.height) { placeable.place(0, 0) }
     }
 }
 
@@ -608,7 +624,8 @@ internal fun TargetMetPanel(
         }
         @Composable fun Primary(modifier: Modifier) {
             if (onNext != null && nextName != null) {
-                Button(onClick = onNext, modifier = modifier.heightIn(min = 60.dp).testTag("next-exercise")) {
+                Button(onClick = onNext, contentPadding = NextButtonPadding,
+                    modifier = modifier.heightIn(min = 60.dp).testTag("next-exercise")) {
                     NextExerciseLabel(nextName)
                 }
             } else {
