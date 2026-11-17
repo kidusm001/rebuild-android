@@ -4,6 +4,16 @@ Every version installs over the one before it with the same signing key and keep
 on, release APKs are built and published by [GitHub Actions](.github/workflows/release.yml); notes for each are in
 [docs/releases](docs/releases/).
 
+## 0.4.0 (version code 23)
+- History: each exercise has a chart of your heaviest set each workout, with the reps on every dot, the last 3 months
+  or All, and an option to split it by workout. The first touch on any chart now reads it.
+- History's exercise list shows your latest top set, sorted by Recent, A–Z or muscle; Records say what each rep count
+  was before.
+- During a workout, the exercise header is two lines (name and unit, then the target), and plate loads read
+  "6 plates × 15" so they stay on one line at larger font sizes.
+- Presses are amber instead of a grey or white flash; History's tabs press as a pill.
+- Text fields share one look, and a focused field's highlight no longer wraps the hint beneath it.
+
 ## 0.3.1 (version code 22)
 - During a workout, hold an exercise at the top and drag it to change today's order, or hold and let go to move it a
   place or remove it from today. A planned exercise is skipped for today and stays in your plan.
