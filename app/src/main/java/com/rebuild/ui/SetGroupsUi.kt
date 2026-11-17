@@ -1,6 +1,11 @@
 package com.rebuild.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,7 +18,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -316,6 +320,7 @@ internal fun OpenGroupElsewhere(env: AppEnv, workout: Workout, other: WorkoutExe
  * One drop or rest-pause set: every stage as logged, each correctable on its own, a missed stage, its type,
  * Finish set (active workout only) and deleting the whole set. Only Finish set can start a rest.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun GroupDialog(env: AppEnv, workout: Workout, we: WorkoutExercise, groupId: String, onDismiss: () -> Unit) {
     val entries = we.workEntries()
@@ -364,107 +369,145 @@ internal fun GroupDialog(env: AppEnv, workout: Workout, we: WorkoutExercise, gro
         return
     }
 
+    val noun = followUpLabel(group.method)
+    val before = entries.getOrNull(index - 1)
+    val joinable = group.method == SetMethod.DROP && group.finishedAt != null && before != null &&
+        before.unit == entry.unit && (before is WorkEntry.Single ||
+            (before is WorkEntry.Group && before.group.method == SetMethod.DROP && !before.open))
+    val finishable = live && group.finishedAt == null
+    var menu by remember { mutableStateOf(false) }
+
+    // The dialog's job is the set and its drops: reading them, fixing one, adding a forgotten one. The rare repairs
+    // (joining onto the set before, deleting) live in the title's menu, away from the thumb and from the confirm.
     AdaptiveDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Set ${index + 1} and its ${followUpLabel(group.method).lowercase()}s") },
+        title = {
+            Row(verticalAlignment = Alignment.Top) {
+                Text("Set ${index + 1} and its ${noun.lowercase()}s", modifier = Modifier.weight(1f).padding(top = 6.dp))
+                Box {
+                    IconButton(onClick = { menu = true }, modifier = Modifier.size(48.dp).testTag("group-more")) {
+                        RebuildIcon(R.drawable.ic_ellipsis_vertical, contentDescription = "More set actions",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        if (joinable) DropdownMenuItem(
+                            text = {
+                                Column(Modifier.padding(vertical = 4.dp)) {
+                                    Text("Make them drops of set $index", style = MaterialTheme.typography.bodyLarge)
+                                    Text("Set ${index + 1} stops counting as a working set; every value is kept",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            },
+                            onClick = {
+                                menu = false
+                                error = null
+                                env.runner.run(Action.JoinDropsToSet(workout.id, we.id, groupId), onError = { error = it }) {
+                                    onDismiss()
+                                }
+                            },
+                            enabled = !env.runner.busy,
+                            modifier = Modifier.heightIn(min = 56.dp).testTag("join-drops")
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete this set", color = MaterialTheme.colorScheme.error) },
+                            onClick = { menu = false; confirmDelete = true },
+                            enabled = !env.runner.busy,
+                            modifier = Modifier.heightIn(min = 48.dp).testTag("group-delete")
+                        )
+                    }
+                }
+            }
+        },
         text = {
-            Column(Modifier.testTag("group-stages")) {
-                val noun = followUpLabel(group.method)
+            // Said here as in the ledger, so an open set never reads as a finished one.
+            if (group.finishedAt == null) Text("In progress", style = MaterialTheme.typography.labelLarge,
+                color = accentText(), modifier = Modifier.testTag("group-in-progress"))
+            // One grouped list, separated by tone: the set, then its drops (or pauses) numbered from 1.
+            Column(Modifier.testTag("group-stages"), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 entry.stages.forEachIndexed { i, set ->
-                    // The set itself, then its drops (or pauses), numbered from 1.
                     val name = if (i == 0) "Set" else "$noun $i"
-                    if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 48.dp)
+                            .heightIn(min = 56.dp)
+                            .clip(groupShape(i, entry.stages.lastIndex))
+                            .background(tonalFill())
                             .clickable(onClickLabel = "Edit ${name.lowercase()}") { editingStage = set.id }
                             .semantics(mergeDescendants = true) {
                                 contentDescription = "$name: ${setText(set, exercise).spokenUnits()}"
                             }
                             .testTag("stage-row")
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(if (i == 0) "Set" else "↳ $noun $i", style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
-                            color = if (i == 0) MaterialTheme.colorScheme.onSurfaceVariant else accentText(),
-                            modifier = Modifier.width(72.dp))
-                        Text(setText(set, exercise), style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum"),
-                            modifier = Modifier.weight(1f))
-                        RebuildIcon(R.drawable.ic_pencil, contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(if (i == 0) "Set" else "↳ $name", style = MaterialTheme.typography.labelLarge,
+                                color = if (i == 0) MaterialTheme.colorScheme.onSurfaceVariant else accentText())
+                            // The value never breaks inside itself: if load × reps and the RIR don't fit on one line,
+                            // the RIR moves down whole.
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                itemVerticalAlignment = Alignment.CenterVertically) {
+                                // A non-breaking space keeps "× 9" whole, so large text breaks before it, not inside it.
+                                Text(loadRepsText(set, exercise).replace(" × ", " ×\u00A0"), style = ledgerValueStyle(),
+                                    fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                Text(rirShort(set), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false)
+                            }
+                        }
+                        LoggedRowEditMark()
                     }
                 }
             }
             if (entry.stages.size < MAX_GROUP_STAGES) {
                 SecondaryButton(onClick = { addingStageId = newId() }, enabled = !env.runner.busy,
-                    icon = R.drawable.ic_plus, modifier = Modifier.testTag("add-missed-stage")) {
-                    Text("Add a missed ${followUpLabel(group.method).lowercase()}")
+                    icon = R.drawable.ic_plus, modifier = Modifier.fillMaxWidth().testTag("add-missed-stage")) {
+                    Text("Add a ${noun.lowercase()}")
                 }
             } else {
-                Text("This set has the most it can hold: itself and ${MAX_GROUP_STAGES - 1} more.", style = MaterialTheme.typography.bodySmall)
+                Text("This set has the most it can hold: itself and ${MAX_GROUP_STAGES - 1} more.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            val before = entries.getOrNull(index - 1)
-            val joinable = group.method == SetMethod.DROP && group.finishedAt != null && before != null &&
-                before.unit == entry.unit && (before is WorkEntry.Single ||
-                    (before is WorkEntry.Group && before.group.method == SetMethod.DROP && !before.open))
-            if (joinable) {
-                HorizontalDivider()
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Were these drops off set $index?", style = MaterialTheme.typography.titleSmall)
-                    Text("Make them part of set $index. Set ${index + 1} stops counting as a working set; every value is kept.",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    OutlinedButton(
-                        onClick = {
-                            error = null
-                            env.runner.run(Action.JoinDropsToSet(workout.id, we.id, groupId), onError = { error = it }) {
-                                onDismiss()
-                            }
-                        },
-                        enabled = !env.runner.busy,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("join-drops")
-                    ) { Text("Make them drops of set $index") }
-                }
-            }
-            HorizontalDivider()
-            SectionHeader("Type")
-            Column(Modifier.selectableGroup()) {
-                SetMethod.entries.forEach { method ->
-                    RadioRow(
-                        method.title, group.method == method,
-                        onClick = {
-                            if (group.method != method) {
-                                error = null
-                                env.runner.run(Action.SetGroupMethod(workout.id, we.id, groupId, method), onError = { error = it })
-                            }
-                        },
-                        enabled = !env.runner.busy,
-                        supporting = methodHelp(method)
-                    )
-                }
+            // Drop set or rest-pause: a pill choice like History's tabs, applied at once. The line under it
+            // describes the chosen type and is spoken when it changes, so the switch is never silent.
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Type", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp).semantics { heading() })
+                PillChoice(
+                    options = SetMethod.entries,
+                    selected = group.method,
+                    onSelect = { method ->
+                        error = null
+                        env.runner.run(Action.SetGroupMethod(workout.id, we.id, groupId, method), onError = { error = it })
+                    },
+                    // A zero-width space after the hyphen is the only place a large label may break.
+                    label = { it.title.replace("-", "-\u200B") },
+                    enabled = !env.runner.busy,
+                    tag = { "group-method-${it.name.lowercase()}" }
+                )
+                Text(methodHelp(group.method), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
             }
             ErrorText(error)
-            if (live && group.finishedAt == null) {
-                Button(
-                    onClick = {
-                        error = null
-                        env.runner.run(Action.FinishGroup(workout.id, we.id, groupId, env.clock()), onError = { error = it }) {
-                            onDismiss()
-                        }
-                    },
-                    enabled = !env.runner.busy,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("group-finish")
-                ) { Text("Finish set") }
-            }
-            TextButton(
-                onClick = { confirmDelete = true },
-                enabled = !env.runner.busy,
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                modifier = Modifier.heightIn(min = 48.dp)
-            ) { Text("Delete this set") }
         },
-        confirmButton = { TextButton(onClick = onDismiss, modifier = Modifier.testTag("group-done")) { Text("Done") } }
+        // One amber action in thumb reach: Finish set while the set is still going, otherwise Done.
+        confirmButton = {
+            if (finishable) TextButton(
+                onClick = {
+                    error = null
+                    env.runner.run(Action.FinishGroup(workout.id, we.id, groupId, env.clock()), onError = { error = it }) {
+                        onDismiss()
+                    }
+                },
+                enabled = !env.runner.busy,
+                modifier = Modifier.testTag("group-finish")
+            ) { Text("Finish set") }
+            else TextButton(onClick = onDismiss, modifier = Modifier.testTag("group-done")) { Text("Done") }
+        },
+        dismissButton = {
+            if (finishable) TextButton(onClick = onDismiss, modifier = Modifier.testTag("group-done")) { Text("Close") }
+        }
     )
 }
 

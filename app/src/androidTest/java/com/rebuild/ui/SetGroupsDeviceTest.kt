@@ -197,7 +197,7 @@ class SetGroupsDeviceTest {
         // A missed stage goes after the last one, in that stage's unit, and the set still counts once.
         rule.onNodeWithTag("add-missed-stage").performScrollTo().performClick()
         // The dialog's title; the button behind it says the same and is the clickable one.
-        rule.onNode(hasText("Add a missed drop") and !hasClickAction()).assertIsDisplayed()
+        rule.onNode(hasText("Add a drop") and !hasClickAction()).assertIsDisplayed()
         rule.onNodeWithTag("edit-kg").performTextReplacement("10")
         rule.onNodeWithTag("edit-reps").performTextReplacement("5")
         rule.onNodeWithText("Save", substring = false).performClick()
@@ -208,11 +208,13 @@ class SetGroupsDeviceTest {
         assertEquals(1, row(repo).workingCount())
         assertEquals(timer, repo.state.value.restTimer)
 
-        rule.onNodeWithText("Rest-pause").performScrollTo().performClick()
+        rule.onNodeWithTag("group-method-rest_pause").performScrollTo().performClick()
         rule.waitUntil(5_000) { row(repo).setGroups.single().method == SetMethod.REST_PAUSE }
         assertEquals(before.map { it.id } + row(repo).sets.last().id, row(repo).sets.map { it.id })
 
-        rule.onNodeWithText("Delete this set").performScrollTo().performClick()
+        // Delete lives in the title menu, away from the confirm.
+        rule.onNodeWithTag("group-more").performClick()
+        rule.onNodeWithText("Delete this set").performClick()
         rule.onNodeWithText("Delete set").performClick()
         rule.waitUntil(5_000) { row(repo).sets.isEmpty() }
         assertTrue(row(repo).setGroups.isEmpty())
@@ -419,7 +421,8 @@ class SetGroupsDeviceTest {
         rule.onNodeWithText("Upper A").performClick()
         rule.onAllNodesWithTag("working-count")[0].assertTextContains("Working sets: 3", substring = true)
         rule.onNode(hasTestTag("group-row") and hasContentDescription("Set 3:", substring = true)).performScrollTo().performClick()
-        rule.onNodeWithTag("join-drops").performScrollTo().assertTextEquals("Make them drops of set 2").performClick()
+        rule.onNodeWithTag("group-more").performClick()
+        rule.onNodeWithTag("join-drops").assertTextContains("Make them drops of set 2", substring = true).performClick()
         rule.waitUntil(5_000) { repo.state.value.workouts.single().exercises.first().workingCount() == 2 }
         rule.waitForIdle()
         rule.onAllNodesWithTag("working-count")[0].assertTextContains("Working sets: 2", substring = true)
