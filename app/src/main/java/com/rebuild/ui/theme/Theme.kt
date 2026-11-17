@@ -2,7 +2,6 @@ package com.rebuild.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
@@ -150,10 +149,13 @@ internal val RebuildShapes = Shapes(
 )
 
 /**
- * How strongly a press tints. Higher than Material's defaults (pressed 0.10), because amber at 10% on the warm canvas is
- * barely a change; at these strengths a pressed tab reads as the start of its amber indicator.
+ * How strongly a press tints. Light runs higher than Material's 0.10, because amber at 10% on the warm canvas is barely
+ * a change; at 0.28 a pressed tab reads as a paler start of its amber indicator. Dark runs lower: amber over the grey
+ * tracks there comes out brighter than the deep-brown selection pill, so a stronger press would look more selected
+ * than the selection. Focus stays well under press, so a focused control never reads as held.
  */
-private val EmberRippleAlpha = RippleAlpha(draggedAlpha = 0.32f, focusedAlpha = 0.24f, hoveredAlpha = 0.12f, pressedAlpha = 0.28f)
+private val LightEmberAlpha = RippleAlpha(draggedAlpha = 0.32f, focusedAlpha = 0.16f, hoveredAlpha = 0.10f, pressedAlpha = 0.28f)
+private val DarkEmberAlpha = RippleAlpha(draggedAlpha = 0.22f, focusedAlpha = 0.12f, hoveredAlpha = 0.08f, pressedAlpha = 0.18f)
 
 /**
  * Presses are ember, not Material's neutral state layer. The stock ripple takes the content colour, so on the canvas
@@ -161,7 +163,10 @@ private val EmberRippleAlpha = RippleAlpha(draggedAlpha = 0.32f, focusedAlpha = 
  * for one tap. The fill-strength amber (softened on dark) keeps a press the same colour as what it selects.
  */
 @OptIn(ExperimentalMaterial3Api::class)
-internal fun emberRipple(scheme: ColorScheme) = RippleConfiguration(color = scheme.primaryContainer, rippleAlpha = EmberRippleAlpha)
+internal fun emberRipple(darkTheme: Boolean) = RippleConfiguration(
+    color = (if (darkTheme) Dark else Light).primaryContainer,
+    rippleAlpha = if (darkTheme) DarkEmberAlpha else LightEmberAlpha
+)
 
 /**
  * For controls drawn on an amber fill (the filled buttons, the rest sheet): an amber press would vanish into the fill,
@@ -181,6 +186,6 @@ fun RebuildTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composabl
         typography = RebuildTypography,
         shapes = RebuildShapes
     ) {
-        CompositionLocalProvider(LocalRippleConfiguration provides emberRipple(scheme), content = content)
+        CompositionLocalProvider(LocalRippleConfiguration provides emberRipple(darkTheme), content = content)
     }
 }

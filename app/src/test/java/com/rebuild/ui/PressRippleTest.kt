@@ -49,7 +49,11 @@ class PressRippleTest {
         val scheme = if (dark) Dark else Light
         val seen = ripples(dark)
         assertEquals(scheme.primaryContainer, seen.themed!!.color)
-        assertTrue("a press must be visible", seen.themed!!.rippleAlpha!!.pressedAlpha >= 0.2f)
+        val alpha = seen.themed!!.rippleAlpha!!
+        // Visible, but on dark below the selection pill's strength; focus never as strong as a press.
+        if (dark) assertTrue("dark press ${alpha.pressedAlpha}", alpha.pressedAlpha in 0.15f..0.2f)
+        else assertTrue("light press ${alpha.pressedAlpha}", alpha.pressedAlpha >= 0.2f)
+        assertTrue("focus under press", alpha.focusedAlpha <= alpha.pressedAlpha * 0.7f)
         // Unspecified: Material's ripple in the control's own content colour (ink on amber), not the ember press.
         assertEquals(Color.Unspecified, seen.filledButton!!.color)
         assertEquals(Color.Unspecified, seen.confirmPill!!.color)
