@@ -33,11 +33,18 @@ class ColdLoadDeviceTest {
         val padded = json + " ".repeat(bytes - json.toByteArray(Charsets.UTF_8).size)
         SqliteSnapshotPersistence(context).use { it.write(padded) }
 
+        // Hold the open lock so the app stays on its loading screen until the checks below are done. Timing alone
+        // was flaky: a fast emulator finished loading before the first check, and a slow one never settled.
+        runBlocking { RebuildRepository.openMutex.lock() }
         ActivityScenario.launch(MainActivity::class.java).use {
-            rule.onNodeWithText("Opening your saved workouts").assertIsDisplayed()
-            rule.onNodeWithText("Choose where to start").assertDoesNotExist()
-            rule.onNodeWithTag("start-scheduled").assertDoesNotExist()
-            rule.onNodeWithTag("log-set").assertDoesNotExist()
+            try {
+                rule.onNodeWithText("Opening your saved workouts").assertIsDisplayed()
+                rule.onNodeWithText("Choose where to start").assertDoesNotExist()
+                rule.onNodeWithTag("start-scheduled").assertDoesNotExist()
+                rule.onNodeWithTag("log-set").assertDoesNotExist()
+            } finally {
+                RebuildRepository.openMutex.unlock()
+            }
             rule.waitUntil(timeoutMillis = 30_000) {
                 rule.onAllNodes(hasText("Today")).fetchSemanticsNodes().isNotEmpty()
             }
