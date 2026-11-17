@@ -4,9 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.foundation.border
@@ -50,7 +47,6 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.rebuild.R
 import com.rebuild.domain.Action
@@ -472,31 +468,23 @@ internal fun GroupDialog(env: AppEnv, workout: Workout, we: WorkoutExercise, gro
                 Text("This set has the most it can hold: itself and ${MAX_GROUP_STAGES - 1} more.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            // Drop set or rest-pause: a toggle that applies at once, like the unit choices elsewhere. The line under it
+            // Drop set or rest-pause: a pill choice like History's tabs, applied at once. The line under it
             // describes the chosen type and is spoken when it changes, so the switch is never silent.
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Type", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp).semantics { heading() })
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    SetMethod.entries.forEachIndexed { i, method ->
-                        SegmentedButton(
-                            selected = group.method == method,
-                            onClick = {
-                                if (group.method != method) {
-                                    error = null
-                                    env.runner.run(Action.SetGroupMethod(workout.id, we.id, groupId, method), onError = { error = it })
-                                }
-                            },
-                            enabled = !env.runner.busy,
-                            shape = SegmentedButtonDefaults.itemShape(i, SetMethod.entries.size),
-                            icon = {},
-                            // Large text wraps the label ("Rest-" / "pause") rather than clipping it.
-                            // A zero-width space after the hyphen is the only place it may break.
-                            label = { Text(method.title.replace("-", "-\u200B"), textAlign = TextAlign.Center) },
-                            modifier = Modifier.heightIn(min = 48.dp).testTag("group-method-${method.name.lowercase()}")
-                        )
-                    }
-                }
+                PillChoice(
+                    options = SetMethod.entries,
+                    selected = group.method,
+                    onSelect = { method ->
+                        error = null
+                        env.runner.run(Action.SetGroupMethod(workout.id, we.id, groupId, method), onError = { error = it })
+                    },
+                    // A zero-width space after the hyphen is the only place a large label may break.
+                    label = { it.title.replace("-", "-\u200B") },
+                    enabled = !env.runner.busy,
+                    tag = { "group-method-${it.name.lowercase()}" }
+                )
                 Text(methodHelp(group.method), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })

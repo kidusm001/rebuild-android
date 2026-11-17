@@ -10,6 +10,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Surface
 import androidx.compose.foundation.border
 import androidx.compose.ui.text.TextStyle
@@ -1082,7 +1084,12 @@ internal fun PillTab(
     label: String,
     modifier: Modifier = Modifier,
     selectedContentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
-    unselectedContentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant
+    unselectedContentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    /** Tab for pages; [PillChoice] passes RadioButton for a choice that applies a value. */
+    role: Role = Role.Tab,
+    enabled: Boolean = true,
+    /** More than one line only where the label may wrap (large text in a narrow segment). */
+    maxLines: Int = 1
 ) {
     val presses = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val pressed by presses.collectIsPressedAsState()
@@ -1093,8 +1100,8 @@ internal fun PillTab(
     Box(
         modifier
             .heightIn(min = 48.dp)
-            .selectable(selected = selected, onClick = onClick, role = Role.Tab, interactionSource = presses,
-                indication = null),
+            .selectable(selected = selected, onClick = onClick, enabled = enabled, role = role,
+                interactionSource = presses, indication = null),
         contentAlignment = Alignment.Center
     ) {
         Box(
@@ -1107,8 +1114,53 @@ internal fun PillTab(
                 .indication(presses, androidx.compose.material3.ripple(
                     color = if (selected) selectedContentColor else Color.Unspecified))
         )
-        Text(label, style = MaterialTheme.typography.titleSmall, maxLines = 1, softWrap = false,
+        Text(label, style = MaterialTheme.typography.titleSmall, maxLines = maxLines, softWrap = maxLines > 1,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             color = if (selected) selectedContentColor else unselectedContentColor,
-            modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale }.padding(horizontal = 16.dp))
+            modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale }.padding(horizontal = 16.dp, vertical = 8.dp))
+    }
+}
+
+/**
+ * A small single choice that applies at once (a set's type), drawn like History's tabs: a tonal pill track with the
+ * chosen option as a pill inside it, the same press and the same squish. Options share the width equally; at large
+ * text a label wraps to a second line rather than being cut off.
+ */
+@Composable
+internal fun <T> PillChoice(
+    options: List<T>,
+    selected: T,
+    onSelect: (T) -> Unit,
+    label: (T) -> String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    tag: (T) -> String = { "" }
+) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .clip(CircleShape)
+            .background(tonalFill())
+            .selectableGroup()
+    ) {
+        options.forEach { option ->
+            val chosen = option == selected
+            val pill by androidx.compose.animation.animateColorAsState(
+                if (chosen) colors.secondaryContainer else Color.Transparent, label = "choice-pill")
+            Box(Modifier.weight(1f).fillMaxHeight()) {
+                Box(Modifier.matchParentSize().padding(4.dp).clip(CircleShape).background(pill))
+                PillTab(
+                    selected = chosen,
+                    onClick = { if (!chosen) onSelect(option) },
+                    label = label(option),
+                    role = Role.RadioButton,
+                    enabled = enabled,
+                    maxLines = 2,
+                    modifier = Modifier.fillMaxSize().testTag(tag(option))
+                )
+            }
+        }
     }
 }
