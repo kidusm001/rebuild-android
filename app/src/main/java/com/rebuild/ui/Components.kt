@@ -65,6 +65,7 @@ import com.rebuild.R
 import com.rebuild.ui.theme.SignalAmber
 import com.rebuild.ui.theme.InkPress
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Checkbox
@@ -284,7 +285,11 @@ internal fun AdaptiveDialog(
         title = title,
         text = {
             CompositionLocalProvider(LocalDialogSlot provides DialogSlot.BODY) { KeyboardFirstBack(onDismissRequest) {
-                Column(Modifier.verticalScroll(rememberScrollState()).testTag("dialog-body"),
+                // A long body (large text, a short window) fades where it continues, so nothing looks missing.
+                val scroll = rememberScrollState()
+                Column(Modifier.fadingEdges(scroll, if (LocalDensity.current.fontScale > 1.3f) 48.dp else 32.dp,
+                        background = AlertDialogDefaults.containerColor)
+                    .verticalScroll(scroll).testTag("dialog-body"),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) { text() }
             }
             }
@@ -820,10 +825,12 @@ internal fun TonalChip(
  */
 internal fun Modifier.fadingEdges(
     scroll: androidx.compose.foundation.ScrollState,
-    edge: androidx.compose.ui.unit.Dp = 32.dp
+    edge: androidx.compose.ui.unit.Dp = 32.dp,
+    /** What the content sits on; a dialog passes its own container colour. */
+    background: Color? = null
 ): Modifier = composed {
     // Painted over the content in the page colour, with no offscreen layer, so accessibility still sees every row.
-    val page = MaterialTheme.colorScheme.surface
+    val page = background ?: MaterialTheme.colorScheme.surface
     drawWithContent {
         drawContent()
         val top = if (scroll.canScrollBackward) edge.toPx().coerceAtMost(size.height / 4) else 0f

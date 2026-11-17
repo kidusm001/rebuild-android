@@ -305,7 +305,7 @@ private fun SetEditDialogContent(
         onDismissRequest = onDismiss,
         title = {
             Text(when {
-                group != null && set == null -> "Add a missed ${followUpLabel(group.method).lowercase()}"
+                group != null && set == null -> "Add a ${followUpLabel(group.method).lowercase()}"
                 group != null -> "Edit $stageName"
                 set == null -> "Add a missed set"
                 else -> "Edit set"
