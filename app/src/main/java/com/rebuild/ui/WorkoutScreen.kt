@@ -25,6 +25,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.animation.AnimatedVisibility
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
@@ -362,13 +367,24 @@ private fun ExerciseRail(
     // The order shown: the workout's, except while a pill is being dragged, when it follows the finger.
     val saved = workout.exercises.map { it.id }
     var order by remember { mutableStateOf(saved) }
+    // The pill being dragged (or settling into its slot after the drop), and where its left edge is on screen.
     var dragging by remember { mutableStateOf<String?>(null) }
-    var dragOffset by remember { mutableFloatStateOf(0f) }
+    var dragLeft by remember { mutableFloatStateOf(0f) }
+    // The finger along the strip, for edge scrolling: the strip moves when the finger nears its edge, not the pill.
+    var fingerX by remember { mutableFloatStateOf(0f) }
+    // 1 while held; eases to 0 after the drop as the pill settles into its slot and loses its lift.
+    val lift = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
     var menuFor by remember { mutableStateOf<String?>(null) }
     var removing by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(saved) { if (dragging == null) order = saved }
     val byId = workout.exercises.associateBy { it.id }
     val gap = with(density) { 8.dp.toPx() }
+    // The strip's own coordinates: they never move, so the finger is measured in them rather than in the lifted
+    // pill's, which slide, grow and change slot under it.
+    var stripCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    // Every pill width seen while dragging, so pills scrolled out of view still count at their real size.
+    val widths = remember { mutableMapOf<String, Int>() }
 
     // A hold also reaches the pill's tap handling when the finger lifts; that tap must not switch exercises.
     var heldTap by remember { mutableStateOf(false) }
@@ -397,49 +413,63 @@ private fun ExerciseRail(
     val currentSaved by rememberUpdatedState(saved)
     val currentMove by rememberUpdatedState(::move)
 
-    /** While dragging: swap with a neighbour once the pill's centre passes the neighbour's, and scroll at the edges. */
-    fun followDrag(id: String, delta: Float) {
-        dragOffset += delta
-        val items = listState.layoutInfo.visibleItemsInfo
-        val current = items.firstOrNull { it.key == id } ?: return
-        val centre = current.offset + dragOffset + current.size / 2f
-        val index = order.indexOf(id)
-        val next = items.firstOrNull { it.key == order.getOrNull(index + 1) }
-        val previous = items.firstOrNull { it.key == order.getOrNull(index - 1) }
-        when {
-            next != null && centre > next.offset + next.size / 2f -> {
-                order = order.toMutableList().apply { add(index + 1, removeAt(index)) }
-                dragOffset -= next.size + gap
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-            }
-            previous != null && centre < previous.offset + previous.size / 2f -> {
-                order = order.toMutableList().apply { add(index - 1, removeAt(index)) }
-                dragOffset += previous.size + gap
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-            }
+    /**
+     * Puts the dragged pill in the slot its centre is over. The others never change order between themselves, so
+     * their positions with the dragged pill taken out come from the latest layout, whichever slot that layout drew
+     * the dragged pill in. That keeps a fast drag right even when several moves arrive before the strip lays out again.
+     */
+    fun retarget(id: String) {
+        val visible = listState.layoutInfo.visibleItemsInfo
+        visible.forEach { item -> (item.key as? String)?.let { widths[it] = item.size } }
+        val drawn = visible.firstOrNull { it.key == id } ?: return
+        val others = order.filter { it != id }
+        val anchor = visible.firstOrNull { it.key != id && it.key in others } ?: return
+        val anchorIndex = others.indexOf(anchor.key)
+        val known = widths.values.average().toFloat()
+        fun width(other: String) = widths[other]?.toFloat() ?: known
+        // The anchor's left edge with the dragged pill taken out, then everyone else's from it.
+        val anchorLeft = anchor.offset - if (drawn.index < anchor.index) drawn.size + gap else 0f
+        val lefts = FloatArray(others.size)
+        lefts[anchorIndex] = anchorLeft
+        for (i in anchorIndex + 1 until others.size) lefts[i] = lefts[i - 1] + width(others[i - 1]) + gap
+        for (i in anchorIndex - 1 downTo 0) lefts[i] = lefts[i + 1] - width(others[i]) - gap
+        val from = order.indexOf(id)
+        val to = dragSlot(lefts.toList(), others.map(::width), gap, drawn.size.toFloat(),
+            centre = dragLeft + drawn.size / 2f, from = from)
+        if (to != from) {
+            // A lazy row keeps its first visible item in place by key, so moving that item would scroll the whole strip
+            // after it. Hold the strip where it is instead: only the pills trade places.
+            val first = listState.firstVisibleItemIndex
+            val offset = listState.firstVisibleItemScrollOffset
+            order = others.toMutableList().apply { add(to, id) }
+            listState.requestScrollToItem(first, offset)
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
         }
     }
 
-    // While a pill is held near either edge the strip keeps scrolling, every frame, even if the thumb rests there.
+    // While the finger is held near either edge the strip keeps scrolling, even if the thumb rests there: slowly at
+    // the start of the zone, faster only the closer it gets to the edge, and never more than about a pill a second.
     LaunchedEffect(dragging, dragMoved) {
         val id = dragging ?: return@LaunchedEffect
         if (!dragMoved) return@LaunchedEffect
-        val edge = with(density) { 48.dp.toPx() }
-        val step = with(density) { 10.dp.toPx() }
-        while (true) {
-            withFrameNanos { }
-            val info = listState.layoutInfo
-            val current = info.visibleItemsInfo.firstOrNull { it.key == id } ?: continue
-            val left = current.offset + dragOffset
-            val right = left + current.size
-            val scroll = when {
-                right > info.viewportEndOffset - edge && listState.canScrollForward -> step
-                left < info.viewportStartOffset + edge && listState.canScrollBackward -> -step
+        val zone = with(density) { 64.dp.toPx() }
+        val fastest = with(density) { 240.dp.toPx() }
+        var last = withFrameNanos { it }
+        while (lift.targetValue == 1f) {
+            val now = withFrameNanos { it }
+            val seconds = (now - last) / 1_000_000_000f
+            last = now
+            val width = stripCoordinates?.size?.width?.toFloat() ?: continue
+            val depth = when {
+                fingerX > width - zone && listState.canScrollForward -> ((fingerX - (width - zone)) / zone).coerceIn(0f, 1f)
+                fingerX < zone && listState.canScrollBackward -> -((zone - fingerX) / zone).coerceIn(0f, 1f)
                 else -> 0f
             }
-            if (scroll != 0f) {
-                dragOffset += listState.scrollBy(scroll)
-                followDrag(id, 0f)
+            if (depth != 0f) {
+                // Eased: a finger just inside the zone creeps; one at the very edge moves at the top speed.
+                val speed = fastest * depth * kotlin.math.abs(depth)
+                listState.scrollBy(speed * seconds)
+                retarget(id)
             }
         }
     }
@@ -450,48 +480,80 @@ private fun ExerciseRail(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         userScrollEnabled = dragging == null,
         modifier = Modifier.readableWidth().selectableGroup().testTag("exercise-picker")
+            .onPlaced { stripCoordinates = it }
     ) {
         itemsIndexed(order.mapNotNull { byId[it] }, key = { _, it -> it.id }) { index, ex ->
             val lifted = dragging == ex.id
+            val pillCoordinates = remember { arrayOfNulls<LayoutCoordinates>(1) }
             Box(
                 Modifier
                     .zIndex(if (lifted) 1f else 0f)
                     .then(if (lifted) Modifier else Modifier.animateItem())
                     .graphicsLayer {
                         if (lifted) {
-                            translationX = dragOffset
-                            scaleX = 1.06f
-                            scaleY = 1.06f
-                            shadowElevation = 8.dp.toPx()
+                            // Drawn where the finger has it, whatever slot the last layout put it in, so it never
+                            // jumps back for a frame after passing a neighbour. After the drop it eases into its slot.
+                            val laidOut = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == ex.id }
+                            translationX = if (laidOut == null) 0f else (dragLeft - laidOut.offset) * lift.value
+                            val scale = 1f + LIFT_SCALE * lift.value
+                            scaleX = scale
+                            scaleY = scale
+                            shadowElevation = 8.dp.toPx() * lift.value
                             shape = RoundedCornerShape(12.dp)
                             clip = false
                         }
                     }
+                    .onPlaced { pillCoordinates[0] = it }
                     .pointerInput(ex.id, workout.id) {
                         var travelled = 0f
+                        // Where the finger is along the strip, and where it and the pill were when the drag began.
+                        fun stripX(local: Offset): Float? {
+                            val strip = stripCoordinates ?: return null
+                            val pill = pillCoordinates[0]?.takeIf { it.isAttached } ?: return null
+                            return strip.localPositionOf(pill, local).x
+                        }
+                        var fingerStart = 0f
+                        var pillStart = 0f
+                        fun endDrag() {
+                            dragMoved = false
+                            // The pill eases from under the finger into its slot, then drops its lift.
+                            scope.launch {
+                                lift.animateTo(0f, tween(180, easing = FastOutSlowInEasing))
+                                if (lift.targetValue == 0f) dragging = null
+                            }
+                        }
                         detectDragGesturesAfterLongPress(
-                            onDragStart = {
+                            onDragStart = { at ->
                                 travelled = 0f
                                 dragMoved = false
                                 heldTap = true
-                                dragging = ex.id
-                                dragOffset = 0f
                                 order = currentSaved
+                                pillStart = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == ex.id }
+                                    ?.offset?.toFloat() ?: 0f
+                                fingerStart = stripX(at) ?: 0f
+                                fingerX = fingerStart
+                                dragLeft = pillStart
+                                dragging = ex.id
+                                scope.launch { lift.snapTo(1f) }
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             },
                             onDrag = { change, amount ->
                                 change.consume()
                                 travelled += kotlin.math.abs(amount.x) + kotlin.math.abs(amount.y)
                                 if (travelled > viewConfiguration.touchSlop) dragMoved = true
-                                followDrag(ex.id, amount.x)
+                                // Measured along the strip: in the pill's own space the finger seems to move less
+                                // (the pill is drawn larger) and jumps whenever the pill changes slot.
+                                stripX(change.position)?.let {
+                                    fingerX = it
+                                    dragLeft = pillStart + it - fingerStart
+                                }
+                                retarget(ex.id)
                             },
                             onDragEnd = {
                                 val moved = travelled > viewConfiguration.touchSlop
+                                if (moved) retarget(ex.id)
                                 val to = order.indexOf(ex.id)
-                                dragging = null
-                                dragOffset = 0f
                                 heldTap = false
-                                dragMoved = false
                                 // Held still: the menu, over the saved order. Dragged: today's new order, saved once (or, if a change is
                                 // still saving, back where it was, with a word why).
                                 if (!moved) {
@@ -501,16 +563,15 @@ private fun ExerciseRail(
                                     order = currentSaved
                                     onNotice("Still saving. Try the move again in a moment.")
                                 }
+                                endDrag()
                             },
                             onDragCancel = {
                                 // A hold released in place ends here too (the pill's tap handling takes the finger
                                 // up), so a hold that never moved still opens the menu.
                                 val held = travelled <= viewConfiguration.touchSlop
-                                dragging = null
-                                dragOffset = 0f
-                                dragMoved = false
                                 order = currentSaved
                                 if (held) menuFor = ex.id
+                                endDrag()
                             }
                         )
                     }
@@ -554,6 +615,21 @@ private fun removeBlocked(we: WorkoutExercise, watch: Stopwatch?): String? = whe
     watch?.exerciseId == we.id -> "Log or discard its stopwatch effort first"
     !we.optional && we.goalReached() -> "Its target is done, so there's nothing to skip"
     else -> null
+}
+
+/** How much larger a lifted pill is drawn while it's dragged. */
+private const val LIFT_SCALE = 0.06f
+
+/**
+ * The slot a dragged pill belongs in among the others, which keep their order: it passes a neighbour once its centre
+ * passes the neighbour's centre, either way. [lefts] and [sizes] are the others' left edges and widths with the
+ * dragged pill taken out; with it in slot k, every pill from k on sits [dragged] + [gap] further right.
+ */
+internal fun dragSlot(lefts: List<Float>, sizes: List<Float>, gap: Float, dragged: Float, centre: Float, from: Int): Int {
+    var k = from.coerceIn(0, lefts.size)
+    while (k < lefts.size && centre > lefts[k] + dragged + gap + sizes[k] / 2f) k++
+    while (k > 0 && centre < lefts[k - 1] + sizes[k - 1] / 2f) k--
+    return k
 }
 
 /** What removing means for this exercise today: a planned one is skipped (and can come back); an added one goes. */
