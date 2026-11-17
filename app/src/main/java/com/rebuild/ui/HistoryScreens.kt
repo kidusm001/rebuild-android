@@ -48,7 +48,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ScrollableTabRow
-import androidx.compose.material3.Tab
 import androidx.compose.material3.TabPosition
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
@@ -139,8 +138,7 @@ internal fun HistoryScreen(
             val selected = MaterialTheme.colorScheme.onSecondaryContainer
             val unselected = MaterialTheme.colorScheme.onSurfaceVariant
             HISTORY_TABS.forEachIndexed { i, label ->
-                Tab(selected = tab == i, onClick = { scope.launch { pager.animateScrollToPage(i) } },
-                    text = { Text(label, maxLines = 1, softWrap = false) },
+                PillTab(selected = tab == i, onClick = { scope.launch { pager.animateScrollToPage(i) } }, label = label,
                     selectedContentColor = selected, unselectedContentColor = unselected,
                     modifier = Modifier.testTag("history-tab-$i"))
             }

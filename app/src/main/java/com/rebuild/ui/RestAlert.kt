@@ -1,5 +1,6 @@
 package com.rebuild.ui
 
+import com.rebuild.ui.theme.InkPress
 import android.provider.Settings
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.layout.PaddingValues
@@ -302,7 +303,7 @@ internal fun RestAlarmBar(since: Long, clock: () -> Long, onStop: () -> Unit) {
         contentColor = colors.onPrimaryContainer,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         modifier = Modifier.fillMaxWidth().testTag("rest-end-alarm")
-    ) {
+    ) { InkPress { // on the amber sheet, presses are ink
         Row(
             Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 14.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -324,7 +325,7 @@ internal fun RestAlarmBar(since: Long, clock: () -> Long, onStop: () -> Unit) {
                     .semantics { contentDescription = "Stop alarm" }
             ) { Text("Stop", maxLines = 1) }
         }
-    }
+    } }
 }
 
 /** Keeps the latest [RestEnd] for [RestEndOverlay]; a preview from settings uses the same path. */

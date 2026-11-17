@@ -44,6 +44,7 @@ import com.rebuild.domain.weekStartOf
 import com.rebuild.domain.weeklySetsByMuscle
 import com.rebuild.domain.workoutDays
 import com.rebuild.ui.theme.SignalAmber
+import androidx.compose.material3.ripple
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -111,7 +112,9 @@ private fun CalendarDay(date: LocalDate, today: LocalDate, workouts: List<Workou
             // A small marker, not a large fill: full signal amber in both themes.
             .background(if (trained) SignalAmber else colors.surface.copy(alpha = 0f))
             .then(if (date == today && !trained) Modifier.border(1.5.dp, colors.outline, CircleShape) else Modifier)
-            .then(if (trained) Modifier.clickable(onClickLabel = "Open ${workouts!!.first().name}") { onOpen(workouts.first()) }
+            // An amber marker: the press is ink, since the app's ember press would vanish into it.
+            .then(if (trained) Modifier.clickable(interactionSource = null, indication = ripple(color = colors.onPrimaryContainer),
+                onClickLabel = "Open ${workouts!!.first().name}") { onOpen(workouts.first()) }
                 else Modifier)
             .clearAndSetSemantics { contentDescription = spoken },
         horizontalAlignment = Alignment.CenterHorizontally,

@@ -58,6 +58,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import com.rebuild.R
 import com.rebuild.ui.theme.SignalAmber
+import com.rebuild.ui.theme.InkPress
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ColorScheme
@@ -81,6 +82,8 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.annotation.DrawableRes
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
@@ -954,11 +957,11 @@ internal fun TextButton(
             colors = if (colors.contentColor == scheme.primary) ButtonDefaults.textButtonColors(contentColor = accentText())
                 else colors,
             contentPadding = contentPadding, content = content)
-        DialogSlot.CONFIRM -> androidx.compose.material3.Button(
+        DialogSlot.CONFIRM -> InkPress { androidx.compose.material3.Button(
             onClick = onClick, modifier = modifier.heightIn(min = 48.dp), enabled = enabled,
             colors = if (destructive) ButtonDefaults.buttonColors(containerColor = scheme.error, contentColor = scheme.onError)
                 else signalButtonColors(),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), content = content)
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), content = content) }
         DialogSlot.DISMISS, DialogSlot.BODY -> FilledTonalButton(
             onClick = onClick, modifier = modifier.heightIn(min = 48.dp), enabled = enabled,
             colors = ButtonDefaults.filledTonalButtonColors(
@@ -989,8 +992,10 @@ internal fun Button(
     colors: androidx.compose.material3.ButtonColors = signalButtonColors(),
     contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
     content: @Composable RowScope.() -> Unit
-) = androidx.compose.material3.Button(onClick = onClick, modifier = modifier, enabled = enabled, colors = colors,
-    contentPadding = contentPadding, content = content)
+) = InkPress { // a filled pill: an ember press would vanish into the amber
+    androidx.compose.material3.Button(onClick = onClick, modifier = modifier, enabled = enabled, colors = colors,
+        contentPadding = contentPadding, content = content)
+}
 
 /** A row of a grouped list: card tone, 20/4 dp corners from [groupShape], a 2 dp gap above all but the first. */
 @Composable
@@ -1000,3 +1005,47 @@ internal fun Modifier.groupedRow(index: Int, lastIndex: Int): Modifier =
     padding(top = if (index == 0) 0.dp else 2.dp)
         .background(MaterialTheme.colorScheme.surfaceContainerLowest, groupShape(index, lastIndex)).padding(horizontal = 16.dp)
 
+
+/**
+ * A tab inside a pill track (History's Workouts / Exercises / Body). Material's Tab paints its press over the whole
+ * cell, a rectangle in its label colour. Here the press is a capsule inset like the selection pill, in the app's
+ * ember, and an unselected segment gives a little under the finger, as current segmented controls do. The full cell, at least
+ * 48 dp tall, still takes the tap.
+ */
+@Composable
+internal fun PillTab(
+    selected: Boolean,
+    onClick: () -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    selectedContentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
+    unselectedContentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant
+) {
+    val presses = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val pressed by presses.collectIsPressedAsState()
+    // Only a tab you're moving to gives under the finger; the selected one keeps its pill's size.
+    val scale by androidx.compose.animation.core.animateFloatAsState(if (pressed && !selected) 0.96f else 1f,
+        androidx.compose.animation.core.spring(stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow),
+        label = "tab-press")
+    Box(
+        modifier
+            .heightIn(min = 48.dp)
+            .selectable(selected = selected, onClick = onClick, role = Role.Tab, interactionSource = presses,
+                indication = null),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            Modifier
+                .matchParentSize()
+                .padding(4.dp) // the selection pill's inset, so press and selection are the same shape
+                .graphicsLayer { scaleX = scale; scaleY = scale }
+                .clip(CircleShape)
+                // On the selected (amber) pill an ember press would vanish, so it presses in the pill's label colour.
+                .indication(presses, androidx.compose.material3.ripple(
+                    color = if (selected) selectedContentColor else Color.Unspecified))
+        )
+        Text(label, style = MaterialTheme.typography.titleSmall, maxLines = 1, softWrap = false,
+            color = if (selected) selectedContentColor else unselectedContentColor,
+            modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale }.padding(horizontal = 16.dp))
+    }
+}

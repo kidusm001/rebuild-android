@@ -1,5 +1,6 @@
 package com.rebuild.ui
 
+import com.rebuild.ui.theme.InkPress
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import com.rebuild.ui.theme.Numerals
@@ -103,7 +104,7 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             shadowElevation = 0.dp,
             modifier = Modifier.fillMaxWidth().testTag("rest-bar")
-        ) {
+        ) { InkPress { // on the amber sheet, presses are ink
             Row(
                 Modifier
                     .drawBehind {
@@ -174,7 +175,7 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                     RebuildIcon(R.drawable.ic_ellipsis_vertical, contentDescription = "Rest options")
                 }
             }
-        }
+        } }
     }
 
     if (options) AdaptiveDialog(
