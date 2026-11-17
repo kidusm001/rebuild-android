@@ -14,6 +14,14 @@ class LoadPresentationTest {
         assertEquals("5 plates/stack × 10 @ 2 RIR", setText(plates, cable))
     }
 
+    @Test fun rowsShowPlatesShortAndKeepTheRepsWithTheirLoad() {
+        // A row's compact form: "/stack" goes, the reps stay on the "×" line. Sentences and speech keep the full unit.
+        assertEquals("5 plates × 10", loadRepsText(plates, cable))
+        assertEquals("1 plate × 10", loadRepsText(plates.copy(plates = 1), cable))
+        assertEquals("5 kg × 12", loadRepsText(kg, cable))
+        assertTrue(setText(plates, cable).startsWith("5 plates/stack × 10"))
+    }
+
     @Test fun theWorkoutHeaderOnlyNamesTheLoadWhenTheUnitChipCannot() {
         val db = cable.copy(perDumbbell = true)
         val bodyweight = cable.copy(loading = LoadingType.BODYWEIGHT)
@@ -53,7 +61,7 @@ class LoadPresentationTest {
         // The set is the set; the drops are part of it, never a "drop set" that replaces it.
         assertEquals("20 kg × 10, drop 15 kg × 8, drop 10 kg × 6", groupText(group, cable))
         assertEquals("Set 2: 20 kg × 10, with 2 drops: 15 kg × 8; 10 kg × 6.", groupDescription("Set 2", group, cable))
-        assertEquals("15 × 8", followUpText(stages[1], stages[0], cable))
+        assertEquals("15 ×\u00A08", followUpText(stages[1], stages[0], cable))
         assertEquals("4 plates/stack × 9 @ 1 RIR", groupText(exercise.workEntries()[2] as WorkEntry.Group, cable))
         assertEquals(3, exercise.workingCount())
 

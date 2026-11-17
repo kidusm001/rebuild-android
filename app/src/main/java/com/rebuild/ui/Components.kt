@@ -960,6 +960,40 @@ internal fun accentTextFor(scheme: ColorScheme): Color =
 internal fun ledgerValueStyle(): TextStyle = MaterialTheme.typography.displaySmall.copy(fontSize = 24.sp, lineHeight = 28.sp)
 
 /**
+ * A ledger value on one line: at [style] when it fits, otherwise a step smaller, down to [minScale] of its size. Only
+ * if even that won't fit does it wrap, so nothing is ever cut off. "6 plates × 15" in a half-width cell at a larger
+ * font size reads as one value instead of breaking across two big lines.
+ */
+@Composable
+internal fun FitText(
+    text: String,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    fontWeight: FontWeight? = null,
+    color: Color = Color.Unspecified,
+    minScale: Float = 0.75f
+) {
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val styled = if (fontWeight != null) style.copy(fontWeight = fontWeight) else style
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier) {
+        val width = constraints.maxWidth
+        val fitted = remember(text, styled, width) {
+            if (!constraints.hasBoundedWidth) return@remember styled
+            var scale = 1f
+            while (scale > minScale &&
+                measurer.measure(text, styled.scaled(scale), maxLines = 1, softWrap = false).size.width > width) {
+                scale -= 0.05f
+            }
+            styled.scaled(scale.coerceAtLeast(minScale))
+        }
+        Text(text, style = fitted, color = color)
+    }
+}
+
+private fun TextStyle.scaled(scale: Float): TextStyle =
+    if (scale >= 1f) this else copy(fontSize = fontSize * scale, lineHeight = lineHeight * scale)
+
+/**
  * The container every logged row in the ledger shares: a card-toned rounded row whose edit action is a pencil in a
  * tonal circle at the end.
  */

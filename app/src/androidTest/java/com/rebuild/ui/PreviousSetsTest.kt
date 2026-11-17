@@ -141,8 +141,8 @@ class PreviousSetsTest {
             }
         }
         rule.onNodeWithTag("previous-set-2").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithText("42 kg/DB × 9", substring = true, useUnmergedTree = true).performScrollTo().assertIsDisplayed()
-        val node = rule.onNodeWithText("42 kg/DB × 9", substring = true, useUnmergedTree = true).fetchSemanticsNode()
+        rule.onNodeWithText("42 kg/DB ×\u00A09", substring = true, useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        val node = rule.onNodeWithText("42 kg/DB ×\u00A09", substring = true, useUnmergedTree = true).fetchSemanticsNode()
         assertEquals(node.size.height.toFloat(), node.boundsInRoot.height, 1f)
         assertTrue(node.boundsInRoot.left >= 0 && node.boundsInRoot.right <= 1080)
     }
@@ -157,13 +157,13 @@ class PreviousSetsTest {
                     previous.exercises.first(), previous.startedAt)
             }
         }
-        rule.onNodeWithText("41 kg assist × 10", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText("41 kg assist ×\u00A010", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("previous-set-1")
             .assertContentDescriptionContains("41 kg assist", substring = true)
         rule.runOnIdle { exercise.value = BENCH.copy(loading = LoadingType.BODYWEIGHT) }
-        rule.onNodeWithText("41 kg assist × 10", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithText("41 kg assist ×\u00A010", useUnmergedTree = true).assertDoesNotExist()
         rule.onNodeWithText("kg", substring = true, useUnmergedTree = true).assertDoesNotExist()
-        rule.onNodeWithText("Bodyweight × 10", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText("Bodyweight ×\u00A010", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("previous-set-1")
             .assertContentDescriptionContains("Bodyweight × 10", substring = true)
     }
