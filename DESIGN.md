@@ -134,7 +134,8 @@ The calendar, the muscle bars and every chart sit in cards; workouts, exercises,
 records and sessions are grouped lists. Set charts draw each session's best set as
 a straight amber line over a soft fill (other sets are faint dots, the latest point
 is ringed); the bodyweight average is a smooth curve. A finished workout opens on
-Minutes, Working sets and Exercises tiles, then one card per exercise.
+Minutes, Working sets and Exercises tiles (stacked full width above 130% font
+scale, like Plan's weekly totals), then one card per exercise.
 Exercises have a search field; each exercise's page adds **Records**: the
 heaviest working set actually lifted at each rep count up to 15, with ones beaten
 at more reps folded away. No estimated one-rep max.

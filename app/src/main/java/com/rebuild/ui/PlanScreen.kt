@@ -1,9 +1,5 @@
 package com.rebuild.ui
 
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -420,17 +416,10 @@ private fun WeeklyTotals(target: Int, baseline: Int, upper: Int) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionHeader("Weekly working sets")
         // Three numbers side by side; with large text they stack so each stays whole.
-        @Composable fun Tiles(modifier: (Boolean) -> Modifier) {
-            StatTile("$target", "This phase", modifier(true), emphasized = true, spoken = "This phase, $target")
-            StatTile("$baseline", "Baseline", modifier(false), spoken = "Established baseline, $baseline")
-            StatTile("$upper", "Upper", modifier(false), spoken = "Advisory upper, $upper")
-        }
-        if (LocalDensity.current.fontScale > 1.3f) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Tiles { Modifier.fillMaxWidth() } }
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.height(IntrinsicSize.Min)) {
-                Tiles { Modifier.weight(1f).fillMaxHeight() }
-            }
+        StatTiles { tile ->
+            StatTile("$target", "This phase", tile, emphasized = true, spoken = "This phase, $target")
+            StatTile("$baseline", "Baseline", tile, spoken = "Established baseline, $baseline")
+            StatTile("$upper", "Upper", tile, spoken = "Advisory upper, $upper")
         }
         Text("Advisory upper is the most weekly sets worth doing: a ceiling, not a goal.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
