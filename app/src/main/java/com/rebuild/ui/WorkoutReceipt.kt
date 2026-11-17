@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,8 +57,12 @@ import com.rebuild.domain.workingSetCount
 import com.rebuild.ui.theme.SignalAmber
 import kotlin.math.roundToLong
 
-/** One exercise's line on the receipt: its best normal working set, and what it beat from last time, if anything. */
-internal data class ReceiptLine(val name: String, val best: String, val sets: Int, val gain: String?)
+/**
+ * One exercise's line on the receipt: its best normal working set, and what it beat from last time, if anything.
+ * [best] is the short row form ("6 plates × 15"); [bestSpoken] is what TalkBack reads, with the unit in full.
+ */
+internal data class ReceiptLine(val name: String, val best: String, val sets: Int, val gain: String?,
+    val bestSpoken: String = best)
 
 /**
  * The heaviest working set (then the most reps at that load). A set with drops counts by its own first stage; drops
@@ -90,7 +95,8 @@ internal fun receiptLines(state: AppState, workout: Workout): List<ReceiptLine> 
         val best = we.bestSet(we.entryLoadUnit) ?: we.sets.firstOrNull { !it.warmup } ?: return@mapNotNull null
         val previous = state.previousComparable(we.exercise, workout.id, best.loadUnit, we.perLeg)
             ?.bestSet(best.loadUnit)
-        ReceiptLine(we.exercise.name, loadRepsText(best, we.exercise), we.workingCount(), gainOver(best, previous, we))
+        ReceiptLine(we.exercise.name, loadRepsText(best, we.exercise), we.workingCount(), gainOver(best, previous, we),
+            bestSpoken = "${loadText(best.amount, best.loadUnit, best.plates, we.exercise)} × ${best.reps}".spokenUnits())
     }
 
 /**
@@ -171,7 +177,10 @@ internal fun WorkoutReceipt(env: AppEnv, workout: Workout, onView: () -> Unit, o
                                     overflow = TextOverflow.Ellipsis)
                                 Text("${countLabel(line.sets, "set")} · best ${line.best}",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.semantics {
+                                        contentDescription = "${countLabel(line.sets, "set")} · best ${line.bestSpoken}"
+                                    })
                                 if (line.gain != null && large) Text(
                                     "${line.gain} vs last time",
                                     style = MaterialTheme.typography.labelLarge,

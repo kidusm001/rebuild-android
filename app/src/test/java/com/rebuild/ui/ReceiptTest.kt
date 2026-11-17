@@ -3,6 +3,7 @@ package com.rebuild.ui
 import com.rebuild.data.MemoryPersistence
 import com.rebuild.data.RebuildRepository
 import com.rebuild.domain.Action
+import com.rebuild.domain.LoadUnit
 import com.rebuild.domain.Phase
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -42,5 +43,19 @@ class ReceiptTest {
         assertEquals("+2 reps", latest().gain)
         finishedPush(repo, 3_000_000, kg = 40.0, reps = 9)
         assertNull("a lighter day is shown as it was, never as a loss", latest().gain)
+    }
+
+    @Test fun aPlateLineShowsTheShortFormButSpeaksTheFullUnit() = runTest {
+        val repo = RebuildRepository.fromPersistence(MemoryPersistence()) { 10_000_000 }
+        repo.execute(Action.SelectPhase(Phase.BASELINE))
+        repo.execute(Action.StartWorkout("pull", 1_000_000))
+        val workout = requireNotNull(repo.state.value.activeWorkout)
+        val cable = workout.exercises.first()
+        repo.execute(Action.SetLoadUnit(workout.id, cable.id, LoadUnit.PLATES))
+        repo.execute(Action.SaveSet(workout.id, cable.id, "p", null, 15, 0.0, false, 1_000_100, LoadUnit.PLATES, 6))
+        repo.execute(Action.FinishWorkout(1_060_000))
+        val line = receiptLines(repo.state.value, repo.state.value.workouts.single()).single()
+        assertEquals("6 plates ×\u00A015", line.best)
+        assertEquals("6 plates/stack × 15", line.bestSpoken)
     }
 }
