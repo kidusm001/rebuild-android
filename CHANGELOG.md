@@ -4,6 +4,11 @@ Every version installs over the one before it with the same signing key and keep
 on, release APKs are built and published by [GitHub Actions](.github/workflows/release.yml); notes for each are in
 [docs/releases](docs/releases/).
 
+## 0.4.1 (version code 24)
+- During a workout, dragging an exercise to reorder it lands where you drop it. The pill stays under your finger, the
+  strip no longer jumps, holding at an edge scrolls gently, and the drop eases into place.
+- A move chosen from the hold menu right after letting go now shows straight away.
+
 ## 0.4.0 (version code 23)
 - History: each exercise has a chart of your heaviest set each workout, with the reps on every dot, the last 3 months
   or All, and an option to split it by workout. The first touch on any chart now reads it.
