@@ -111,10 +111,10 @@ internal fun loadText(amount: Double?, unit: LoadUnit, plates: Int?, exercise: E
 
 internal fun kgText(kg: Double?, exercise: Exercise): String = massText(kg, LoadUnit.KG, exercise)
 
-/** Spoken form of a load line: screen readers say "pounds" in full rather than guessing at "lb". */
+/** Spoken form of a load line: screen readers say "pounds" and "per dumbbell" in full rather than guessing at "lb" or "/DB". */
 internal fun String.spokenUnits(): String = replace(Regex("""(\d) lb(/DB)?\b""")) {
     it.groupValues[1] + " pounds" + if (it.groupValues[2].isNotEmpty()) " per dumbbell" else ""
-}
+}.replace(Regex("""(\d) kg/DB\b"""), "$1 kilograms per dumbbell")
 
 internal fun setText(set: LoggedSet, exercise: Exercise): String {
     val rir = set.rir?.let { " @ ${formatKg(it)} RIR" } ?: ""

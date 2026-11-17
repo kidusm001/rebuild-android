@@ -59,6 +59,7 @@ import kotlin.math.floor
 import kotlin.math.log10
 import kotlin.math.pow
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
@@ -107,8 +108,10 @@ internal fun Modifier.chartTouch(count: Int, xs: (width: Int) -> List<Float>, on
     if (count == 0) this else pointerInput(count, xs) {
         fun nearest(x: Float): Int = xs(size.width).withIndex().minBy { abs(it.value - x) }.index
         coroutineScope {
-            launch { detectTapGestures(onPress = { onSelect(nearest(it.x)) }) }
-            launch {
+            // Undispatched, so both detectors are listening before the touch that started this block is delivered:
+            // the block only starts on a chart's first touch, and dispatched detectors would miss that touch.
+            launch(start = CoroutineStart.UNDISPATCHED) { detectTapGestures(onPress = { onSelect(nearest(it.x)) }) }
+            launch(start = CoroutineStart.UNDISPATCHED) {
                 detectHorizontalDragGestures(onDragStart = { onSelect(nearest(it.x)) }) { change, _ ->
                     change.consume()
                     onSelect(nearest(change.position.x))
@@ -172,9 +175,10 @@ internal fun sessionText(values: List<Double>, format: (Double) -> String): Stri
 internal fun Modifier.chartSemantics(description: String, count: Int, selected: Int?, readout: String,
     onSelect: (Int) -> Unit): Modifier = semantics {
     contentDescription = description
+    // Even a single point says what it is: the readout above the chart is hidden from screen readers.
+    stateDescription = readout
     if (count > 1) {
         val at = selected ?: (count - 1)
-        stateDescription = readout
         progressBarRangeInfo = ProgressBarRangeInfo(at.toFloat(), 0f..(count - 1).toFloat(), steps = (count - 2).coerceAtLeast(0))
         setProgress { target -> onSelect(target.roundToInt().coerceIn(0, count - 1)); true }
     }

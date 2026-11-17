@@ -184,7 +184,7 @@ internal fun WeeklyMuscleSets(env: AppEnv) {
  */
 @Composable
 internal fun RecordsSection(records: List<RepRecord>, unit: LoadUnit, exercise: com.rebuild.domain.Exercise,
-    onOpen: (Workout) -> Unit) {
+    was: (RepRecord) -> String? = { null }, onOpen: (Workout) -> Unit) {
     if (records.isEmpty()) return
     var all by rememberSaveable(unit) { mutableStateOf(false) }
     val shown = if (all) records else records.filterNot { it.superseded }
@@ -196,7 +196,8 @@ internal fun RecordsSection(records: List<RepRecord>, unit: LoadUnit, exercise: 
             ListRow(
                 headline = "${countLabel(record.reps, "rep")} · ${loadText(record.set.amount, record.set.loadUnit,
                     record.set.plates, exercise)}",
-                supporting = shortDate(LocalDate.parse(record.workout.startDate)) + if (record.superseded) " · beaten at more reps" else "",
+                supporting = shortDate(LocalDate.parse(record.workout.startDate)) +
+                    (if (record.superseded) " · beaten at more reps" else "") + (was(record)?.let { " · $it" } ?: ""),
                 onClick = { onOpen(record.workout) },
                 modifier = Modifier.groupedRow(i, shown.lastIndex).testTag("record-${record.reps}")
             )
@@ -207,3 +208,17 @@ internal fun RecordsSection(records: List<RepRecord>, unit: LoadUnit, exercise: 
         }
     }
 }
+
+/**
+ * "was 35 kg/DB on 18 Aug": what this record's rep count stood at on [comparison]'s day, said only when the record
+ * itself was set since then and is heavier. Nothing for a rep count first lifted since (there's nothing to compare),
+ * or one that hasn't moved: a plain fact, never a judgement or a colour.
+ */
+internal fun recordWas(record: RepRecord, comparison: com.rebuild.domain.RepComparison?, exercise: com.rebuild.domain.Exercise): String? {
+    val then = comparison?.then ?: return null
+    if (comparison.gain <= 0.0 || comparison.now.set.id != record.set.id) return null
+    return "was ${loadText(then.set.amount, then.set.loadUnit, then.set.plates, exercise)} on ${dayMonth(then.date)}"
+}
+
+private fun dayMonth(date: LocalDate): String =
+    java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale.getDefault()).format(date)

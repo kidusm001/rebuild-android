@@ -10,6 +10,8 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.onNodeWithTag
@@ -17,6 +19,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasScrollToNodeAction
@@ -135,12 +138,22 @@ class ScreenshotHarness {
         else back()
         tap("History")
         tap("Exercises")
+        shot("$mode-09b-exercises")
+        // The Muscle sort, where the list offers one; the same tour renders a list without it unchanged.
+        if (compose.onAllNodes(hasText("Muscle") and hasClickAction()).fetchSemanticsNodes().isNotEmpty()) {
+            tap("Muscle")
+            shot("$mode-09c-exercises-muscle")
+        }
         tap("Incline dumbbell press")
         shot("$mode-10-exercise-history")
         compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)).onFirst()
             .performScrollTo().performTouchInput { click(Offset(width * 0.25f, centerY)) }
         compose.waitForIdle()
         shot("$mode-10b-exercise-history-touched")
+        // The records, with what each recent record's rep count was four weeks ago: the list's third item.
+        compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.ScrollToIndex)).onFirst().performScrollToIndex(2)
+        compose.waitForIdle()
+        shot("$mode-10c-exercise-history-records")
         back()
         tap("More")
         tap("Routines")
@@ -260,17 +273,50 @@ class ScreenshotHarness {
     private suspend fun seeded(): RebuildRepository {
         val repo = RebuildRepository.fromPersistence(MemoryPersistence()) { now }
         repo.execute(Action.SelectPhase(Phase.BASELINE))
-        // Two earlier weeks of the same routine, so history and "Last time" have real numbers.
-        listOf(42, 35, 28, 21, 14, 7).forEach { daysAgo ->
+        // Ten weeks of the same routine with a three-week break, so history, its charts and "Last time" have real
+        // numbers: loads and reps move between 8 and 12 the way a real double progression does. Each session lists
+        // the first exercise's sets (kg per dumbbell × reps); the others follow 5 kg lighter per exercise.
+        val pushes = listOf(
+            70 to listOf(32.5 to 12, 32.5 to 11),
+            63 to listOf(35.0 to 10, 32.5 to 12),
+            56 to listOf(35.0 to 11, 35.0 to 9),
+            49 to listOf(37.5 to 9, 35.0 to 10),
+            28 to listOf(35.0 to 10, 35.0 to 9),
+            21 to listOf(37.5 to 10, 37.5 to 8),
+            14 to listOf(40.0 to 8, 37.5 to 9),
+            7 to listOf(40.0 to 10, 40.0 to 9)
+        )
+        pushes.forEach { (daysAgo, sets) ->
             val start = now - daysAgo * day
             repo.execute(Action.StartWorkout("push", start))
             val past = requireNotNull(repo.state.value.activeWorkout)
             past.exercises.take(4).forEachIndexed { e, we ->
                 repeat(we.targetSets ?: 2) { s ->
-                    val kg = if (we.exercise.loading == LoadingType.BODYWEIGHT) null else 40.0 - 5 * e - daysAgo / 7 * 2.5
-                    repo.execute(Action.SaveSet(past.id, we.id, "p$daysAgo-$e-$s", kg, 10 - s, 2.0, false,
+                    val (load, reps) = sets[s % sets.size]
+                    val kg = if (we.exercise.loading == LoadingType.BODYWEIGHT) null else load - 5 * e
+                    repo.execute(Action.SaveSet(past.id, we.id, "p$daysAgo-$e-$s", kg, reps, 2.0, false,
                         start + (e * 10 + s) * 60_000L))
                 }
+            }
+            repo.execute(Action.FinishWorkout(start + 55 * 60_000L, countForWeek = true))
+        }
+        // Pull on other days, so History's exercise list has several muscles and recency to sort by, and a plank,
+        // so it has a measured exercise too.
+        listOf(38, 31, 24, 17, 10, 3).forEach { daysAgo ->
+            val start = now - daysAgo * day
+            repo.execute(Action.StartWorkout("pull", start))
+            val past = requireNotNull(repo.state.value.activeWorkout)
+            past.exercises.forEachIndexed { e, we ->
+                repeat(we.targetSets ?: 2) { s ->
+                    val kg = 46.25 - 7.5 * e - daysAgo / 7 * 1.25
+                    repo.execute(Action.SaveSet(past.id, we.id, "q$daysAgo-$e-$s", kg, 9 - s, 2.0, false,
+                        start + (e * 10 + s) * 60_000L))
+                }
+            }
+            if (daysAgo <= 10) {
+                repo.execute(Action.AddWorkoutExercise(past.id, "plank$daysAgo", "plank"))
+                repo.execute(Action.SaveEffort(past.id, "plank$daysAgo", "pl$daysAgo", 75 - daysAgo, null, null,
+                    start + 50 * 60_000L))
             }
             repo.execute(Action.FinishWorkout(start + 55 * 60_000L, countForWeek = true))
         }
