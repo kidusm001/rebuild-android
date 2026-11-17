@@ -82,7 +82,7 @@ internal fun followUpLabel(method: SetMethod): String = when (method) {
  */
 internal fun followUpText(stage: LoggedSet, main: LoggedSet, exercise: Exercise): String =
     if (stage.loadUnit == main.loadUnit && stage.loadUnit != LoadUnit.PLATES && stage.amount != null &&
-        exercise.loading == LoadingType.EXTERNAL) "${formatKg(stage.amount!!)} × ${stage.reps}"
+        exercise.loading == LoadingType.EXTERNAL) "${formatKg(stage.amount!!)} ×\u00A0${stage.reps}"
     else loadRepsText(stage, exercise)
 
 /**
@@ -131,7 +131,7 @@ internal fun SetWithFollowUps(group: WorkEntry.Group, exercise: Exercise, muted:
     val valueStyle = if (muted) MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum") else ledgerValueStyle()
     val accent = accentText()
     Column(modifier) {
-        Text(loadRepsText(main, exercise), style = valueStyle,
+        FitText(loadRepsText(main, exercise), style = valueStyle,
             fontWeight = if (muted) FontWeight.Normal else FontWeight.Bold,
             color = if (muted) colors.onSurfaceVariant else colors.onSurface)
         Text(rirShort(main) + note + if (group.open) " · ${followUpLabel(group.group.method).lowercase()} in progress" else "",

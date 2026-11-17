@@ -71,9 +71,19 @@ private data class LedgerRow(
     val otherUnit: Boolean = false
 )
 
+/**
+ * A row's compact "load × reps": "40 kg × 12", "6 plates × 15". Plates drop the "/stack" that sentences and speech keep,
+ * since rows sit under a header or entry card that already names the unit, and "plates/stack" alone wrapped a large-text
+ * ledger cell onto two lines. The reps are joined to the "×" by a no-break space so they never wrap away from their load.
+ */
 internal fun loadRepsText(set: LoggedSet, exercise: Exercise): String {
-    return "${loadText(set.amount, set.loadUnit, set.plates, exercise)} × ${set.reps}"
+    val load = if (set.loadUnit == LoadUnit.PLATES) platesText(set.plates)
+        else loadText(set.amount, set.loadUnit, set.plates, exercise)
+    return "$load ×\u00A0${set.reps}"
 }
+
+/** "1 plate", "6 plates". */
+internal fun platesText(plates: Int?): String = "$plates ${if (plates == 1) "plate" else "plates"}"
 
 internal fun rirShort(set: LoggedSet): String = set.rir?.let { "RIR ${formatKg(it)}" } ?: "RIR —"
 
@@ -340,7 +350,7 @@ private fun TodayCell(set: LoggedSet, label: String, extra: Boolean, exercise: E
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
-            Text(
+            FitText(
                 if (stacked) "Today: ${loadRepsText(set, exercise)}" else loadRepsText(set, exercise),
                 // The logged set is the number this screen exists for: condensed and large.
                 style = ledgerValueStyle(),
