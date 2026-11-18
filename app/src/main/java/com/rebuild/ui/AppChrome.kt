@@ -253,4 +253,6 @@ internal class LayerMotion(alpha: Float, dx: Float = 0f) {
     /** How far a predictive back gesture has come (0–1) on this layer, and toward which side (+1 right, −1 left). */
     val peek = Animatable(0f)
     var edge = 1f
+    /** A back preview is showing this layer over another: it draws the canvas behind itself until it is put away. */
+    var previewing by mutableStateOf(false)
 }

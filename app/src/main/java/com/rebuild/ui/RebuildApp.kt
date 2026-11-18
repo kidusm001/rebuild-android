@@ -10,7 +10,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterExitState
-import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.rebuild.ui.theme.animationsOff
@@ -20,6 +19,7 @@ import androidx.compose.foundation.background
 import kotlin.math.roundToInt
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.animation.core.Animatable
 import com.rebuild.domain.RestTimer
@@ -439,37 +439,46 @@ fun RebuildApp(
             ) {
                 // Setup's steps, its rest-alert step and the app are one sequence: the plan's step gives way to the
                 // last one as the steps do, and the app comes in over the last step as a push (the nav bar fading in
-                // with Today), never by a cut.
+                // with Today), never by a cut. The last step stays drawn, untouched and inert, beneath the app until
+                // the app's first screen has come in, so a slow first composition never shows an empty frame.
                 val stage = when {
                     state.phase == null -> SetupStage.STEPS
                     setupRestStep -> SetupStage.REST_ALERTS
                     else -> SetupStage.APP
                 }
                 val arriving = remember { stage != SetupStage.APP }
+                var arrived by remember { mutableStateOf(!arriving) }
+                // The step beneath leaves as the layer beneath a push does, from the app's first drawn frame.
+                val stepOut = remember { Animatable(1f) }
+                val stageScope = rememberCoroutineScope()
+                val parallax = with(LocalDensity.current) { Motion.Parallax.toPx() }
+                val lastStep = remember { arrayOf(SetupStage.STEPS) }
+                if (stage != SetupStage.APP) lastStep[0] = stage
                 val shift = with(LocalDensity.current) { Motion.Shift.roundToPx() }
-                val parallax = with(LocalDensity.current) { Motion.Parallax.roundToPx() }
-                AnimatedContent(stage, transitionSpec = {
-                    when {
-                        // The app lays out and moves its own first layer (see AppDestination); the step beneath leaves.
-                        targetState == SetupStage.APP -> EnterTransition.None togetherWith Motion.lateralExit(-parallax)
-                        targetState > initialState -> Motion.lateralEnter(shift) togetherWith Motion.lateralExit(-shift)
-                        else -> Motion.lateralEnter(-shift) togetherWith Motion.lateralExit(shift)
-                    } using null
-                }, label = "setup-stage") { shown ->
-                    val leavingStage = transition.targetState == EnterExitState.PostExit
-                    when (shown) {
-                        SetupStage.STEPS -> Box(Modifier.fillMaxSize().layerInsets(chrome, SETUP_ROUTE, live = true)
-                            .then(if (leavingStage) INERT else Modifier)) {
-                            SetupFlow(env, onPlanSaving = { setupRestStep = it })
+                if (stage != SetupStage.APP || !arrived) AnimatedContent(if (stage == SetupStage.APP) lastStep[0] else stage,
+                    transitionSpec = {
+                        if (targetState > initialState) Motion.lateralEnter(shift) togetherWith Motion.lateralExit(-shift)
+                        else Motion.lateralEnter(-shift) togetherWith Motion.lateralExit(shift)
+                    }, label = "setup-stage") { shown ->
+                    val inert = stage == SetupStage.APP || transition.targetState == EnterExitState.PostExit
+                    Box(Modifier.fillMaxSize()
+                        .graphicsLayer {
+                            if (stage == SetupStage.APP) {
+                                alpha = stepOut.value
+                                translationX = -parallax * (1f - stepOut.value)
+                            }
                         }
-                        SetupStage.REST_ALERTS -> Box(Modifier.fillMaxSize().layerInsets(chrome, SETUP_ROUTE, live = true)
-                            .then(if (leavingStage) INERT else Modifier)) {
-                            RestAlertSetup(env, onDone = { setupRestStep = false })
+                        .layerInsets(chrome, SETUP_ROUTE, live = true)
+                        .then(if (inert) INERT else Modifier)) {
+                        when (shown) {
+                            SetupStage.REST_ALERTS -> RestAlertSetup(env, onDone = { setupRestStep = false })
+                            else -> SetupFlow(env, onPlanSaving = { setupRestStep = it })
                         }
-                        SetupStage.APP -> AppDestination(env, nav, renderStack, chrome, arriving = arriving,
-                            backEnabled = !leavingStage, onNavWanted = { navWanted = it })
                     }
                 }
+                if (stage == SetupStage.APP) AppDestination(env, nav, renderStack, chrome, arriving = arriving,
+                    onArriving = { stageScope.launch { stepOut.animateTo(0f, Motion.lateralExitSpec()) } },
+                    onArrived = { arrived = true }, onNavWanted = { navWanted = it })
             }
             receiptFor?.let { id ->
                 state.workouts.find { it.id == id }?.let { finished ->
@@ -599,6 +608,9 @@ private fun AppDestination(
     chrome: Chrome,
     /** Straight after setup: the first screen comes in as a push. */
     arriving: Boolean = false,
+    /** Called on the first screen's first drawn frame, when its push starts, and once it is fully in. */
+    onArriving: () -> Unit = {},
+    onArrived: () -> Unit = {},
     backEnabled: Boolean = true,
     onNavWanted: (Boolean) -> Unit
 ) {
@@ -675,10 +687,12 @@ private fun AppDestination(
             // The first screen after setup: a push over the setup step leaving beneath it (drawn by the caller).
             chrome.navShown.snapTo(if (navIn) 1f else 0f)
             withFrameNanos { }
+            onArriving()
             coroutineScope {
                 launch { incoming.alpha.animateTo(1f, Motion.fadeInSpec()) }
                 launch { incoming.dx.animateTo(0f, Motion.lateralEnterTravelSpec(navigation = true)) }
             }
+            onArrived()
         } else if (plan.move == Move.NONE || outgoing == null) {
             incoming.alpha.snapTo(1f)
             incoming.dx.snapTo(0f)
@@ -728,6 +742,7 @@ private fun AppDestination(
         val under = book.motions[underKey]?.takeIf { underKey != plan.target } ?: LayerMotion(0.6f, -parallax)
         book.motions[underKey] = under
         peek = Peek(underKey, beneathRoute!!, showsNav(beneathRoute))
+        top.previewing = true
         try {
             events.collect { e ->
                 val p = e.progress.coerceIn(0f, 1f)
@@ -736,7 +751,8 @@ private fun AppDestination(
                 under.alpha.snapTo(0.6f + 0.4f * p)
                 under.dx.snapTo(-parallax * (1f - p))
             }
-            // Committed: the pop goes on from where the preview is.
+            // Committed: the pop goes on from where the preview is, the screen leaving fading as any pop's does.
+            top.previewing = false
             book.previewed = underKey
             peek = null
             nav.pop()
@@ -749,6 +765,7 @@ private fun AppDestination(
                     launch { under.dx.animateTo(-parallax, Motion.settle()) }
                 }
                 if (peek?.key == underKey) peek = null
+                top.previewing = false
                 if (underKey != book.lastTarget) book.motions.remove(underKey)
             }
             throw e
@@ -844,6 +861,7 @@ private fun LayerBox(
     // A hidden layer has no press ripple: a ripple caught mid-press when the layer was covered would otherwise replay,
     // frozen, the next time the layer is shown. Back on screen it starts still.
     val ripple = LocalRippleConfiguration.current
+    val canvas = MaterialTheme.colorScheme.surface
     Box(
         Modifier
             .layoutId(layerKey)
@@ -862,6 +880,8 @@ private fun LayerBox(
                     shadowElevation = Motion.LiftShadow.toPx() * p
                 }
             }
+            // A previewed screen is a card over the one beneath: opaque, not see-through where it draws nothing.
+            .drawBehind { if (motion?.previewing == true) drawRect(canvas) }
             // Input and screen readers reach only the target, from the transition's first frame.
             .then(if (isTarget) Modifier else INERT)
             .layerInsets(chrome, layerRoute, live = isTarget || leaving)
