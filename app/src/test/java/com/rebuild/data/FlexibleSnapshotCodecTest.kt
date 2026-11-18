@@ -128,6 +128,12 @@ class FlexibleSnapshotCodecTest {
     @Test fun versionFourStructureRulesAreEnforced() = runTest {
         val state = recorded()
         SnapshotCodec.decode(raw(state))
+        // An addition a slot already asks for is kept but set aside, never listed twice and never a reason to refuse
+        // the data: with gear, a slot's exercise can come to match an addition the user made earlier.
+        val repeated = state.copy(planAdditions = listOf(state.planAdditions.single().copy(exerciseId = "lateral-cable")))
+        val opened = SnapshotCodec.decode(raw(repeated))
+        val push = opened.templates.single { it.id == "push" }
+        assertEquals(1, opened.plannedExercises(push, Phase.BASELINE).count { it.exerciseId == "lateral-cable" })
         val face = state.planAdditions.single()
         val invalid = listOf(
             "addition reusing a slot ID" to state.copy(planAdditions = listOf(face.copy(id = "push-incline"))),
@@ -135,7 +141,6 @@ class FlexibleSnapshotCodecTest {
             "addition in an unavailable phase" to state.copy(planAdditions = listOf(face.copy(phase = Phase.INTRO_ONE))),
             "addition to a missing routine" to state.copy(planAdditions = listOf(face.copy(templateId = "nope"))),
             "addition of a missing exercise" to state.copy(planAdditions = listOf(face.copy(exerciseId = "nope"))),
-            "addition already in the routine" to state.copy(planAdditions = listOf(face.copy(exerciseId = "lateral-cable"))),
             "addition listed twice" to state.copy(planAdditions = listOf(face, face.copy(id = "add-face-2"))),
             "addition without sets" to state.copy(planAdditions = listOf(face.copy(sets = 0))),
             "addition with an inverted range" to state.copy(planAdditions = listOf(face.copy(minReps = 20, maxReps = 12))),

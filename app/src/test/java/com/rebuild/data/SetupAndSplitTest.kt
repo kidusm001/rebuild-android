@@ -245,4 +245,15 @@ class SetupAndSplitTest {
         assertEquals(3, state.plannedExercises(state.scheduledRoutines().first(), Phase.INTRO_TWO)
             .single { it.slotId == "full-body-3-a-press" }.sets)
     }
+
+    @Test fun anExerciseAddedWithDumbbellsThatTheGymSlotUsesStillSwitchesToTheGym() = runTest {
+        val repo = setUp(Experience.REGULAR, days = 3, gear = Gear.DUMBBELLS)
+        // With dumbbells, Full body A's legs slot is a goblet squat, so adding the leg press is allowed.
+        repo.execute(Action.SavePlanAddition("add-press", Phase.INTRO_TWO, "full-body-3-a", "leg-press", 2, 10, 15, 180, false))
+        repo.execute(Action.ChangeSplit("full-body-3", Gear.GYM, Experience.REGULAR, "2026-11-17"))
+        val state = repo.state.value
+        val dayA = state.plannedExercises(state.scheduledRoutines().first(), Phase.INTRO_TWO).map { it.exerciseId }
+        assertEquals("the gym slot asks for it, listed once", 1, dayA.count { it == "leg-press" })
+        assertEquals(state, SnapshotCodec.decode(SnapshotCodec.encode(state)))
+    }
 }

@@ -858,17 +858,8 @@ object SnapshotCodec {
                 ensure(planned.filter { it.addition != null }.all { added ->
                     planned.count { it.exerciseId == added.exerciseId } == 1
                 }, "A routine cannot list an exercise you added twice in one phase.")
-                // An addition never repeats one of the routine's own (gym) exercises. One that matches a slot only with
-                // other gear (push-ups once the gear is bodyweight) is allowed and set aside while that gear is in use.
-                if (template is WorkoutTemplate) {
-                    // The routine's own exercises with a gym, saved swaps included, as before gear existed.
-                    val own = template.slots.filterNot { state.slotRemoved(phase, it.id) }.map { slot ->
-                        state.overrides.find { it.phase == phase && it.slotId == slot.id && it.appliesTo(Gear.GYM) }
-                            ?.exerciseId ?: slot.exerciseId
-                    }.toSet()
-                    ensure(state.planAdditions.none { it.phase == phase && it.templateId == template.id && it.exerciseId in own },
-                        "A routine cannot list an exercise you added twice in one phase.")
-                }
+                // An addition that a slot also asks for (with this gear, or after a swap) is set aside by
+                // plannedExercises rather than rejected here, so no save that once opened ever stops opening.
             }
         }
     }
