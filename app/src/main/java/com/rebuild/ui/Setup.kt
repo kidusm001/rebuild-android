@@ -566,7 +566,7 @@ internal fun PlanReveal(state: AppState, split: Split, gear: Gear, note: String?
         Text("$perWorkout exercises a workout · $setRange $setWord each · about ${phase.targetRir} reps in reserve",
             style = MaterialTheme.typography.titleMedium)
     } else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        StatTile(perWorkout, "exercises a workout", Modifier.weight(1f), spoken = "$perWorkout exercises a workout")
+        StatTile(perWorkout, "exercises", Modifier.weight(1f), spoken = "$perWorkout exercises a workout")
         StatTile(setRange, "$setWord each", Modifier.weight(1f), spoken = "$setRange working $setWord per exercise")
         StatTile("${phase.targetRir}", "in reserve", Modifier.weight(1f), spoken = "about ${phase.targetRir} reps in reserve")
     }
