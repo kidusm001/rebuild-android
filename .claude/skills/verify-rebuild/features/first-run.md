@@ -1,11 +1,17 @@
 # First run
 
-A fresh install opens on "Choose where to start": four training phases, a button that starts with the chosen one, and "Restore a backup" for someone moving phones. Choosing a phase lands on Today with this week's plan.
+A fresh install opens on setup:
+- **Welcome:** "Get started", or "I have a backup" for someone moving phones.
+- **Three questions:** experience, days a week, and equipment with the weight unit.
+- **The plan they lead to:** "Start with this plan" saves it.
+- **Rest alerts:** the last step, which can be skipped. It lands on Today with the week of the chosen split.
 
 ## Sub-features
 
-- `first-run-phase` choosing a phase starts the app on Today with that phase's weekly plan.
-- `first-run-restore` "Restore a backup" leads into the restore flow (see backup-restore).
+- `first-run-setup` answering the three questions shows one plan, and starting it lands on Today with that split's week.
+- `first-run-back` Back goes one step back with every answer kept; a Change on the plan comes straight back to it.
+- `first-run-restore` "I have a backup" leads into the restore flow (see backup-restore).
+- `first-run-rest-alerts` the last step asks for notifications only after the plan is saved, and can be skipped.
 
 ## How to get to it (user POV)
 
@@ -15,15 +21,22 @@ A fresh install opens on "Choose where to start": four training phases, a button
 
 Preconditions:
 
-- `$S/emu.sh reset` has just run.
+- `$S/emu.sh reset` has just run. Run `adb shell pm revoke com.rebuild android.permission.POST_NOTIFICATIONS` first to see the rest step's first state ("Turn on rest alerts" / "Not now").
 
-- **First screen.** Open the app. Run `$S/emu.sh launch`, then `$S/ui.sh wait phase-INTRO_ONE 20`. "Choose where to start" and four phases show. The start button reads "Choose a phase" and is disabled.
-- **Choose.** Pick Build consistency. Run `$S/ui.sh tap phase-INTRO_TWO`. The button reads "Start with Build consistency".
-- **Start.** Run `$S/ui.sh tap "Start with"`, then `$S/ui.sh wait week-checklist 10`. Today shows the week with 4 workouts.
-- **Persists.** Run `adb shell am force-stop com.rebuild` and open the app again. Today shows again, not the first-run screen.
-- **Proof.** `$S/evidence.sh shot first-run-chosen` before tapping Start, and `$S/evidence.sh shot first-run-today` after it.
+- **Welcome.** Run `$S/emu.sh launch`, then `$S/ui.sh wait setup-action 20`. "Your training, written down." shows, with Get started (`setup-action`) and I have a backup (`setup-restore`).
+- **Questions.** Run `$S/ui.sh tap setup-action` and pick `setup-experience-regular`. The action is disabled until something is picked. Then `setup-action`, `setup-days-4`, `setup-action`, `setup-gear-gym`, `setup-action`.
+- **Plan.** `split-name` reads "Upper and lower". Days open with `split-day-<template id>`.
+- **Start.** Run `$S/ui.sh tap setup-action`. The rest step shows. Run `$S/ui.sh tap setup-rest-skip` (or `setup-rest-done` when notifications are already allowed), then `$S/ui.sh wait week-checklist 10`.
+- **Persists.** Run `adb shell am force-stop com.rebuild` and open the app again. Today shows again, not setup.
+- **Proof.** `$S/evidence.sh shot first-run-plan` on the plan, and `$S/evidence.sh shot first-run-today` after it.
 
 ## Gotchas
 
-- The phase tags use the enum names: `phase-INTRO_ONE`, `phase-INTRO_TWO`, `phase-FIVE_TWO`, `phase-BASELINE`.
-- `flows.sh first-run` does all of this in one line, for recipes that only need a chosen phase.
+- Tags:
+  - `setup-experience-{new,returning,regular,experienced}`
+  - `setup-days-{2..6}`
+  - `setup-gear-{gym,dumbbells,bodyweight}`
+  - `setup-unit-{kg,lb}`
+- At more than 130% font scale, or on a short window, the action sits at the end of the scroll instead of pinned. Scroll before tapping it.
+- Pages slide in for about 260 ms, and their action stays disabled until the slide ends. Wait about 0.6 s between steps.
+- `flows.sh first-run [experience] [days] [gear]` does the whole walk in one line.
