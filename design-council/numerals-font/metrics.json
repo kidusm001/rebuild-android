@@ -1,0 +1,226 @@
+{
+  "raqm": true,
+  "candidates": [
+    {
+      "upm": 2048,
+      "default_figures_tabular": true,
+      "has_tnum_feature": true,
+      "tabular_after_tnum": true,
+      "missing_glyphs": [],
+      "full_kb": 453.9,
+      "subset_kb": 10.6,
+      "id": "A",
+      "label": "Platform sans-serif-condensed (Roboto Condensed, today)",
+      "width_vs_today_pct": {
+        "2:50": 100,
+        "1:08:42": 100,
+        "107.5 kg × 12": 100,
+        "12,480": 100
+      }
+    },
+    {
+      "upm": 2048,
+      "default_figures_tabular": true,
+      "has_tnum_feature": true,
+      "tabular_after_tnum": true,
+      "missing_glyphs": [],
+      "full_kb": 141.5,
+      "subset_kb": 10.8,
+      "id": "B",
+      "label": "Roboto Condensed (current Google Fonts build)",
+      "width_vs_today_pct": {
+        "2:50": 100,
+        "1:08:42": 100,
+        "107.5 kg × 12": 100,
+        "12,480": 100
+      }
+    },
+    {
+      "upm": 2048,
+      "default_figures_tabular": true,
+      "has_tnum_feature": false,
+      "tabular_after_tnum": true,
+      "missing_glyphs": [],
+      "full_kb": 326.8,
+      "subset_kb": 22.9,
+      "id": "C",
+      "label": "Roboto Flex, width 75",
+      "width_vs_today_pct": {
+        "2:50": 101,
+        "1:08:42": 101,
+        "107.5 kg × 12": 102,
+        "12,480": 102
+      }
+    },
+    {
+      "upm": 1000,
+      "default_figures_tabular": false,
+      "has_tnum_feature": true,
+      "tabular_after_tnum": true,
+      "missing_glyphs": [],
+      "full_kb": 109.2,
+      "subset_kb": 14.6,
+      "id": "D",
+      "label": "Barlow Semi Condensed Bold",
+      "width_vs_today_pct": {
+        "2:50": 105,
+        "1:08:42": 106,
+        "107.5 kg × 12": 98,
+        "12,480": 103
+      }
+    },
+    {
+      "upm": 1000,
+      "default_figures_tabular": false,
+      "has_tnum_feature": true,
+      "tabular_after_tnum": true,
+      "missing_glyphs": [],
+      "full_kb": 107.3,
+      "subset_kb": 14.5,
+      "id": "E",
+      "label": "Barlow Condensed Bold",
+      "width_vs_today_pct": {
+        "2:50": 99,
+        "1:08:42": 99,
+        "107.5 kg × 12": 93,
+        "12,480": 97
+      }
+    },
+    {
+      "upm": 1000,
+      "default_figures_tabular": true,
+      "has_tnum_feature": false,
+      "tabular_after_tnum": true,
+      "missing_glyphs": [],
+      "full_kb": 109.6,
+      "subset_kb": 8.7,
+      "id": "F",
+      "label": "IBM Plex Sans Condensed Bold",
+      "width_vs_today_pct": {
+        "2:50": 108,
+        "1:08:42": 108,
+        "107.5 kg × 12": 105,
+        "12,480": 108
+      }
+    },
+    {
+      "upm": 1000,
+      "default_figures_tabular": false,
+      "has_tnum_feature": true,
+      "tabular_after_tnum": true,
+      "missing_glyphs": [],
+      "full_kb": 159.1,
+      "subset_kb": 8.2,
+      "id": "G",
+      "label": "Sofia Sans Condensed Bold",
+      "width_vs_today_pct": {
+        "2:50": 101,
+        "1:08:42": 100,
+        "107.5 kg × 12": 95,
+        "12,480": 103
+      }
+    },
+    {
+      "upm": 1000,
+      "default_figures_tabular": false,
+      "has_tnum_feature": true,
+      "tabular_after_tnum": true,
+      "missing_glyphs": [],
+      "full_kb": 477.7,
+      "subset_kb": 15.2,
+      "id": "H",
+      "label": "Fira Sans Condensed Bold",
+      "width_vs_today_pct": {
+        "2:50": 97,
+        "1:08:42": 97,
+        "107.5 kg × 12": 99,
+        "12,480": 99
+      }
+    },
+    {
+      "upm": 1000,
+      "default_figures_tabular": false,
+      "has_tnum_feature": true,
+      "tabular_after_tnum": true,
+      "missing_glyphs": [],
+      "full_kb": 118.1,
+      "subset_kb": 8.0,
+      "id": "I",
+      "label": "Archivo, width 75",
+      "width_vs_today_pct": {
+        "2:50": 95,
+        "1:08:42": 95,
+        "107.5 kg × 12": 92,
+        "12,480": 96
+      }
+    },
+    {
+      "upm": 1000,
+      "default_figures_tabular": false,
+      "has_tnum_feature": false,
+      "tabular_after_tnum": false,
+      "missing_glyphs": [],
+      "full_kb": 94.2,
+      "subset_kb": 9.6,
+      "id": "J",
+      "label": "Saira Condensed Bold",
+      "width_vs_today_pct": {
+        "2:50": 91,
+        "1:08:42": 87,
+        "107.5 kg × 12": 81,
+        "12,480": 88
+      }
+    },
+    {
+      "upm": 1000,
+      "default_figures_tabular": false,
+      "has_tnum_feature": false,
+      "tabular_after_tnum": false,
+      "missing_glyphs": [],
+      "full_kb": 86.9,
+      "subset_kb": 4.8,
+      "id": "K",
+      "label": "Oswald Bold",
+      "width_vs_today_pct": {
+        "2:50": 103,
+        "1:08:42": 99,
+        "107.5 kg × 12": 97,
+        "12,480": 99
+      }
+    },
+    {
+      "upm": 2000,
+      "default_figures_tabular": false,
+      "has_tnum_feature": false,
+      "tabular_after_tnum": false,
+      "missing_glyphs": [],
+      "full_kb": 92.0,
+      "subset_kb": 5.7,
+      "id": "L",
+      "label": "Big Shoulders Bold",
+      "width_vs_today_pct": {
+        "2:50": 93,
+        "1:08:42": 86,
+        "107.5 kg × 12": 85,
+        "12,480": 86
+      }
+    },
+    {
+      "upm": 2048,
+      "default_figures_tabular": false,
+      "has_tnum_feature": true,
+      "tabular_after_tnum": true,
+      "missing_glyphs": [],
+      "full_kb": 333.9,
+      "subset_kb": 7.4,
+      "id": "M",
+      "label": "Inter Bold (not condensed, reference)",
+      "width_vs_today_pct": {
+        "2:50": 123,
+        "1:08:42": 122,
+        "107.5 kg × 12": 123,
+        "12,480": 126
+      }
+    }
+  ]
+}
