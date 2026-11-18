@@ -24,7 +24,9 @@ import java.io.File
 import java.nio.ByteBuffer
 import kotlin.math.abs
 
-/** The bundled Archivo: every style uses it, numbers stay put as they change, and nothing falls back to a system font. */
+/**
+ * The bundled Archivo: every style uses it, numbers stay put as they change, and nothing falls back to a system font.
+ */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class FontTest {
@@ -42,31 +44,13 @@ class FontTest {
     private fun ByteBuffer.table(tag: String): Int = (0 until getShort(4).toInt()).map { 12 + 16 * it }
         .first { String(ByteArray(4) { i -> get(it + i) }) == tag }.let { getInt(it + 8) }
 
-    private fun ByteBuffer.u16(at: Int) = getShort(at).toInt() and 0xFFFF
-
-    /** The characters a TrueType file maps to a glyph, from its Windows Unicode cmap (format 12, else 4). */
+    /** The characters a TrueType file maps to a real glyph, from its Windows Unicode cmap (format 12, else 4). */
     private fun characters(file: File): Set<Int> = with(ByteBuffer.wrap(file.readBytes())) {
         val cmap = table("cmap")
         val subtables = (0 until u16(cmap + 2)).map { cmap + 4 + 8 * it }
             .associate { (u16(it) to u16(it + 2)) to cmap + getInt(it + 4) }
-        val chars = mutableSetOf<Int>()
-        subtables[3 to 10]?.let { t ->
-            (0 until getInt(t + 12)).forEach { g -> chars += getInt(t + 16 + 12 * g)..getInt(t + 20 + 12 * g) }
-            return chars
-        }
-        val t = subtables.getValue(3 to 1)
-        val segments = u16(t + 6) / 2
-        val ends = t + 14
-        val starts = ends + 2 * segments + 2
-        val deltas = starts + 2 * segments
-        val ranges = deltas + 2 * segments
-        for (i in 0 until segments) for (c in u16(starts + 2 * i)..u16(ends + 2 * i)) {
-            if (c == 0xFFFF) continue
-            val range = u16(ranges + 2 * i)
-            val glyph = if (range == 0) c else u16(ranges + 2 * i + range + 2 * (c - u16(starts + 2 * i)))
-            if (glyph != 0) chars += c
-        }
-        chars
+        subtables[3 to 10]?.let { return format12(this, it) }
+        format4(this, subtables.getValue(3 to 1))
     }
 
     private fun Typography.styles() = with(this) {
@@ -155,4 +139,74 @@ class FontTest {
         val figure = measurer.width("00", style) - measurer.width("0", style)
         assertTrue("space is ${space.toFloat() / figure} of a figure", space >= 0.38f * figure)
     }
+
+    @Test fun cmapReaderTreatsGlyphZeroAsMissing() {
+        // Format 4, a delta segment: 'A' + delta lands on glyph 0, 'B' on glyph 1.
+        val deltaOnly = format4(listOf(Segment(0x41, 0x42, delta = -0x41)))
+        assertEquals(setOf(0x42), deltaOnly)
+        // Format 4, a glyph array with delta -3: raw 0 stays missing, 5 becomes glyph 2, and 3 wraps to glyph 0.
+        val arrayed = format4(listOf(Segment(0x61, 0x63, delta = -3, glyphs = listOf(0, 5, 3))))
+        assertEquals(setOf(0x62), arrayed)
+        // Format 12: a group starting at glyph 0 leaves its first character missing.
+        val grouped = ByteBuffer.allocate(28).apply {
+            putShort(12).putShort(0).putInt(28).putInt(0).putInt(1).putInt(0x30).putInt(0x32).putInt(0)
+        }
+        assertEquals(setOf(0x31, 0x32), format12(grouped, 0))
+    }
+
+    private class Segment(val start: Int, val end: Int, val delta: Int, val glyphs: List<Int>? = null)
+
+    /** A format 4 subtable holding [segments] plus the required final 0xFFFF segment. */
+    private fun format4(segments: List<Segment>): Set<Int> {
+        val all = segments + Segment(0xFFFF, 0xFFFF, delta = 1)
+        val count = all.size
+        val arrays = all.flatMap { it.glyphs.orEmpty() }
+        val buffer = ByteBuffer.allocate(16 + 8 * count + 2 * arrays.size)
+        buffer.putShort(4).putShort(buffer.capacity().toShort()).putShort(0).putShort((2 * count).toShort())
+            .putShort(0).putShort(0).putShort(0)
+        all.forEach { buffer.putShort(it.end.toShort()) }
+        buffer.putShort(0)
+        all.forEach { buffer.putShort(it.start.toShort()) }
+        all.forEach { buffer.putShort(it.delta.toShort()) }
+        var before = 0
+        all.forEachIndexed { i, seg ->
+            // Bytes from this idRangeOffset entry to the segment's first glyph-array entry.
+            val offset = if (seg.glyphs == null) 0 else 2 * (count - i) + 2 * before
+            buffer.putShort(offset.toShort())
+            before += seg.glyphs?.size ?: 0
+        }
+        arrays.forEach { buffer.putShort(it.toShort()) }
+        return format4(buffer, 0)
+    }
+}
+
+private fun ByteBuffer.u16(at: Int) = getShort(at).toInt() and 0xFFFF
+
+/** Characters a format 12 subtable at [t] maps to a glyph other than 0 (the missing-character glyph). */
+private fun format12(buffer: ByteBuffer, t: Int): Set<Int> = with(buffer) {
+    (0 until getInt(t + 12)).flatMap { g ->
+        val start = getInt(t + 16 + 12 * g)
+        val first = getInt(t + 24 + 12 * g)
+        (start..getInt(t + 20 + 12 * g)).filter { c -> first + (c - start) != 0 }
+    }.toSet()
+}
+
+/** Characters a format 4 subtable at [t] maps to a glyph other than 0, applying idDelta modulo 65536. */
+private fun format4(buffer: ByteBuffer, t: Int): Set<Int> = with(buffer) {
+    val segments = u16(t + 6) / 2
+    val ends = t + 14
+    val starts = ends + 2 * segments + 2
+    val deltas = starts + 2 * segments
+    val ranges = deltas + 2 * segments
+    val chars = mutableSetOf<Int>()
+    for (i in 0 until segments) for (c in u16(starts + 2 * i)..u16(ends + 2 * i)) {
+        if (c == 0xFFFF) continue
+        val range = u16(ranges + 2 * i)
+        val delta = u16(deltas + 2 * i)
+        val glyph = if (range == 0) (c + delta) and 0xFFFF
+        else u16(ranges + 2 * i + range + 2 * (c - u16(starts + 2 * i)))
+            .let { raw -> if (raw == 0) 0 else (raw + delta) and 0xFFFF }
+        if (glyph != 0) chars += c
+    }
+    chars
 }
