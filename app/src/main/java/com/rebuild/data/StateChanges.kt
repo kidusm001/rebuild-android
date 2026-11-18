@@ -416,7 +416,7 @@ internal object StateChanges {
             val definition = library(state, action.exerciseId)
             ensure(definition.measure == Measure.REPS, "${slot.muscle} is planned in sets of reps, so swap it for " +
                 "another rep-based exercise. Add ${definition.name} to the routine on its own instead.")
-            requireNotAdded(state, template, action.phase, definition)
+            requireNotAdded(state, template, action.phase, definition, keeping = state.targetFor(slot, action.phase).exerciseId)
             // A swap never lists one exercise twice in a routine; keeping the current one is always fine.
             ensure(definition.id == state.targetFor(slot, action.phase).exerciseId ||
                 state.plannedExercises(template, action.phase).none { it.exerciseId == definition.id },
@@ -790,7 +790,8 @@ internal object StateChanges {
             if (slot != null) {
                 ensure(!state.slotRemoved(workout.phase, slot.id),
                     "${entry.exercise.name} was removed from this phase's plan. Restore it in Plan to change it.")
-                requireNotAdded(state, template, workout.phase, replacement)
+                requireNotAdded(state, template, workout.phase, replacement,
+                    keeping = state.targetFor(slot, workout.phase).exerciseId)
                 changed = override(changed, PlanOverride(workout.phase, slot.id, replacement.id, action.sets!!,
                     action.restSeconds, storedGear(state.gear)))
             } else {
@@ -816,8 +817,14 @@ internal object StateChanges {
     }
 
     /** A routine never lists one of the user's own exercises twice. */
-    private fun requireNotAdded(state: AppState, template: ScheduledRoutine, phase: Phase, exercise: Exercise) = ensure(
-        state.planAdditions.none { it.phase == phase && it.templateId == template.id && it.exerciseId == exercise.id },
+    /**
+     * A slot can't take an exercise you already added to the routine. Keeping the slot's own exercise is always fine,
+     * even when an addition of it is set aside because this gear makes the slot ask for it ([keeping]).
+     */
+    private fun requireNotAdded(state: AppState, template: ScheduledRoutine, phase: Phase, exercise: Exercise,
+                                keeping: String? = null) = ensure(
+        exercise.id == keeping ||
+            state.planAdditions.none { it.phase == phase && it.templateId == template.id && it.exerciseId == exercise.id },
         "${exercise.name} is already in ${template.name} as your own exercise.")
 
     /**

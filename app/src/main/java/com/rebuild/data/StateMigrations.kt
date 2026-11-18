@@ -45,11 +45,13 @@ internal object StateMigrations {
             updated = updated.copy(catalogRevision = 2,
                 exercises = updated.exercises + ExerciseCatalog.revisionTwo.filterNot { it.id in existingIds }.take(room))
         }
-        if (updated.catalogRevision < 3) {
-            // Every split needs these, so they're added even to a full library (the cap leaves room for them).
-            val existingIds = updated.exercises.map { it.id }.toSet()
-            updated = updated.copy(catalogRevision = 3,
-                exercises = updated.exercises + ExerciseCatalog.revisionThree.filterNot { it.id in existingIds })
+        // Every split needs revision 3's exercises, so they're added even to a full library (the cap leaves room). A
+        // library an earlier build marked revision 3 while it had no room is repaired here too; exercises are never
+        // deleted from the library, so anything missing was simply never added.
+        val existingIds = updated.exercises.map { it.id }.toSet()
+        val missing = ExerciseCatalog.revisionThree.filterNot { it.id in existingIds }
+        if (updated.catalogRevision < 3 || missing.isNotEmpty()) {
+            updated = updated.copy(catalogRevision = 3, exercises = updated.exercises + missing)
         }
         return updated
     }

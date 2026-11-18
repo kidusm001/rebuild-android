@@ -861,7 +861,11 @@ object SnapshotCodec {
                 // An addition never repeats one of the routine's own (gym) exercises. One that matches a slot only with
                 // other gear (push-ups once the gear is bodyweight) is allowed and set aside while that gear is in use.
                 if (template is WorkoutTemplate) {
-                    val own = template.slots.filterNot { state.slotRemoved(phase, it.id) }.map { it.exerciseId }.toSet()
+                    // The routine's own exercises with a gym, saved swaps included, as before gear existed.
+                    val own = template.slots.filterNot { state.slotRemoved(phase, it.id) }.map { slot ->
+                        state.overrides.find { it.phase == phase && it.slotId == slot.id && it.appliesTo(Gear.GYM) }
+                            ?.exerciseId ?: slot.exerciseId
+                    }.toSet()
                     ensure(state.planAdditions.none { it.phase == phase && it.templateId == template.id && it.exerciseId in own },
                         "A routine cannot list an exercise you added twice in one phase.")
                 }
