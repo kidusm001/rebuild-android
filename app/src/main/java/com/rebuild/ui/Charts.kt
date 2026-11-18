@@ -6,9 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import com.rebuild.ui.theme.MotionCrossfade
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -243,8 +242,8 @@ internal fun TrendChart(
             ) {
                 ticks.asReversed().forEach { Text(format(it), style = axisStyle, color = colors.onSurfaceVariant, maxLines = 1) }
             }
-            Crossfade(targetState = Triple(raw, line, from), animationSpec = tween(150), modifier = Modifier.weight(1f),
-                label = "chart") { (shownRaw, shownLine, start) ->
+            // A new range or new data redraws the chart: the drawings crossfade on the card. Touch selection is instant.
+            MotionCrossfade(Triple(raw, line, from), modifier = Modifier.weight(1f), label = "chart") { (shownRaw, shownLine, start) ->
                 val shownDays = (to.toEpochDay() - start.toEpochDay()).coerceAtLeast(1)
                 val marked = shownPoint.takeIf { selection.value != null && start == from }
                 Canvas(Modifier.fillMaxWidth().height(chartHeight)

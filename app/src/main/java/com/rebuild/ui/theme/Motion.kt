@@ -27,7 +27,9 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
@@ -166,6 +168,17 @@ object Motion {
     /** Collapse (opaque bar): the size part only. */
     fun collapseBar(towards: Alignment.Vertical = Alignment.Top): ExitTransition =
         shrinkVertically(collapseSizeSpec(), shrinkTowards = towards)
+
+    /**
+     * Lateral enter: Fade in while travelling from [fromPx] (± [Shift] for the top or peer layer, ± [Parallax] for the
+     * layer beneath) to 0 by [lateralEnterTravelSpec].
+     */
+    fun lateralEnter(fromPx: Int, navigation: Boolean = true): EnterTransition =
+        fadeIn() + slideInHorizontally(lateralEnterTravelSpec(navigation)) { fromPx }
+
+    /** Lateral exit: alpha and travel to [toPx] together over [Fast], linear. */
+    fun lateralExit(toPx: Int): ExitTransition =
+        fadeOut(lateralExitSpec()) + slideOutHorizontally(lateralExitSpec()) { toPx }
 
     /** The travel of a Rise: [Medium], [Travel]. */
     fun <T> riseSpec(): FiniteAnimationSpec<T> = tween(Medium, easing = Travel)

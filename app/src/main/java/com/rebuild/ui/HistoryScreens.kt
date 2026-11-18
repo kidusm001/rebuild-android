@@ -14,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.text.style.TextAlign
 import androidx.activity.compose.BackHandler
+import com.rebuild.ui.theme.Motion
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -136,7 +137,7 @@ internal fun HistoryScreen(
             val selected = MaterialTheme.colorScheme.onSecondaryContainer
             val unselected = MaterialTheme.colorScheme.onSurfaceVariant
             HISTORY_TABS.forEachIndexed { i, label ->
-                PillTab(selected = tab == i, onClick = { scope.launch { pager.animateScrollToPage(i) } }, label = label,
+                PillTab(selected = tab == i, onClick = { scope.launch { pager.animateScrollToPage(i, animationSpec = Motion.pageSpec()) } }, label = label,
                     selectedContentColor = selected, unselectedContentColor = unselected,
                     modifier = Modifier.testTag("history-tab-$i"))
             }
@@ -169,8 +170,9 @@ internal fun HistoryScreen(
         else TabRow(selectedTabIndex = tab, modifier = track, indicator = indicator, divider = {},
             containerColor = trackColor) { tabs() }
         // A horizontal drag on a chart reads the chart; anywhere else on a page it turns the page.
+        // Every page stays composed, so a tap two tabs over moves through a built page instead of stalling on it.
         HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth().testTag("history-pager"), key = { it },
-            verticalAlignment = Alignment.Top) { page ->
+            beyondViewportPageCount = HISTORY_TABS.size - 1, verticalAlignment = Alignment.Top) { page ->
             Column(Modifier.fillMaxSize()) {
                 when {
                     page == 2 -> BodyOverview(env, onWeight = { onNavigate(Routes.BODYWEIGHT) },

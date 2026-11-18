@@ -7,12 +7,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.ui.platform.LocalContext
 import android.content.Context
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.EnterExitState
+import com.rebuild.ui.theme.Motion
+import com.rebuild.ui.theme.MotionCrossfade
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -45,7 +44,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -188,7 +186,16 @@ internal fun HomeScreen(
                 }
                 SideEffect { heroes.keys.retainAll(setOf(heroKey, shownHero)); shownHero = heroKey }
                 FadeInOver(heroKey, label = "today-hero") { key -> heroes[key]?.invoke() }
-                if (active != null) {
+                // The sections below come in another order with a workout in progress. Changing between the two (a
+                // finish or a discard here) crossfades them while their height follows the hero's, by Expand or
+                // Collapse, instead of jumping; the copy leaving is inert.
+                AnimatedContent(active != null, transitionSpec = { Motion.crossfade() using Motion.expandOrCollapse() },
+                    label = "today-sections") { activeLayout ->
+                Column(
+                    Modifier.then(if (transition.targetState == EnterExitState.PostExit) INERT else Modifier),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                if (activeLayout) {
                     TodayNotices(env, now, onNavigate)
                     BodySection(env, onNavigate)
                     WeekChecklistSection(env, checklist, date, featured = null, onStart = null)
@@ -222,6 +229,8 @@ internal fun HomeScreen(
                             }
                         }
                     }
+                }
+                }
                 }
             }
         }
@@ -281,11 +290,7 @@ private fun <T> PreviewRows(items: List<T>, key: String, row: @Composable (index
     Column {
         items.take(SESSION_PREVIEW).forEachIndexed { i, item -> row(i, item) }
         if (hidden > 0) {
-            AnimatedVisibility(
-                visible = expanded,
-                enter = fadeIn(tween(200)) + expandVertically(tween(200)),
-                exit = fadeOut(tween(200)) + shrinkVertically(tween(200))
-            ) {
+            AnimatedVisibility(visible = expanded, enter = Motion.expand(), exit = Motion.collapse()) {
                 Column { items.drop(SESSION_PREVIEW).forEachIndexed { i, item -> row(SESSION_PREVIEW + i, item) } }
             }
             MoreRowsToggle(expanded, hidden) { expanded = !expanded }
@@ -312,18 +317,15 @@ private fun MoreRowsToggle(expanded: Boolean, hidden: Int, onToggle: () -> Unit)
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Box(Modifier.widthIn(min = 24.dp), contentAlignment = Alignment.Center) {
-            RebuildIcon(
-                R.drawable.ic_chevron_down,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp).rotate(if (expanded) 180f else 0f)
+            Chevron(expanded, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        MotionCrossfade(expanded, label = "more-rows-label") { open ->
+            Text(
+                if (open) "Show fewer" else "+$hidden more",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Text(
-            if (expanded) "Show fewer" else "+$hidden more",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 

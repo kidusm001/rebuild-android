@@ -90,15 +90,11 @@ class MotionCurvesTest {
         assertTrue(ui.isDirectory)
         val offenders = ui.walkTopDown().filter { it.isFile && it.extension == "kt" }
             .filter { f -> Regex("""\b(tween|spring)\(""").containsMatchIn(f.readText()) }
-            .map { it.name }.toSet() - ALLOWED - NOT_YET_MIGRATED
+            .map { it.name }.toSet() - ALLOWED
         assertEquals(emptySet<String>(), offenders)
     }
 
     private companion object {
         val ALLOWED = setOf("Motion.kt", "RestEndMotion.kt")
-        /** Screens whose motion later phases of the spec rework (P0-8, P1-*, P2-*); this list only shrinks. */
-        val NOT_YET_MIGRATED = setOf(
-            "Charts.kt", "ExerciseProgress.kt", "HomeScreen.kt", "Setup.kt"
-        )
     }
 }

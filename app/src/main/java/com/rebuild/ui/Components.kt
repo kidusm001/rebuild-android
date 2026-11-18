@@ -897,6 +897,8 @@ internal fun GroupedActionRow(
     @DrawableRes trailing: Int = R.drawable.ic_chevron_right,
     /** Spoken name, kept even when the row is scrolled almost out of view and its text is clipped. */
     label: String? = null,
+    /** For a row that opens something below it: a chevron that turns as it opens and closes, instead of [trailing]. */
+    expanded: Boolean? = null,
     content: @Composable RowScope.() -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
@@ -916,8 +918,19 @@ internal fun GroupedActionRow(
             RebuildIcon(icon, contentDescription = null, tint = colors.onSurface, modifier = Modifier.size(18.dp))
         }
         androidx.compose.material3.ProvideTextStyle(MaterialTheme.typography.labelLarge) { content() }
-        RebuildIcon(trailing, contentDescription = null, tint = colors.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        if (expanded != null) Chevron(expanded, tint = colors.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        else RebuildIcon(trailing, contentDescription = null, tint = colors.onSurfaceVariant, modifier = Modifier.size(18.dp))
     }
+}
+
+/** A down chevron that turns to point up while [expanded], by Move within, so opening and closing read as one motion. */
+@Composable
+internal fun Chevron(expanded: Boolean, modifier: Modifier = Modifier,
+    tint: Color = androidx.compose.material3.LocalContentColor.current) {
+    val turn by androidx.compose.animation.core.animateFloatAsState(if (expanded) 180f else 0f,
+        com.rebuild.ui.theme.Motion.moveWithinSpec(), label = "chevron")
+    RebuildIcon(R.drawable.ic_chevron_down, contentDescription = null, tint = tint,
+        modifier = modifier.graphicsLayer { rotationZ = turn })
 }
 
 @Composable
@@ -1214,8 +1227,10 @@ internal fun <T> PillChoice(
     ) {
         options.forEach { option ->
             val chosen = option == selected
+            // The choice moves by colour in place (no sliding pill: labels wrap at large text), by the Colour rule.
             val pill by androidx.compose.animation.animateColorAsState(
-                if (chosen) colors.secondaryContainer else Color.Transparent, label = "choice-pill")
+                if (chosen) colors.secondaryContainer else colors.secondaryContainer.copy(alpha = 0f),
+                com.rebuild.ui.theme.Motion.colourSpec(), label = "choice-pill")
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 Box(Modifier.matchParentSize().padding(4.dp).clip(CircleShape).background(pill))
                 PillTab(

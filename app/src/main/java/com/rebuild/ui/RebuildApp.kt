@@ -5,7 +5,15 @@ import androidx.compose.runtime.setValue
 import android.content.res.Configuration
 import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.OnBackPressedDispatcherOwner
+import androidx.activity.BackEventCompat
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.rebuild.ui.theme.animationsOff
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
@@ -55,6 +63,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -428,17 +437,38 @@ fun RebuildApp(
                 }),
                 snackbar = { SnackbarHost(snackbar) }
             ) {
-                if (state.phase == null) {
-                    Box(Modifier.fillMaxSize().layerInsets(chrome, SETUP_ROUTE, live = true)) {
-                        SetupFlow(env, onPlanSaving = { setupRestStep = it })
+                // Setup's steps, its rest-alert step and the app are one sequence: the plan's step gives way to the
+                // last one as the steps do, and the app comes in over the last step as a push (the nav bar fading in
+                // with Today), never by a cut.
+                val stage = when {
+                    state.phase == null -> SetupStage.STEPS
+                    setupRestStep -> SetupStage.REST_ALERTS
+                    else -> SetupStage.APP
+                }
+                val arriving = remember { stage != SetupStage.APP }
+                val shift = with(LocalDensity.current) { Motion.Shift.roundToPx() }
+                val parallax = with(LocalDensity.current) { Motion.Parallax.roundToPx() }
+                AnimatedContent(stage, transitionSpec = {
+                    when {
+                        // The app lays out and moves its own first layer (see AppDestination); the step beneath leaves.
+                        targetState == SetupStage.APP -> EnterTransition.None togetherWith Motion.lateralExit(-parallax)
+                        targetState > initialState -> Motion.lateralEnter(shift) togetherWith Motion.lateralExit(-shift)
+                        else -> Motion.lateralEnter(-shift) togetherWith Motion.lateralExit(shift)
+                    } using null
+                }, label = "setup-stage") { shown ->
+                    val leavingStage = transition.targetState == EnterExitState.PostExit
+                    when (shown) {
+                        SetupStage.STEPS -> Box(Modifier.fillMaxSize().layerInsets(chrome, SETUP_ROUTE, live = true)
+                            .then(if (leavingStage) INERT else Modifier)) {
+                            SetupFlow(env, onPlanSaving = { setupRestStep = it })
+                        }
+                        SetupStage.REST_ALERTS -> Box(Modifier.fillMaxSize().layerInsets(chrome, SETUP_ROUTE, live = true)
+                            .then(if (leavingStage) INERT else Modifier)) {
+                            RestAlertSetup(env, onDone = { setupRestStep = false })
+                        }
+                        SetupStage.APP -> AppDestination(env, nav, renderStack, chrome, arriving = arriving,
+                            backEnabled = !leavingStage, onNavWanted = { navWanted = it })
                     }
-                } else if (setupRestStep) {
-                    Box(Modifier.fillMaxSize().layerInsets(chrome, SETUP_ROUTE, live = true)) {
-                        RestAlertSetup(env, onDone = { setupRestStep = false })
-                    }
-                } else {
-                    BackHandler(enabled = nav.stack.size > 1 || nav.current != Tab.HOME.route) { nav.pop() }
-                    AppDestination(env, nav, renderStack, chrome, onNavWanted = { navWanted = it })
                 }
             }
             receiptFor?.let { id ->
@@ -473,6 +503,12 @@ internal class AppEnv(
     fun exercise(id: String): Exercise? = state.exercises.find { it.id == id }
 }
 
+/** The steps of first-run setup and the app after it, in order. */
+private enum class SetupStage { STEPS, REST_ALERTS, APP }
+
+/** A back gesture in progress: the layer shown beneath the screen it would close. */
+private class Peek(val key: String, val route: String, val showsNav: Boolean)
+
 /** How the target layer changed: deeper (push), back (pop), between peers or out of a finished workout (fade). */
 private enum class Move { NONE, PUSH, POP, FADE }
 
@@ -497,9 +533,24 @@ private class LayerBook {
     val motions = mutableMapOf<String, LayerMotion>()
     val envs = mutableMapOf<String, AppEnv>()
 
-    fun next(key: String, route: String, stack: List<String>, workoutEnded: Boolean, settled: Int, density: Density): Plan {
+    /** The layer a predictive back gesture has just committed to: it goes on from where the preview left it. */
+    var previewed: String? = null
+
+    fun next(
+        key: String,
+        route: String,
+        stack: List<String>,
+        workoutEnded: Boolean,
+        settled: Int,
+        density: Density,
+        arriving: Boolean
+    ): Plan {
         val prev = last
-        val plan = if (prev == null) {
+        val plan = if (prev == null && arriving) {
+            // The app's first screen, straight after setup: it comes in as a push, over the last setup step.
+            motions[key] = LayerMotion(0f, with(density) { Motion.Shift.toPx() })
+            Plan(ids++, key, route, null, null, Move.PUSH)
+        } else if (prev == null) {
             motions[key] = LayerMotion(1f)
             Plan(ids++, key, route, null, null, Move.NONE)
         } else {
@@ -511,7 +562,8 @@ private class LayerBook {
                 else -> Move.PUSH
             }
             // Going back to the layer that is still leaving reverses it from where it is.
-            val stillShown = prev.leaving == key && settled != prev.id
+            val stillShown = (prev.leaving == key && settled != prev.id) || (previewed == key && key in motions)
+            previewed = null
             if (!stillShown) {
                 val dx = with(density) {
                     when (move) {
@@ -529,6 +581,9 @@ private class LayerBook {
         return plan
     }
 
+    /** The target of the last plan: its motion is never put away. */
+    val lastTarget: String? get() = last?.target
+
     /** After a transition only the target keeps a motion; anything shown again starts from its own first frame. */
     fun settle(plan: Plan) {
         motions.keys.retainAll(setOf(plan.target))
@@ -542,6 +597,9 @@ private fun AppDestination(
     nav: Navigator,
     stack: List<String>,
     chrome: Chrome,
+    /** Straight after setup: the first screen comes in as a push. */
+    arriving: Boolean = false,
+    backEnabled: Boolean = true,
     onNavWanted: (Boolean) -> Unit
 ) {
     val route = stack.last()
@@ -603,7 +661,8 @@ private fun AppDestination(
     var settled by remember { mutableIntStateOf(-1) }
     val density = LocalDensity.current
     val plan = remember(key) {
-        book.next(key, route, stack, workoutEnded = state.activeWorkoutId == null, settled = settled, density = density)
+        book.next(key, route, stack, workoutEnded = state.activeWorkoutId == null, settled = settled, density = density,
+            arriving = arriving)
     }
     val leaving = plan.leaving?.takeIf { settled != plan.id }
     val leavingRoute = plan.leavingRoute?.takeIf { leaving != null }
@@ -612,7 +671,15 @@ private fun AppDestination(
         val outgoing = plan.leaving?.let { book.motions[it] }
         val navIn = showsNav(plan.targetRoute)
         val navOut = plan.leavingRoute?.let(::showsNav)
-        if (plan.move == Move.NONE || outgoing == null) {
+        if (plan.move == Move.PUSH && outgoing == null) {
+            // The first screen after setup: a push over the setup step leaving beneath it (drawn by the caller).
+            chrome.navShown.snapTo(if (navIn) 1f else 0f)
+            withFrameNanos { }
+            coroutineScope {
+                launch { incoming.alpha.animateTo(1f, Motion.fadeInSpec()) }
+                launch { incoming.dx.animateTo(0f, Motion.lateralEnterTravelSpec(navigation = true)) }
+            }
+        } else if (plan.move == Move.NONE || outgoing == null) {
             incoming.alpha.snapTo(1f)
             incoming.dx.snapTo(0f)
             chrome.navShown.snapTo(if (navIn) 1f else 0f)
@@ -644,12 +711,61 @@ private fun AppDestination(
         settled = plan.id
         book.settle(plan)
     }
-    val navAlpha = remember(plan, leaving) {
+    // Predictive back: while a back gesture is held on a pushed screen, the screen beneath is shown under it, and the
+    // screen follows the finger as a preview; letting go finishes the pop from there, cancelling settles it back.
+    var peek by remember { mutableStateOf<Peek?>(null) }
+    val scope = rememberCoroutineScope()
+    val beneathRoute = stack.getOrNull(stack.size - 2)
+    val beneathKey = beneathRoute?.let { if (stack.size == 2 && it in TAB_ROUTES) it else stackKey(it) }
+    // Screens whose Back asks first (editors, the measure flow) and Remove animations keep a plain Back.
+    val predictive = backEnabled && beneathKey != null && !Routes.isEditor(route) && !animationsOff() &&
+        settled == plan.id
+    BackHandler(enabled = backEnabled && (stack.size > 1 || nav.current != Tab.HOME.route)) { nav.pop() }
+    PredictiveBackHandler(enabled = predictive) { events ->
+        val top = book.motions[plan.target] ?: run { events.collect { }; nav.pop(); return@PredictiveBackHandler }
+        val underKey = beneathKey!!
+        val parallax = with(density) { Motion.Parallax.toPx() }
+        val under = book.motions[underKey]?.takeIf { underKey != plan.target } ?: LayerMotion(0.6f, -parallax)
+        book.motions[underKey] = under
+        peek = Peek(underKey, beneathRoute!!, showsNav(beneathRoute))
+        try {
+            events.collect { e ->
+                val p = e.progress.coerceIn(0f, 1f)
+                top.edge = if (e.swipeEdge == BackEventCompat.EDGE_RIGHT) -1f else 1f
+                top.peek.snapTo(p)
+                under.alpha.snapTo(0.6f + 0.4f * p)
+                under.dx.snapTo(-parallax * (1f - p))
+            }
+            // Committed: the pop goes on from where the preview is.
+            book.previewed = underKey
+            peek = null
+            nav.pop()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Cancelled: back where it was by Settle, then the layer beneath is put away again.
+            scope.launch {
+                coroutineScope {
+                    launch { top.peek.animateTo(0f, Motion.settle()) }
+                    launch { under.alpha.animateTo(0f, Motion.settle()) }
+                    launch { under.dx.animateTo(-parallax, Motion.settle()) }
+                }
+                if (peek?.key == underKey) peek = null
+                if (underKey != book.lastTarget) book.motions.remove(underKey)
+            }
+            throw e
+        }
+    }
+
+    val navAlpha = remember(plan, leaving, peek) {
         val target = book.motions[plan.target]
         val out = leaving?.let { book.motions[it] }
         val tShows = showsNav(plan.targetRoute)
         val lShows = leavingRoute?.let(::showsNav)
+        val under = peek?.let { book.motions[it.key] }
         when {
+            // A back preview over a screen without the bar, onto one with it: the bar comes with the screen beneath.
+            peek != null && under != null && !tShows && peek!!.showsNav -> ({ under.alpha.value })
+            // The first screen after setup comes in with its bar.
+            plan.leaving == null && plan.move == Move.PUSH && tShows -> ({ target?.alpha?.value ?: 1f })
             // Peers that both show it (a tab switch, Plan › Change split): the bar stays opaque.
             lShows == null || (tShows && lShows) -> if (tShows) ({ 1f }) else ({ 0f })
             tShows -> ({ target?.alpha?.value ?: 1f })
@@ -660,13 +776,14 @@ private fun AppDestination(
         val tShows = showsNav(plan.targetRoute)
         val lShows = leavingRoute?.let(::showsNav)
         chrome.navAlpha = navAlpha
-        chrome.navInteractive = tShows && (lShows == null || lShows)
-        onNavWanted(tShows || lShows == true)
+        chrome.navInteractive = tShows && (lShows == null || lShows) && peek == null
+        onNavWanted(tShows || lShows == true || peek?.showsNav == true)
     }
 
     @Composable
     fun Layer(layerKey: String, layerRoute: String, shownWith: AppEnv, content: @Composable (AppEnv) -> Unit) =
-        LayerBox(layerKey, layerRoute, isTarget = layerKey == plan.target, leaving = layerKey == leaving,
+        LayerBox(layerKey, layerRoute, isTarget = layerKey == plan.target,
+            leaving = layerKey == leaving || layerKey == peek?.key,
             motion = book.motions[layerKey], chrome = chrome, env = shownWith, content = content)
 
     Layout(content = {
@@ -680,7 +797,9 @@ private fun AppDestination(
         }
         listOfNotNull(
             if (!atTabRoot) plan.target to route else null,
-            leaving?.takeIf { it !in TAB_ROUTES }?.let { it to leavingRoute!! }
+            leaving?.takeIf { it !in TAB_ROUTES }?.let { it to leavingRoute!! },
+            // The screen beneath a back preview, when it is a pushed one (a kept tab is already composed).
+            peek?.takeIf { it.key !in TAB_ROUTES }?.let { it.key to it.route }
         ).forEach { (layerKey, layerRoute) ->
             key(layerKey) {
                 pushed += layerRoute
@@ -696,7 +815,11 @@ private fun AppDestination(
         // placed: the one on top depends on the direction.
         val placeables = measurables.map { it.layoutId to it.measure(constraints) }
         layout(constraints.maxWidth, constraints.maxHeight) {
-            val order = if (plan.move == Move.POP) listOf(plan.target, leaving) else listOf(leaving, plan.target)
+            val order = when {
+                peek != null -> listOf(peek?.key, plan.target)
+                plan.move == Move.POP -> listOf(plan.target, leaving)
+                else -> listOf(leaving, plan.target)
+            }
             order.filterNotNull().forEach { k -> placeables.firstOrNull { it.first == k }?.second?.place(0, 0) }
         }
     }
@@ -727,6 +850,17 @@ private fun LayerBox(
             .graphicsLayer {
                 alpha = motion?.alpha?.value ?: 0f
                 translationX = motion?.dx?.value ?: 0f
+                // A back preview: the screen shrinks toward the finger's side with rounded corners and a shadow.
+                val p = motion?.peek?.value ?: 0f
+                if (p > 0f) {
+                    val scale = 1f - (1f - Motion.BackPeekScale) * p
+                    scaleX = scale
+                    scaleY = scale
+                    translationX += motion!!.edge * Motion.BackPeekOffset.toPx() * p
+                    shape = RoundedCornerShape(Motion.BackPeekCorner * p)
+                    clip = true
+                    shadowElevation = Motion.LiftShadow.toPx() * p
+                }
             }
             // Input and screen readers reach only the target, from the transition's first frame.
             .then(if (isTarget) Modifier else INERT)

@@ -250,4 +250,7 @@ internal fun AppFrame(
 internal class LayerMotion(alpha: Float, dx: Float = 0f) {
     val alpha = Animatable(alpha)
     val dx = Animatable(dx)
+    /** How far a predictive back gesture has come (0–1) on this layer, and toward which side (+1 right, −1 left). */
+    val peek = Animatable(0f)
+    var edge = 1f
 }

@@ -4,7 +4,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Box
+import com.rebuild.ui.theme.Motion
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -222,7 +224,9 @@ internal fun EntryPanel(
     viewportHeight: Int,
     onFocusChange: (Boolean) -> Unit,
     /** What the next fresh draft starts as, set just before each save (see [DropCarry]). */
-    onCarry: (DropCarry) -> Unit = {}
+    onCarry: (DropCarry) -> Unit = {},
+    /** In the bottom-pinned dock, where growth above the Log row moves the fields, never Log set. */
+    pinned: Boolean = true
 ) {
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val large = LocalDensity.current.fontScale > 1.3f
@@ -428,7 +432,12 @@ internal fun EntryPanel(
                     LogButton(Modifier.weight(1f))
                 }
             } else {
-                Fields(Modifier.fillMaxWidth())
+                // A message about the fields sits right under them. Pinned at the foot of the dock, it opens above the
+                // Log row, so the fields rise with it and Log set stays put.
+                Column {
+                    Fields(Modifier.fillMaxWidth())
+                    if (pinned) EntryError(draft.error)
+                }
                 when {
                     large -> LogButton(Modifier.fillMaxWidth())
                     open != null -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -442,7 +451,9 @@ internal fun EntryPanel(
                     }
                 }
             }
-            ErrorText(draft.error)
+            // Inline (landscape, large text), the entry flows down from the top: below the Log row the line moves
+            // nothing above it.
+            if (!pinned || landscape) EntryError(draft.error)
         }
         if (landscape) {
             FlowRow(
@@ -486,6 +497,16 @@ internal fun EntryPanel(
             onDismiss = { confirmingFinish = false },
             onConfirm = ::finishGroup
         )
+    }
+}
+
+/** The entry's error line, opening by Expand and closing by Collapse (with the message it last showed). */
+@Composable
+private fun EntryError(message: String?) {
+    val last = remember { arrayOfNulls<String>(1) }
+    if (message != null) last[0] = message
+    AnimatedVisibility(message != null, enter = Motion.expand(), exit = Motion.collapse()) {
+        Box(Modifier.padding(top = 8.dp)) { ErrorText(message ?: last[0]) }
     }
 }
 

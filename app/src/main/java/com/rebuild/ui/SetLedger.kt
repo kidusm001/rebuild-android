@@ -164,8 +164,14 @@ internal fun SetLedger(
     val hasPrevious = previousEntries.isNotEmpty()
     val stacked = LocalDensity.current.fontScale > 1.3f
 
-    // A logged set grows the ledger instead of jumping it.
-    Column(modifier.fillMaxWidth().animateContentSize(Motion.expandSizeSpec()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    // A logged set grows the ledger by Expand instead of jumping it; a deleted one shrinks it by Collapse (the size
+    // spec is picked in the composition whose rows changed, so it applies to that change).
+    val rowCount = warmups.size + rows.size
+    val lastCount = remember { intArrayOf(rowCount) }
+    val shrinking = rowCount < lastCount[0]
+    SideEffect { lastCount[0] = rowCount }
+    Column(modifier.fillMaxWidth().animateContentSize(if (shrinking) Motion.collapseSizeSpec() else Motion.expandSizeSpec()),
+        verticalArrangement = Arrangement.spacedBy(6.dp)) {
         // The count rides in the Today column's header: the rows beneath already show any warm-up or open set, so
         // only the spoken count names them.
         val count = "$done" + (we.targetSets?.let { " of $it" } ?: "")

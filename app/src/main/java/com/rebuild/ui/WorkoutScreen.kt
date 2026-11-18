@@ -81,6 +81,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -285,6 +286,9 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
             val currentWorkout by rememberUpdatedState(workout)
             val currentEnv by rememberUpdatedState(env)
             val dockSizes = remember { mutableStateMapOf<String, IntSize>() }
+            // Where each exercise last was in the order, so focus leaving one just removed still knows its side.
+            val lastPlace = remember { HashMap<String, Int>() }
+            SideEffect { workout.exercises.forEachIndexed { i, e -> lastPlace[e.id] = i } }
             val shift = with(LocalDensity.current) { Motion.Shift.toPx() }
             switch.AnimatedContent(
                 transitionSpec = {
@@ -302,7 +306,10 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
                 val index = workout.exercises.indexOf(shown)
                 // Which way the strip went: later exercises come in from the right, earlier ones from the left.
                 fun direction(): Float {
+                    // A removed exercise has no place now: its last one counts, so focus moving on from it comes
+                    // from the right, or from the left when it was the last.
                     val from = workout.exercises.indexOfFirst { it.id == switch.currentState }
+                        .takeIf { it >= 0 } ?: lastPlace[switch.currentState] ?: -1
                     val to = workout.exercises.indexOfFirst { it.id == switch.targetState }
                     return if (from < 0 || to < 0 || from == to) 1f else kotlin.math.sign((to - from).toFloat())
                 }
@@ -679,7 +686,7 @@ private fun ExerciseRail(
                     }
             ) {
                 ExercisePill(index, workout.exercises.size, ex, selected = workout.exercises.indexOf(ex) == focusedIndex,
-                    watch = watch?.takeIf { it.exerciseId == ex.id }, lifted = lifted,
+                    watch = watch?.takeIf { it.exerciseId == ex.id }, lifted = lifted, marked = menuFor == ex.id,
                     actions = listOfNotNull(
                         CustomAccessibilityAction("Move earlier") { move(ex.id, saved.indexOf(ex.id) - 1) }
                             .takeIf { saved.indexOf(ex.id) > 0 },
@@ -700,7 +707,12 @@ private fun ExerciseRail(
                 )
             }
         }
-        item(key = "add-exercise") { AddExercisePill(onAdd, addEnabled) }
+        // Pills added or removed before it: the Add pill moves along by Move within.
+        item(key = "add-exercise") {
+            Box(Modifier.animateItem(fadeInSpec = null, placementSpec = Motion.moveWithinSpec(), fadeOutSpec = null)) {
+                AddExercisePill(onAdd, addEnabled)
+            }
+        }
     }
     // The held pill, above every pill in the strip so no neighbour's label is ever drawn over it. It is where the
     // finger has it, whatever slot the last layout gave it; after the drop it settles into its slot.
@@ -833,6 +845,8 @@ private fun ExercisePill(
     lifted: Boolean = false,
     /** How far the lift has come (0–1): the amber edge follows it. */
     liftAmount: () -> Float = { 1f },
+    /** Its hold menu is open: the amber edge, at rest (no scale, no shadow), says which pill the menu is for. */
+    marked: Boolean = false,
     actions: List<CustomAccessibilityAction> = emptyList(),
     onClick: () -> Unit
 ) {
@@ -852,6 +866,9 @@ private fun ExercisePill(
     val fill by animateColorAsState(if (selected) colors.secondaryContainer else colors.surfaceContainerHigh,
         Motion.colourSpec(), label = "pill-fill")
     val large = LocalDensity.current.fontScale > 1.3f
+    // The menu's mark comes and goes by the Colour rule.
+    val mark by animateColorAsState(if (marked) colors.primaryContainer else colors.primaryContainer.copy(alpha = 0f),
+        Motion.colourSpec(), label = "pill-mark")
     Box(
         Modifier
             .heightIn(min = 48.dp)
@@ -862,7 +879,7 @@ private fun ExercisePill(
             .background(fill)
             // Held: an amber edge marks the pill being moved.
             .then(if (lifted) Modifier.border(2.dp, colors.primaryContainer.copy(alpha = liftAmount().coerceIn(0f, 1f)),
-                shape) else Modifier)
+                shape) else if (mark.alpha > 0f) Modifier.border(2.dp, mark, shape) else Modifier)
             .selectable(selected = selected, role = Role.Tab, onClick = onClick)
             .semantics {
                 contentDescription = "Exercise ${index + 1} of $count: ${we.exercise.name}, " +
@@ -886,11 +903,16 @@ private fun ExercisePill(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false)
             )
-            Text(
-                (if (skipped) "Skipped" else we.progressText()) + if (inProgress) " +" else "",
-                style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
-                color = if (selected) colors.onSecondaryContainer else colors.onSurfaceVariant
-            )
+            // Skipped today and back: the label crossfades; the pill's width follows by Expand or Collapse.
+            val progressText = we.progressText()
+            AnimatedContent(skipped, transitionSpec = { Motion.crossfade() using Motion.expandOrCollapse() },
+                label = "pill-skipped") { isSkipped ->
+                Text(
+                    (if (isSkipped) "Skipped" else progressText) + if (inProgress) " +" else "",
+                    style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
+                    color = if (selected) colors.onSecondaryContainer else colors.onSurfaceVariant
+                )
+            }
         }
     }
 }
@@ -986,7 +1008,7 @@ private fun ExerciseFocus(
                 message = if (we.optional || exercise.measure == Measure.CARDIO) "Goal done" else "Target done",
                 extraLabel = extraEffortLabel(exercise.measure)) { draft.extra = true }
             DockKind.ENTRY -> EntryPanel(env, workout, we, draft, face.offered, suggestionFor, viewportHeight,
-                onEntryFocus, onCarry = { dropCarry = it })
+                onEntryFocus, onCarry = { dropCarry = it }, pinned = pinned)
             DockKind.TARGET_MET -> TargetMetPanel(nextName, onNext, onFinish, finishEnabled = !env.runner.looksBusy(),
                 message = if (we.optional) "Goal done" else "Target done",
                 dropLabel = we.dropTarget()?.let { target -> "Add drop to set ${we.workEntries().indexOf(target) + 1}" },
@@ -1142,8 +1164,7 @@ private fun ExerciseFocus(
                 Column {
                     // Before the target is met the rail is the way to move on; the Target done panel offers Next.
                     GroupedActionRow(onClick = { details = !details }, icon = R.drawable.ic_clipboard_list,
-                        index = 0, lastIndex = 1,
-                        trailing = if (details) R.drawable.ic_chevron_up else R.drawable.ic_chevron_down,
+                        index = 0, lastIndex = 1, expanded = details,
                         label = if (details) "Hide options" else "Target and options",
                         modifier = Modifier.testTag("exercise-details")) {
                         Text(
