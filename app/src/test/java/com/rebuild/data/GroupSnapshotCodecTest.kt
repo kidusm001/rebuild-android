@@ -45,7 +45,7 @@ class GroupSnapshotCodecTest {
     @Test fun versionThreeRoundTripKeepsStagesOpenSetPauseCreditAndDatesExactly() = runTest {
         val state = recorded()
         val encoded = SnapshotCodec.encode(state)
-        assertTrue(encoded.contains("\"version\":7"))
+        assertTrue(encoded.contains("\"version\":8"))
         val decoded = SnapshotCodec.decode(encoded)
         assertEquals(state, decoded)
         assertEquals(encoded, SnapshotCodec.encode(decoded))

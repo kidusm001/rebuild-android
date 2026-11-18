@@ -129,7 +129,7 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
                     ) { Text("Change") }
                 }
                 Text(viewPhase.title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
-                Text(phasePrescription(viewPhase), style = MaterialTheme.typography.bodyMedium,
+                Text(state.phasePrescription(viewPhase), style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             } }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

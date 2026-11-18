@@ -57,14 +57,21 @@ internal val versionSixKeys = setOf("measure", "efforts", "durationSeconds", "di
     "effortSeconds", "effortDistance", "totalSeconds", "totalDistance", "stopwatch", "elapsedMs", "runningSince",
     "boot", "session", "stopped", "needsConfirmation", "step")
 internal val versionSevenKeys = setOf("lb", "bodyweights", "measurements", "measurementSites", "liftingUnit")
+internal val versionEightKeys = setOf("split", "splitId", "gear")
 
 /**
  * [this] as Rebuild 0.1.5 to 0.1.9 could have stored it: exercise catalog revision one at most, so none of the timed,
  * distance and cardio exercises revision two adds. Older documents are always written from this.
  */
 internal fun AppState.beforeCatalogTwo(): AppState {
-    val added = ExerciseCatalog.revisionTwo.map { it.id }.toSet()
+    val added = (ExerciseCatalog.revisionTwo + ExerciseCatalog.revisionThree).map { it.id }.toSet()
     return copy(catalogRevision = minOf(catalogRevision, 1), exercises = exercises.filterNot { it.id in added })
+}
+
+/** [this] as Rebuild 0.1.10 to 0.4.1 could have stored it: catalog revision two at most, without revision three. */
+internal fun AppState.beforeCatalogThree(): AppState {
+    val added = ExerciseCatalog.revisionThree.map { it.id }.toSet()
+    return copy(catalogRevision = minOf(catalogRevision, 2), exercises = exercises.filterNot { it.id in added })
 }
 
 private fun strip(value: JsonElement, keys: Set<String>): JsonElement = when (value) {
@@ -80,7 +87,7 @@ internal fun legacyJson(state: AppState = legacyState()): String {
         put("format", "rebuild-backup")
         put("version", 1)
         put("state", strip(json.encodeToJsonElement(state.beforeCatalogTwo().copy(schemaVersion = 1, catalogRevision = 0)),
-            versionTwoKeys + versionThreeKeys + versionFourKeys + versionFiveKeys + versionSixKeys + versionSevenKeys))
+            versionTwoKeys + versionThreeKeys + versionFourKeys + versionFiveKeys + versionSixKeys + versionSevenKeys + versionEightKeys))
     }.toString()
 }
 
@@ -91,7 +98,7 @@ internal fun v2Json(state: AppState): String {
         put("format", "rebuild-backup")
         put("version", 2)
         put("state", strip(json.encodeToJsonElement(state.beforeCatalogTwo().copy(schemaVersion = 2)),
-            versionThreeKeys + versionFourKeys + versionFiveKeys + versionSixKeys + versionSevenKeys))
+            versionThreeKeys + versionFourKeys + versionFiveKeys + versionSixKeys + versionSevenKeys + versionEightKeys))
     }.toString()
 }
 
@@ -102,7 +109,7 @@ internal fun v3Json(state: AppState): String {
         put("format", "rebuild-backup")
         put("version", 3)
         put("state", strip(json.encodeToJsonElement(state.beforeCatalogTwo().copy(schemaVersion = 3)),
-            versionFourKeys + versionFiveKeys + versionSixKeys + versionSevenKeys))
+            versionFourKeys + versionFiveKeys + versionSixKeys + versionSevenKeys + versionEightKeys))
     }.toString()
 }
 
@@ -113,7 +120,7 @@ internal fun v4Json(state: AppState): String {
         put("format", "rebuild-backup")
         put("version", 4)
         put("state", strip(json.encodeToJsonElement(state.beforeCatalogTwo().copy(schemaVersion = 4)),
-            versionFiveKeys + versionSixKeys + versionSevenKeys))
+            versionFiveKeys + versionSixKeys + versionSevenKeys + versionEightKeys))
     }.toString()
 }
 
@@ -123,7 +130,7 @@ internal fun v5Json(state: AppState): String {
     return buildJsonObject {
         put("format", "rebuild-backup")
         put("version", 5)
-        put("state", strip(json.encodeToJsonElement(state.beforeCatalogTwo().copy(schemaVersion = 5)), versionSixKeys + versionSevenKeys))
+        put("state", strip(json.encodeToJsonElement(state.beforeCatalogTwo().copy(schemaVersion = 5)), versionSixKeys + versionSevenKeys + versionEightKeys))
     }.toString()
 }
 
@@ -133,7 +140,18 @@ internal fun v6Json(state: AppState): String {
     return buildJsonObject {
         put("format", "rebuild-backup")
         put("version", 6)
-        put("state", strip(json.encodeToJsonElement(state.copy(schemaVersion = 6)), versionSevenKeys))
+        put("state", strip(json.encodeToJsonElement(state.beforeCatalogThree().copy(schemaVersion = 6)),
+            versionSevenKeys + versionEightKeys))
+    }.toString()
+}
+
+/** A real v7 (0.1.12 to 0.4.1) wire document: no training split or equipment fields, even with default values. */
+internal fun v7Json(state: AppState): String {
+    val json = Json { encodeDefaults = true }
+    return buildJsonObject {
+        put("format", "rebuild-backup")
+        put("version", 7)
+        put("state", strip(json.encodeToJsonElement(state.beforeCatalogThree().copy(schemaVersion = 7)), versionEightKeys))
     }.toString()
 }
 

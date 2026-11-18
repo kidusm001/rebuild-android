@@ -47,7 +47,7 @@ class CatalogMigrationTest {
             assertFalse(migrated.exercises.single { it.id == expected.id }.supportsPlates)
         }
         assertEquals("Revision one fills the library to 61; revision two adds its timed, distance and cardio exercises",
-            61 + ExerciseCatalog.revisionTwo.size, migrated.exercises.size)
+            61 + ExerciseCatalog.revisionTwo.size + ExerciseCatalog.revisionThree.size, migrated.exercises.size)
         assertEquals(old.overrides, migrated.overrides)
         assertEquals(old.templates, migrated.templates)
         assertEquals(old.phase, migrated.phase)

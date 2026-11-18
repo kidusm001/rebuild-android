@@ -78,7 +78,7 @@ class MeasuredSnapshotCodecTest {
     @Test fun versionSixRoundTripKeepsGoalsEffortsUnitsAndTheStopwatchExactly() = runTest {
         val state = recorded()
         val encoded = SnapshotCodec.encode(state)
-        assertTrue(encoded.contains("\"version\":7"))
+        assertTrue(encoded.contains("\"version\":8"))
         val decoded = SnapshotCodec.decode(encoded)
         assertEquals(state, decoded)
         assertEquals(encoded, SnapshotCodec.encode(decoded))
@@ -322,7 +322,7 @@ class MeasuredSnapshotCodecTest {
         val upgraded = opened.state.value
         assertEquals(SnapshotCodec.SCHEMA_VERSION, upgraded.schemaVersion)
         assertEquals(ExerciseCatalog.REVISION, upgraded.catalogRevision)
-        assertEquals(old.exercises + ExerciseCatalog.revisionTwo, upgraded.exercises)
+        assertEquals(old.exercises + ExerciseCatalog.revisionTwo + ExerciseCatalog.revisionThree, upgraded.exercises)
         assertEquals(current.copy(revision = old.revision + 1), upgraded)
         assertEquals(old.restTimer, upgraded.restTimer)
         assertNull(upgraded.stopwatch)

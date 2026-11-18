@@ -25,10 +25,11 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.rebuild.domain.Action
+import com.rebuild.domain.AppState
 import com.rebuild.domain.Phase
 
 @Composable
-internal fun PhaseChoices(selected: Phase?, onSelect: (Phase) -> Unit) {
+internal fun PhaseChoices(state: AppState, selected: Phase?, onSelect: (Phase) -> Unit) {
     Column(Modifier.selectableGroup()) {
         Phase.entries.forEachIndexed { index, phase ->
             if (index > 0) HorizontalDivider()
@@ -36,7 +37,7 @@ internal fun PhaseChoices(selected: Phase?, onSelect: (Phase) -> Unit) {
                 text = phase.title,
                 selected = selected == phase,
                 onClick = { onSelect(phase) },
-                supporting = phasePrescription(phase) + "\n" + phaseGuidance(phase),
+                supporting = state.phasePrescription(phase) + "\n" + state.phaseGuidance(phase),
                 modifier = Modifier.testTag("phase-${phase.name}")
             )
         }
@@ -65,7 +66,7 @@ internal fun FirstRunScreen(env: AppEnv) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        PhaseChoices(choice) { choice = it }
+        PhaseChoices(env.state, choice) { choice = it }
         ErrorText(error)
         Button(
             onClick = {
@@ -119,7 +120,7 @@ internal fun PhaseSettingsScreen(env: AppEnv, onBack: () -> Unit) {
                     modifier = Modifier.testTag("phase-locked")
                 )
             }
-            PhaseChoices(choice) { choice = it }
+            PhaseChoices(env.state, choice) { choice = it }
             ErrorText(error)
             Button(
                 onClick = { confirming = true },
@@ -134,7 +135,7 @@ internal fun PhaseSettingsScreen(env: AppEnv, onBack: () -> Unit) {
     if (confirming && target != null && env.state.activeWorkout == null) {
         ConfirmDialog(
             title = "Switch to ${phaseShort(target)}?",
-            text = "${target.title}: ${phasePrescription(target)}. Nothing already logged changes.",
+            text = "${target.title}: ${env.state.phasePrescription(target)}. Nothing already logged changes.",
             confirmLabel = "Switch phase",
             busy = env.runner.busy,
             error = error,

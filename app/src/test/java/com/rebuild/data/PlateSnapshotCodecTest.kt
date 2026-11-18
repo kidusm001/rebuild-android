@@ -36,28 +36,28 @@ class PlateSnapshotCodecTest {
     @Test fun versionChecksPrecedeNumbersAndRejectMissingMismatchedOrUnknownVersions() {
         val source = SnapshotCodec.encode(Seed.initialState())
         listOf(
-            source.replace("\"version\":7", "\"version\":8"),
-            source.replace("\"schemaVersion\":7", "\"schemaVersion\":8"),
-            source.replace("\"version\":7", "\"version\":5"),
-            source.replace("\"schemaVersion\":7", "\"schemaVersion\":5"),
-            source.replace("\"version\":7", "\"version\":4"),
-            source.replace("\"schemaVersion\":7", "\"schemaVersion\":4"),
-            source.replace("\"version\":7", "\"version\":3"),
-            source.replace("\"schemaVersion\":7", "\"schemaVersion\":3"),
-            source.replace("\"version\":7", "\"version\":2"),
-            source.replace("\"schemaVersion\":7", "\"schemaVersion\":2"),
-            source.replace("\"version\":7", "\"version\":1"),
-            source.replace("\"schemaVersion\":7", "\"schemaVersion\":1"),
-            source.replace("\"schemaVersion\":7,", ""),
-            source.replace("\"catalogRevision\":2", "\"catalogRevision\":3"),
-            source.replace("\"version\":7", "\"version\":\"7\""),
-            source.replace("\"version\":7", "\"version\":7,\"\\u0076ersion\":6")
+            source.replace("\"version\":8", "\"version\":9"),
+            source.replace("\"schemaVersion\":8", "\"schemaVersion\":9"),
+            source.replace("\"version\":8", "\"version\":5"),
+            source.replace("\"schemaVersion\":8", "\"schemaVersion\":5"),
+            source.replace("\"version\":8", "\"version\":4"),
+            source.replace("\"schemaVersion\":8", "\"schemaVersion\":4"),
+            source.replace("\"version\":8", "\"version\":3"),
+            source.replace("\"schemaVersion\":8", "\"schemaVersion\":3"),
+            source.replace("\"version\":8", "\"version\":2"),
+            source.replace("\"schemaVersion\":8", "\"schemaVersion\":2"),
+            source.replace("\"version\":8", "\"version\":1"),
+            source.replace("\"schemaVersion\":8", "\"schemaVersion\":1"),
+            source.replace("\"schemaVersion\":8,", ""),
+            source.replace("\"catalogRevision\":3", "\"catalogRevision\":4"),
+            source.replace("\"version\":8", "\"version\":\"8\""),
+            source.replace("\"version\":8", "\"version\":8,\"\\u0076ersion\":6")
         ).forEach { invalid ->
             assertNotEquals(source, invalid)
             rejected { SnapshotCodec.decode(invalid) }
         }
         try {
-            SnapshotCodec.decode(source.replace("\"version\":7", "\"version\":99").replace("\"revision\":0", "\"revision\":\"not a number\""))
+            SnapshotCodec.decode(source.replace("\"version\":8", "\"version\":99").replace("\"revision\":0", "\"revision\":\"not a number\""))
             fail("Expected unsupported version")
         } catch (error: RepositoryException) {
             assertTrue(error.message!!.contains("version"))

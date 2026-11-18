@@ -45,7 +45,8 @@ class UpgradeFromPreviousTest {
     }
 
     private fun asVersionSix(document: JsonObject): JsonObject {
-        val state = withoutKey(JsonObject(document["state"]!!.jsonObject.filterKeys { it !in versionSevenState }), "lb")
+        val state = listOf("lb", "split", "splitId", "gear").fold<String, JsonElement>(
+            JsonObject(document["state"]!!.jsonObject.filterKeys { it !in versionSevenState })) { e, key -> withoutKey(e, key) }
             .jsonObject
         return JsonObject(document + ("version" to JsonPrimitive(6)) +
             ("state" to JsonObject(state + ("schemaVersion" to JsonPrimitive(6)))))

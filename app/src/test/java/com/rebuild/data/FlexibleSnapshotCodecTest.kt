@@ -58,8 +58,8 @@ class FlexibleSnapshotCodecTest {
     @Test fun versionFourRoundTripKeepsPlanEditsExtraOptionalAndSkippedEntriesExactly() = runTest {
         val state = recorded()
         val encoded = SnapshotCodec.encode(state)
-        assertTrue(encoded.contains("\"version\":7"))
-        assertTrue(encoded.contains("\"schemaVersion\":7"))
+        assertTrue(encoded.contains("\"version\":8"))
+        assertTrue(encoded.contains("\"schemaVersion\":8"))
         val decoded = SnapshotCodec.decode(encoded)
         assertEquals(state, decoded)
         // A 0.1.8 (v4) label can't carry the version-five fields, even with default values.
@@ -250,7 +250,7 @@ class FlexibleSnapshotCodecTest {
         assertEquals("Every workout, set, stage, date, credit and timer is kept exactly; only the library grows",
             old.copy(schemaVersion = SnapshotCodec.SCHEMA_VERSION, revision = migrated.revision,
                 unbackedUpSince = migrated.unbackedUpSince, catalogRevision = ExerciseCatalog.REVISION,
-                exercises = old.exercises + ExerciseCatalog.revisionTwo), migrated)
+                exercises = old.exercises + ExerciseCatalog.revisionTwo + ExerciseCatalog.revisionThree), migrated)
         assertTrue(migrated.planAdditions.isEmpty())
         assertTrue(migrated.planRemovals.isEmpty())
         assertTrue(migrated.workouts.flatMap { it.exercises }.none { it.optional || it.skipped })

@@ -5,10 +5,10 @@ import java.util.Locale
 
 /**
  * The built-in library. Revision 1 added common rep-based exercises; revision 2 adds timed holds, loaded carries and
- * cardio. Catalog membership never changes a workout prescription, and an exercise's measurement type never changes.
+ * cardio; revision 3 adds what a dumbbell-only or bodyweight-only plan needs. Catalog membership never changes a workout prescription, and an exercise's measurement type never changes.
  */
 object ExerciseCatalog {
-    const val REVISION = 2
+    const val REVISION = 3
 
     internal val legacyExercises = listOf(
         Exercise("incline-db", "Incline dumbbell press", perDumbbell = true,
@@ -174,7 +174,34 @@ object ExerciseCatalog {
             primaryMuscle = MuscleGroup.FULL_BODY, aliases = listOf("Run", "Jogging"), measure = Measure.CARDIO)
     )
 
-    val exercises: List<Exercise> = revisionOne + revisionTwo
+    /**
+     * Revision 3: enough to build a whole plan with only dumbbells and a bench, or with only your body (a pull-up bar
+     * helps): bodyweight legs and hamstrings, easier pushing and pulling, and dumbbell hamstrings and triceps.
+     */
+    internal val revisionThree: List<Exercise> = listOf(
+        Exercise("squat-bodyweight", "Bodyweight squat", LoadingType.BODYWEIGHT, equipment = Equipment.BODYWEIGHT,
+            primaryMuscle = MuscleGroup.QUADS, aliases = listOf("Air squat", "Squat")),
+        Exercise("split-squat-bodyweight", "Bodyweight split squat", LoadingType.BODYWEIGHT,
+            equipment = Equipment.BODYWEIGHT, primaryMuscle = MuscleGroup.QUADS, aliases = listOf("Split squat", "Static lunge")),
+        Exercise("glute-bridge", "Glute bridge", LoadingType.BODYWEIGHT, equipment = Equipment.BODYWEIGHT,
+            primaryMuscle = MuscleGroup.GLUTES, aliases = listOf("Hip bridge", "Floor bridge")),
+        Exercise("leg-curl-slider", "Slider leg curl", LoadingType.BODYWEIGHT, equipment = Equipment.BODYWEIGHT,
+            primaryMuscle = MuscleGroup.HAMSTRINGS, aliases = listOf("Towel leg curl", "Sliding hamstring curl")),
+        Exercise("calf-raise-bodyweight", "Bodyweight calf raise", LoadingType.BODYWEIGHT,
+            equipment = Equipment.BODYWEIGHT, primaryMuscle = MuscleGroup.CALVES, aliases = listOf("Standing calf raise", "Step calf raise")),
+        Exercise("inverted-row", "Inverted row", LoadingType.BODYWEIGHT, equipment = Equipment.BODYWEIGHT,
+            primaryMuscle = MuscleGroup.BACK, aliases = listOf("Bodyweight row", "Table row", "Australian pull-up")),
+        Exercise("pike-pushup", "Pike push-up", LoadingType.BODYWEIGHT, equipment = Equipment.BODYWEIGHT,
+            primaryMuscle = MuscleGroup.SHOULDERS, aliases = listOf("Pike press")),
+        Exercise("pushup-close", "Close-grip push-up", LoadingType.BODYWEIGHT, equipment = Equipment.BODYWEIGHT,
+            primaryMuscle = MuscleGroup.TRICEPS, aliases = listOf("Diamond push-up", "Triceps push-up")),
+        Exercise("rdl-db", "Dumbbell Romanian deadlift", perDumbbell = true, equipment = Equipment.DUMBBELL,
+            primaryMuscle = MuscleGroup.HAMSTRINGS, aliases = listOf("DB RDL", "Dumbbell RDL")),
+        Exercise("triceps-overhead-db", "Overhead dumbbell triceps extension", equipment = Equipment.DUMBBELL,
+            primaryMuscle = MuscleGroup.TRICEPS, aliases = listOf("DB overhead extension", "Two-hand dumbbell extension"))
+    )
+
+    val exercises: List<Exercise> = revisionOne + revisionTwo + revisionThree
 }
 
 fun searchExercises(
