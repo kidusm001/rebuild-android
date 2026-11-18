@@ -236,7 +236,11 @@ class MainActivity : ComponentActivity(), PlatformActions {
             (model.repository.value == null && model.loadError.value == null &&
                 SystemClock.uptimeMillis() - shownAt < Motion.SplashCapMs).also { splashHeld = it }
         }
-        splash.setOnExitAnimationListener { provider ->
+        // From Android 12 the system splash is its own window: handing a copy of it to the app left a gap of up to
+        // half a second on the emulator in which the app showed and then the splash came back. There the system's own
+        // exit (the splash window fading over the app) is the only motion; below 12 the splash is a view in this
+        // window and fades by Fade out.
+        if (Build.VERSION.SDK_INT < 31) splash.setOnExitAnimationListener { provider ->
             provider.view.animate()
                 .alpha(0f)
                 .setDuration(Motion.Fast.toLong())
