@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
@@ -534,13 +535,16 @@ internal fun PlanReveal(state: AppState, split: Split, gear: Gear, note: String?
     WeekStrip(week.associate { it.weekday to it.name })
     val sets = week.flatMap { state.plannedExercises(it, phase) }.mapNotNull { it.sets }
     val setRange = if (sets.isEmpty()) "–" else if (sets.min() == sets.max()) "${sets.min()}" else "${sets.min()}–${sets.max()}"
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        StatTile("${week.size}", "days a week", Modifier.weight(1f))
-        StatTile(setRange, if (setRange == "1") "set each" else "sets each", Modifier.weight(1f),
+    // Three tiles side by side; stacked at large text so no caption is cut.
+    val tiles: @Composable (Modifier) -> Unit = { m ->
+        StatTile("${week.size}", "days a week", m)
+        StatTile(setRange, if (setRange == "1") "set per exercise" else "sets per exercise", m,
             spoken = "$setRange working ${if (setRange == "1") "set" else "sets"} per exercise")
-        StatTile("${phase.targetRir}", "in reserve", Modifier.weight(1f),
-            spoken = "about ${phase.targetRir} reps in reserve")
+        StatTile("${phase.targetRir}", "reps in reserve", m, spoken = "about ${phase.targetRir} reps in reserve")
     }
+    if (LocalDensity.current.fontScale > 1.3f) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        tiles(Modifier.fillMaxWidth())
+    } else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { tiles(Modifier.weight(1f)) }
     Text("You start in ${phase.title}. Reps in reserve are the reps you could still have done when you stop a set: " +
         "end each set with about ${phase.targetRir} left. You choose when to move up, in Plan.",
         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -578,9 +582,11 @@ private fun DayCard(state: AppState, template: ScheduledRoutine, phase: Phase) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Box(Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
+            // A round badge that grows into a pill at large text, so the day is never clipped.
+            Box(Modifier.heightIn(min = 44.dp).widthIn(min = 44.dp).clip(CircleShape)
+                .background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 8.dp),
                 contentAlignment = Alignment.Center) {
-                Text(dayShort(template.weekday), style = MaterialTheme.typography.labelLarge,
+                Text(dayShort(template.weekday), style = MaterialTheme.typography.labelLarge, maxLines = 1,
                     color = MaterialTheme.colorScheme.onSecondaryContainer)
             }
             Column(Modifier.weight(1f)) {
@@ -671,10 +677,16 @@ internal fun RestAlertSetup(env: AppEnv, onDone: () -> Unit) {
             Text("How it tells you", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                 modifier = Modifier.semantics { heading() })
             val main = listOf(RestSound.BUZZ, RestSound.CHIME, RestSound.ALARM, RestSound.SILENT)
-            PillChoice(main, if (alert.sound in main) alert.sound else RestSound.BUZZ,
-                { env.platform.setRestAlert(alert.withSound(it)) }, { it.title },
-                tag = { "rest-sound-${it.name.lowercase()}" })
-            Text(alert.sound.detail, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+            // Four short pills when they fit; at large text a list, so no word is broken.
+            if (LocalDensity.current.fontScale > 1.3f) {
+                ChoiceGroup(main, if (alert.sound in main) alert.sound else RestSound.BUZZ, "rest-sound",
+                    { it.title }, { it.detail }) { env.platform.setRestAlert(alert.withSound(it)) }
+            } else {
+                PillChoice(main, if (alert.sound in main) alert.sound else RestSound.BUZZ,
+                    { env.platform.setRestAlert(alert.withSound(it)) }, { it.title },
+                    tag = { "rest-sound-${it.name.lowercase()}" })
+                Text(alert.sound.detail, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+            }
             SecondaryButton(onClick = { env.previewRestEnd() }, icon = R.drawable.ic_play,
                 modifier = Modifier.testTag("setup-rest-try")) { Text("Try it") }
             when {
