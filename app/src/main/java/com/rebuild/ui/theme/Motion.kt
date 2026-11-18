@@ -33,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
@@ -237,6 +238,8 @@ fun <S> FadeInOver(
 ) {
     val sizes = remember { mutableStateMapOf<Any?, IntSize>() }
     val targetKey = contentKey(targetState)
+    // Read through a state: the copy on screen follows what its caller passes now, not what it passed when it came in.
+    val latest by rememberUpdatedState(content)
     AnimatedContent(
         targetState = targetState,
         modifier = modifier,
@@ -259,7 +262,7 @@ fun <S> FadeInOver(
                 .fadeOver(incoming = { sizes[targetKey].takeIf { key != targetKey } }, overhang = { overhang },
                     alignment = contentAlignment)
                 .then(if (backing.isSpecified) Modifier.background(backing) else Modifier)
-        ) { content(shown) }
+        ) { latest(this@AnimatedContent, shown) }
     }
 }
 

@@ -52,8 +52,6 @@ import androidx.compose.ui.unit.sp
 import com.rebuild.platform.RestContext
 import com.rebuild.ui.theme.Numerals
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.first
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.platform.LocalDensity
@@ -192,12 +190,16 @@ internal fun RestEndTakeover(
     LaunchedEffect(key) {
         if (!still) coroutineScope {
             // A firm spring: it arrives with intent and settles without drifting; one tick as it lands.
-            launch { cover.animateTo(1f, spring(dampingRatio = 0.92f, stiffness = 420f)) }
-            // The tick lands with the sheet: the first frame it looks landed (98 %), not when the spring has
-            // crept to its threshold, which is visibly later.
+            // The tick lands with the sheet: in the animation frame it first reaches 98 % (where it looks landed),
+            // not when the spring has crept to its threshold, which is visibly later.
             launch {
-                snapshotFlow { cover.value }.first { it >= 0.98f }
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                var ticked = false
+                cover.animateTo(1f, spring(dampingRatio = 0.92f, stiffness = 420f)) {
+                    if (!ticked && value >= 0.98f) {
+                        ticked = true
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    }
+                }
             }
             // Once the sheet is most of the way up: the small lines simply fade in, the numeral rolls.
             launch { motionDelay(180); words.animateTo(1f, tween(150, easing = LinearEasing)) }

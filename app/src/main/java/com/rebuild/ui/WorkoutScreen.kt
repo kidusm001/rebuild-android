@@ -280,6 +280,9 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
             // A fresh composition per exercise: no content, entry or dialog state can outlive a switch. Switching,
             // the body travels the way the strip goes while the dock stays put: the new dock fades in over the old.
             val switch = updateTransition(focused.id, label = "exercise")
+            // The exercise on screen follows the workout as it is now (a set just saved), read through states.
+            val currentWorkout by rememberUpdatedState(workout)
+            val currentEnv by rememberUpdatedState(env)
             val dockSizes = remember { mutableStateMapOf<String, IntSize>() }
             val shift = with(LocalDensity.current) { Motion.Shift.toPx() }
             switch.AnimatedContent(
@@ -288,6 +291,8 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
                 },
                 modifier = Modifier.weight(1f).yieldsToFixedControls()
             ) { id ->
+                val workout = currentWorkout
+                val env = currentEnv
                 val shown = workout.exercises.find { it.id == id }
                 if (shown == null) {
                     Box(Modifier.fillMaxSize())

@@ -296,13 +296,14 @@ private class LedgerBand {
  */
 @Composable
 private fun LoggedOrSlot(row: LedgerRow, modifier: Modifier, content: @Composable (LedgerRow, Modifier) -> Unit) {
+    val latest by androidx.compose.runtime.rememberUpdatedState(content)
     AnimatedContent(
         targetState = row,
         contentKey = { it.today != null },
         transitionSpec = { Motion.crossfade().using(null) },
         modifier = modifier,
         label = "ledger-cell"
-    ) { shown -> content(shown, Modifier) }
+    ) { shown -> latest(shown, Modifier) }
 }
 
 @Composable
