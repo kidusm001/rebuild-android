@@ -2,7 +2,6 @@ package com.rebuild.ui
 
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.graphics.Path
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeJoin
@@ -453,13 +452,11 @@ internal fun WorkoutDetailScreen(env: AppEnv, workout: Workout, onBack: () -> Un
                     // Duration, working sets and exercises at a glance.
                     val minutes = workout.finishedAt?.let { ((it - workout.startedAt) / 60_000).toInt() }
                     val working = workout.exercises.sumOf { it.workingCount() }
-                    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (minutes != null) StatTile("$minutes", "Minutes", Modifier.weight(1f).fillMaxHeight(),
-                            spoken = "$minutes minutes")
-                        StatTile("$working", "Working sets", Modifier.weight(1f).fillMaxHeight(), emphasized = true,
+                    StatTiles(Modifier.padding(vertical = 8.dp)) { tile ->
+                        if (minutes != null) StatTile("$minutes", "Minutes", tile, spoken = "$minutes minutes")
+                        StatTile("$working", "Working sets", tile, emphasized = true,
                             spoken = "$working working sets")
-                        StatTile("${workout.exercises.size}", "Exercises", Modifier.weight(1f).fillMaxHeight(),
+                        StatTile("${workout.exercises.size}", "Exercises", tile,
                             spoken = "${workout.exercises.size} exercises")
                     }
                     WeekCredit(env, workout)

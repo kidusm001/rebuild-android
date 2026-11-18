@@ -754,6 +754,23 @@ internal fun SessionTrack(states: List<TrackState>, description: String, modifie
     }
 }
 
+/**
+ * Stat tiles side by side at equal height. Above 130% font scale they stack full width instead, so each caption
+ * stays whole rather than being cut mid-word in a third of the screen.
+ */
+@Composable
+internal fun StatTiles(modifier: Modifier = Modifier, tiles: @Composable (tile: Modifier) -> Unit) {
+    if (LocalDensity.current.fontScale > 1.3f) {
+        Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            tiles(Modifier.fillMaxWidth())
+        }
+    } else {
+        Row(modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            tiles(Modifier.weight(1f).fillMaxHeight())
+        }
+    }
+}
+
 /** A number the reader looks for, large and condensed, over a short caption. */
 @Composable
 internal fun StatTile(
