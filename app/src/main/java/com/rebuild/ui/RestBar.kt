@@ -168,7 +168,7 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                 if (remaining > 0) {
                     FilledTonalButton(
                         onClick = { adjust(30_000) },
-                        enabled = !env.runner.showsBusy,
+                        enabled = !env.runner.looksBusy(),
                         colors = quiet,
                         contentPadding = PaddingValues(horizontal = if (compact) 10.dp else 14.dp),
                         modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Add 30 seconds" }
@@ -177,7 +177,7 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                 // Skipping ends this rest for good, so it's a labelled button rather than a bare icon beside Options.
                 FilledTonalButton(
                     onClick = { env.runner.run(Action.SkipRest) },
-                    enabled = !env.runner.showsBusy,
+                    enabled = !env.runner.looksBusy(),
                     colors = strong,
                     contentPadding = PaddingValues(horizontal = 14.dp),
                     modifier = Modifier.heightIn(min = 48.dp).semantics {
@@ -199,7 +199,7 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                 Text(if (remaining > 0) "${formatRest(remaining)} remaining" else if (pause) "The pause is over." else "Rest is complete.")
                 if (we != null) Text("After ${we.exercise.name}")
                 if (remaining > 0) {
-                    TextButton(onClick = { adjust(-30_000) }, enabled = !env.runner.showsBusy,
+                    TextButton(onClick = { adjust(-30_000) }, enabled = !env.runner.looksBusy(),
                         modifier = Modifier.heightIn(min = 48.dp)) { Text("−30 s") }
                     TextButton(onClick = { options = false; editing = true },
                         modifier = Modifier.heightIn(min = 48.dp)) { Text("Set time") }

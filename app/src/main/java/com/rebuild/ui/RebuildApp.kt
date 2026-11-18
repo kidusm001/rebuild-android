@@ -29,6 +29,8 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -663,23 +665,9 @@ private fun AppDestination(
     }
 
     @Composable
-    fun Layer(layerKey: String, layerRoute: String, shownWith: AppEnv, content: @Composable (AppEnv) -> Unit) {
-        val isTarget = layerKey == plan.target
-        val motion = book.motions[layerKey]
-        Box(
-            Modifier
-                .layoutId(layerKey)
-                .graphicsLayer {
-                    alpha = motion?.alpha?.value ?: 0f
-                    translationX = motion?.dx?.value ?: 0f
-                }
-                // Input and screen readers reach only the target, from the transition's first frame.
-                .then(if (isTarget) Modifier else INERT)
-                .layerInsets(chrome, layerRoute, live = isTarget || layerKey == leaving)
-        ) {
-            InactiveBack(disabled = !isTarget) { content(shownWith) }
-        }
-    }
+    fun Layer(layerKey: String, layerRoute: String, shownWith: AppEnv, content: @Composable (AppEnv) -> Unit) =
+        LayerBox(layerKey, layerRoute, isTarget = layerKey == plan.target, leaving = layerKey == leaving,
+            motion = book.motions[layerKey], chrome = chrome, env = shownWith, content = content)
 
     Layout(content = {
         tabs.forEach { tab ->
@@ -710,6 +698,45 @@ private fun AppDestination(
         layout(constraints.maxWidth, constraints.maxHeight) {
             val order = if (plan.move == Move.POP) listOf(plan.target, leaving) else listOf(leaving, plan.target)
             order.filterNotNull().forEach { k -> placeables.firstOrNull { it.first == k }?.second?.place(0, 0) }
+        }
+    }
+}
+
+/**
+ * One layer of the stack transition. Its own composable with plain inputs, so a hidden kept tab (not the target, not
+ * leaving, no motion, the env it was last shown with) skips entirely when the app recomposes.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LayerBox(
+    layerKey: String,
+    layerRoute: String,
+    isTarget: Boolean,
+    leaving: Boolean,
+    motion: LayerMotion?,
+    chrome: Chrome,
+    env: AppEnv,
+    content: @Composable (AppEnv) -> Unit
+) {
+    // A hidden layer has no press ripple: a ripple caught mid-press when the layer was covered would otherwise replay,
+    // frozen, the next time the layer is shown. Back on screen it starts still.
+    val ripple = LocalRippleConfiguration.current
+    Box(
+        Modifier
+            .layoutId(layerKey)
+            .graphicsLayer {
+                alpha = motion?.alpha?.value ?: 0f
+                translationX = motion?.dx?.value ?: 0f
+            }
+            // Input and screen readers reach only the target, from the transition's first frame.
+            .then(if (isTarget) Modifier else INERT)
+            .layerInsets(chrome, layerRoute, live = isTarget || leaving)
+    ) {
+        CompositionLocalProvider(
+            LocalLayerActive provides isTarget,
+            LocalRippleConfiguration provides ripple.takeIf { isTarget || leaving }
+        ) {
+            InactiveBack(disabled = !isTarget) { content(env) }
         }
     }
 }

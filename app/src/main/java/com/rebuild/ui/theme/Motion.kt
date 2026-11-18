@@ -4,6 +4,8 @@ import android.provider.Settings
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.background
 import androidx.compose.animation.AnimatedVisibilityScope
@@ -192,6 +194,37 @@ object Motion {
     fun expandOrCollapse(clip: Boolean = false): SizeTransform = SizeTransform(clip) { initial, target ->
         if (target.height >= initial.height) expandSizeSpec() else collapseSizeSpec()
     }
+}
+
+/**
+ * The Crossfade rule as a container, for content on a shared, persistent background (labels, digits, chart drawings):
+ * the old content fades out by Fade out while the new fades in by Fade in, in the same place, no size animation.
+ * [contentKey] decides what counts as new content. The alpha is applied to each draw (no offscreen copy), which is
+ * right for text and drawings on the background and keeps a crossfade from costing an extra layer per frame.
+ */
+@Composable
+fun <S> MotionCrossfade(
+    targetState: S,
+    modifier: Modifier = Modifier,
+    contentKey: (S) -> Any? = { it },
+    label: String = "crossfade",
+    content: @Composable (S) -> Unit
+) = AnimatedContent(
+    targetState = targetState,
+    modifier = modifier,
+    contentKey = contentKey,
+    transitionSpec = {
+        ContentTransform(EnterTransition.None, ExitTransition.KeepUntilTransitionsFinished, sizeTransform = null)
+    },
+    label = label
+) { shown ->
+    val alpha by transition.animateFloat(transitionSpec = {
+        if (targetState == EnterExitState.Visible) Motion.fadeInSpec() else Motion.fadeOutSpec()
+    }, label = "crossfade-alpha") { if (it == EnterExitState.Visible) 1f else 0f }
+    Box(Modifier.graphicsLayer {
+        this.alpha = alpha
+        compositingStrategy = CompositingStrategy.ModulateAlpha
+    }) { content(shown) }
 }
 
 /**

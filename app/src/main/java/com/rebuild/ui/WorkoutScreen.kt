@@ -28,6 +28,7 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableFloatStateOf
@@ -218,7 +219,7 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
         compactWhenKeyboard = true,
         compactNow = railHidden,
         actions = {
-            SecondaryButton(onClick = { guarded(LEAVE_FINISH) { finishing = true } }, enabled = !env.runner.showsBusy) { Text("Finish") }
+            SecondaryButton(onClick = { guarded(LEAVE_FINISH) { finishing = true } }, enabled = !env.runner.looksBusy()) { Text("Finish") }
             IconButton(onClick = { menuOpen = true }) {
                 RebuildIcon(R.drawable.ic_ellipsis_vertical, contentDescription = "More workout actions")
             }
@@ -234,7 +235,7 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
                 )
                 DropdownMenuItem(
                     text = { Text("Add exercise") },
-                    enabled = !env.runner.showsBusy,
+                    enabled = !env.runner.looksBusy(),
                     onClick = {
                         menuOpen = false
                         adding = true
@@ -265,7 +266,7 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
         val keyboardUp = railHidden
         AnimatedVisibility(workout.exercises.isNotEmpty() && !keyboardUp,
             enter = Motion.expand(), exit = Motion.collapse()) {
-            ExerciseRail(env, workout, focusedIndex, watch, onAdd = { adding = true }, addEnabled = !env.runner.showsBusy,
+            ExerciseRail(env, workout, focusedIndex, watch, onAdd = { adding = true }, addEnabled = !env.runner.looksBusy(),
                 onSelect = ::select, onNotice = { notice = it })
         }
         // An unlogged stopwatch effort on another exercise stays in sight until it's logged or discarded.
@@ -274,7 +275,7 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
         }
         notice?.let { NoticeLine(it) { notice = null } }
         if (focused == null) {
-            EmptyWorkoutBody(onAdd = { adding = true }, enabled = !env.runner.showsBusy,
+            EmptyWorkoutBody(onAdd = { adding = true }, enabled = !env.runner.looksBusy(),
                 modifier = Modifier.weight(1f).yieldsToFixedControls())
         } else {
             // A fresh composition per exercise: no content, entry or dialog state can outlive a switch. Switching,
@@ -690,7 +691,7 @@ private fun ExerciseRail(
                     we = ex,
                     canMoveEarlier = saved.indexOf(ex.id) > 0,
                     canMoveLater = saved.indexOf(ex.id) < saved.lastIndex,
-                    busy = env.runner.showsBusy,
+                    busy = env.runner.looksBusy(),
                     blocked = removeBlocked(ex, watch),
                     onDismiss = { menuFor = null },
                     onMoveEarlier = { menuFor = null; move(ex.id, saved.indexOf(ex.id) - 1) },
@@ -981,12 +982,12 @@ private fun ExerciseFocus(
             DockKind.MEASURED_ENTRY -> MeasuredEntryPanel(env, workout, we, draft.extra,
                 onCancelExtra = { draft.extra = false }, onGoTo = onSelect, viewportHeight = viewportHeight,
                 onFocusChange = onEntryFocus)
-            DockKind.MEASURED_MET -> TargetMetPanel(nextName, onNext, onFinish, finishEnabled = !env.runner.showsBusy,
+            DockKind.MEASURED_MET -> TargetMetPanel(nextName, onNext, onFinish, finishEnabled = !env.runner.looksBusy(),
                 message = if (we.optional || exercise.measure == Measure.CARDIO) "Goal done" else "Target done",
                 extraLabel = extraEffortLabel(exercise.measure)) { draft.extra = true }
             DockKind.ENTRY -> EntryPanel(env, workout, we, draft, face.offered, suggestionFor, viewportHeight,
                 onEntryFocus, onCarry = { dropCarry = it })
-            DockKind.TARGET_MET -> TargetMetPanel(nextName, onNext, onFinish, finishEnabled = !env.runner.showsBusy,
+            DockKind.TARGET_MET -> TargetMetPanel(nextName, onNext, onFinish, finishEnabled = !env.runner.looksBusy(),
                 message = if (we.optional) "Goal done" else "Target done",
                 dropLabel = we.dropTarget()?.let { target -> "Add drop to set ${we.workEntries().indexOf(target) + 1}" },
                 onDrop = { draft.extra = true; draft.drop = true; draft.kg = ""; draft.reps = "" }) {
@@ -1057,6 +1058,9 @@ private fun ExerciseFocus(
                     .graphicsLayer {
                         alpha = motion.bodyAlpha()
                         translationX = if (pinned) motion.dx() else 0f
+                        // Text and cards on the canvas: the alpha goes on each draw, with no offscreen copy of the
+                        // whole body (two of them, one per exercise, every frame of a switch).
+                        compositingStrategy = CompositingStrategy.ModulateAlpha
                     }
                     .fillMaxHeight()
                     // A short window (a phone on its side) keeps every column it has: narrowed, the entry would wrap
@@ -1087,7 +1091,7 @@ private fun ExerciseFocus(
                         if (unitShown) {
                             AssistChip(
                                 onClick = { choosingUnit = true },
-                                enabled = !env.runner.showsBusy && open == null && !watchHere,
+                                enabled = !env.runner.looksBusy() && open == null && !watchHere,
                                 label = { Text(unitName(we.entryLoadUnit), maxLines = 1) },
                                 leadingIcon = {
                                     RebuildIcon(R.drawable.ic_sliders_horizontal, contentDescription = null,
@@ -1519,7 +1523,7 @@ internal fun FinishWorkoutDialog(
                 )
                 CheckRow(
                     "Discard the stopwatch's effort", discardWatch, { discardWatch = it },
-                    enabled = !env.runner.showsBusy,
+                    enabled = !env.runner.looksBusy(),
                     supporting = "Its time isn't saved anywhere.",
                     modifier = Modifier.testTag("finish-discard-stopwatch")
                 )
@@ -1528,7 +1532,7 @@ internal fun FinishWorkoutDialog(
                 CheckRow(
                     "Count ${workout.name} as done for its ${weekOf(workout.weekStart())}",
                     countForWeek, { countForWeek = it },
-                    enabled = !env.runner.showsBusy,
+                    enabled = !env.runner.looksBusy(),
                     supporting = "You can change this later in History",
                     modifier = Modifier.testTag("count-for-week")
                 )
@@ -1537,7 +1541,7 @@ internal fun FinishWorkoutDialog(
             if (workout.extra && logged == 0 && onDiscard != null) {
                 TextButton(
                     onClick = onDiscard,
-                    enabled = !env.runner.showsBusy,
+                    enabled = !env.runner.looksBusy(),
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                     modifier = Modifier.heightIn(min = 48.dp).testTag("finish-discard")
                 ) { Text("Discard workout") }
@@ -1556,7 +1560,7 @@ internal fun FinishWorkoutDialog(
                         onSuccess = onFinished
                     )
                 },
-                enabled = !env.runner.showsBusy && canFinish,
+                enabled = !env.runner.looksBusy() && canFinish,
                 modifier = Modifier.testTag("confirm-button")
             ) { Text(if (openSets.isNotEmpty()) "Finish set and workout" else "Finish") }
         },

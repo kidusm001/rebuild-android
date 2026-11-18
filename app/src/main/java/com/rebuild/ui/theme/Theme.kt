@@ -193,7 +193,12 @@ internal fun emberRipple(darkTheme: Boolean) = RippleConfiguration(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun InkPress(content: @Composable () -> Unit) =
-    CompositionLocalProvider(LocalRippleConfiguration provides RippleConfiguration(), content = content)
+    // A layer that is not on screen has no ripple at all (see LayerBox); that holds for ink presses inside it too.
+    CompositionLocalProvider(LocalRippleConfiguration provides InkRipple.takeIf { LocalRippleConfiguration.current != null },
+        content = content)
+
+@OptIn(ExperimentalMaterial3Api::class)
+private val InkRipple = RippleConfiguration()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

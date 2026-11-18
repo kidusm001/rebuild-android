@@ -570,7 +570,7 @@ internal fun SkippedPanel(
                     NextExerciseLabel(nextName)
                 }
             } else {
-                Button(onClick = onFinish, enabled = !env.runner.showsBusy,
+                Button(onClick = onFinish, enabled = !env.runner.looksBusy(),
                     modifier = modifier.heightIn(min = 56.dp).testTag("finish-from-entry")) { Text("Finish workout") }
             }
         }
@@ -580,7 +580,7 @@ internal fun SkippedPanel(
                     error = null
                     env.runner.run(Action.SetSkipped(workout.id, we.id, false), onError = { error = it })
                 },
-                enabled = !env.runner.showsBusy,
+                enabled = !env.runner.looksBusy(),
                 modifier = modifier.heightIn(min = 56.dp).testTag("undo-skip")
             ) { Text("Undo skip", maxLines = 1) }
         }
@@ -648,7 +648,7 @@ internal fun EntryOptions(
 ) {
     var error by rememberSaveable(we.id) { mutableStateOf<String?>(null) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val busy = env.runner.showsBusy
+    val busy = env.runner.looksBusy()
     fun skip(skipped: Boolean) {
         error = null
         env.runner.run(Action.SetSkipped(workout.id, we.id, skipped), onError = { error = it }) {

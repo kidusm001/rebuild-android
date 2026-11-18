@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +40,12 @@ internal val INERT: Modifier = Modifier
             while (true) awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
         }
     }
+
+/**
+ * Whether the layer being composed is the target, the one on screen taking input. Hidden kept tabs and a layer leaving
+ * read false, so what only the target shows (the busy look, a press ripple) is neither tracked nor kept there.
+ */
+internal val LocalLayerActive = compositionLocalOf { true }
 
 /** Whether [route] shows the navigation bar or rail: everywhere except the workout, a past workout and editors. */
 internal fun showsNav(route: String): Boolean =

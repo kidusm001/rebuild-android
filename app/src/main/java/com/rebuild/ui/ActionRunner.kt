@@ -1,5 +1,6 @@
 package com.rebuild.ui
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -135,3 +136,11 @@ class ActionRunner(
         private const val RECEIPT_KEY = "receipt-pending"
     }
 }
+
+/**
+ * The busy look ([ActionRunner.showsBusy], or for [tag] only) for a control on the layer being composed. A hidden kept
+ * tab or a layer leaving never reads it, so a slow save doesn't recompose screens nobody sees in the frame it lands.
+ */
+@Composable
+internal fun ActionRunner.looksBusy(tag: String? = null): Boolean =
+    LocalLayerActive.current && (if (tag == null) showsBusy else showsBusy(tag))
