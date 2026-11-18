@@ -163,4 +163,10 @@ class SplitsTest {
             }
         }
     }
+
+    @Test fun everyBodyweightPullUpKeepsAnEasierWayIn() {
+        Splits.all.flatMap { it.templates }.flatMap { it.slots }
+            .filter { it.exerciseFor(Gear.BODYWEIGHT) in setOf("pullup", "chinup") }
+            .forEach { slot -> assertTrue(slot.id, "pullup-negative" in slot.alternativesFor(Gear.BODYWEIGHT)) }
+    }
 }

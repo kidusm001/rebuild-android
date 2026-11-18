@@ -202,7 +202,9 @@ object ExerciseCatalog {
         Exercise("row-db-chest-supported", "Chest-supported dumbbell row", perDumbbell = true, equipment = Equipment.DUMBBELL,
             primaryMuscle = MuscleGroup.BACK, aliases = listOf("Incline bench dumbbell row", "Seal row")),
         Exercise("pushup-incline", "Incline push-up", LoadingType.BODYWEIGHT, equipment = Equipment.BODYWEIGHT,
-            primaryMuscle = MuscleGroup.CHEST, aliases = listOf("Hands-elevated push-up", "Bench push-up"))
+            primaryMuscle = MuscleGroup.CHEST, aliases = listOf("Hands-elevated push-up", "Bench push-up")),
+        Exercise("pullup-negative", "Negative pull-up", LoadingType.BODYWEIGHT, equipment = Equipment.BODYWEIGHT,
+            primaryMuscle = MuscleGroup.BACK, aliases = listOf("Eccentric pull-up", "Slow lowering pull-up"))
     )
 
     val exercises: List<Exercise> = revisionOne + revisionTwo + revisionThree

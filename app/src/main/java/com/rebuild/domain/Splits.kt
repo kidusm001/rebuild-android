@@ -76,8 +76,9 @@ object Splits {
 
     private fun bodyweightAlternatives(id: String?): List<String> = when (id) {
         "pushup" -> listOf("pushup-incline")
-        "pullup" -> listOf("inverted-row", "chinup")
-        "chinup" -> listOf("inverted-row")
+        // A negative (jump up, lower slowly) is the way to a first pull-up, and never a day's own exercise.
+        "pullup" -> listOf("pullup-negative", "inverted-row", "chinup")
+        "chinup" -> listOf("pullup-negative", "inverted-row")
         "inverted-row" -> listOf("pullup")
         "pike-pushup" -> listOf("pushup")
         "pushup-close" -> listOf("pushup-incline")
