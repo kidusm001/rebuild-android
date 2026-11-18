@@ -128,7 +128,6 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
                     SecondaryButton(
                         onClick = { onNavigate(Routes.PHASE) },
                         modifier = Modifier.heightIn(min = 48.dp).testTag("plan-change-phase")
-                            .semantics { contentDescription = "Change current phase" }
                     ) { Text("Change phase") }
                 }
                 Text(viewPhase.title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
@@ -573,7 +572,7 @@ private fun YourPlanCard(state: com.rebuild.domain.AppState, onChange: () -> Uni
         }
         Text(split?.name ?: "Your plan", style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.semantics { heading() }.testTag("plan-split-name"))
-        Text("$days · ${state.gear.short()} · ${state.liftingUnit.symbol}", style = MaterialTheme.typography.bodyMedium,
+        Text("$days · ${state.gear.short()}\u00A0·\u00A0${state.liftingUnit.symbol}", style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     } }
 }

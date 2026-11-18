@@ -148,7 +148,7 @@ class SetupFlowDeviceTest {
         rule.onNodeWithText("Plan").performClick()
         rule.onNodeWithTag("plan-split-name").assertTextEquals("Full body, 3 days")
         rule.onNodeWithTag("plan-change-split").performClick()
-        rule.onNodeWithTag("split-switch").assertIsNotEnabled()
+        rule.onNodeWithTag("split-unchanged").assertExists()
         rule.onNodeWithTag("setup-days-4").performScrollTo().performClick()
         rule.onNodeWithTag("split-name").performScrollTo().assertTextEquals("Upper and lower")
         rule.onNodeWithTag("split-switch").assertIsEnabled().performClick()

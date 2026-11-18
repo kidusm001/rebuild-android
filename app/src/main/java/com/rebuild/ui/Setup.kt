@@ -314,7 +314,7 @@ private fun Promise(@DrawableRes icon: Int, title: String, detail: String) {
 private fun SetupProgress(step: Int, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
     // The step is spoken with the page's heading; the bar itself is decoration to a screen reader.
-    Row(modifier.testTag("setup-step").semantics { contentDescription = "Step $step of 4" }.clearAndSetSemantics {
+    Row(modifier.testTag("setup-step").clearAndSetSemantics {
         contentDescription = "Step $step of 4"; hideFromAccessibility() },
         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         (1..4).forEach { segment ->
@@ -566,18 +566,19 @@ internal fun PlanReveal(state: AppState, split: Split, gear: Gear, note: String?
         Text("$perWorkout exercises a workout · $setRange $setWord each · about ${phase.targetRir} reps in reserve",
             style = MaterialTheme.typography.titleMedium)
     } else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        StatTile(perWorkout, "exercises", Modifier.weight(1f), spoken = "$perWorkout exercises a workout")
-        StatTile(setRange, "$setWord each", Modifier.weight(1f), spoken = "$setRange working $setWord per exercise")
-        StatTile("${phase.targetRir}", "in reserve", Modifier.weight(1f), spoken = "about ${phase.targetRir} reps in reserve")
+        StatTile(perWorkout, "exercises a day", Modifier.weight(1f), spoken = "$perWorkout exercises a workout")
+        StatTile(setRange, "$setWord per exercise", Modifier.weight(1f), spoken = "$setRange working $setWord per exercise")
+        StatTile("${phase.targetRir}", "reps in reserve", Modifier.weight(1f), spoken = "about ${phase.targetRir} reps in reserve")
     }
     Text("You start in ${phase.title}: ${phaseInWords(phase)} Stop each set with about ${phase.targetRir} reps still " +
-        "in you. You choose when to move up, in Plan.",
+        "in you (${phase.targetRir} RIR, reps in reserve). You choose when to move up, in Plan.",
         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     if (split.rampsDays) Text("This plan is 4 days now and 5 once you move to Two-set start.",
         style = MaterialTheme.typography.bodyMedium)
     Text("Your week", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
         modifier = Modifier.padding(top = 4.dp).semantics { heading() })
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { week.forEach { DayCard(state, it, phase) } }
+    val labels = week.map { dayShort(it.weekday) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { week.forEach { DayCard(state, it, phase, labels) } }
     val swapped = split.swappedFor(gear)
     val dropped = split.droppedFor(gear)
     if (swapped > 0 || dropped > 0) Text(
@@ -603,7 +604,7 @@ private fun phaseInWords(phase: Phase): String = when (phase) {
 
 /** One day of the plan: its weekday, workout and count, opening to each exercise's sets and reps. */
 @Composable
-private fun DayCard(state: AppState, template: ScheduledRoutine, phase: Phase) {
+private fun DayCard(state: AppState, template: ScheduledRoutine, phase: Phase, weekLabels: List<String>) {
     var open by rememberSaveable(template.id) { mutableStateOf(false) }
     val planned = state.plannedExercises(template, phase)
     TonalCard { Column {
@@ -623,6 +624,11 @@ private fun DayCard(state: AppState, template: ScheduledRoutine, phase: Phase) {
             Box(Modifier.heightIn(min = 44.dp).widthIn(min = 56.dp).clip(CircleShape)
                 .background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 8.dp),
                 contentAlignment = Alignment.Center) {
+                // Every label of the week stacked unseen, so each badge is as wide as the widest day at any text size.
+                weekLabels.forEach {
+                    Text(it, style = MaterialTheme.typography.labelLarge, maxLines = 1, color = Color.Transparent,
+                        modifier = Modifier.clearAndSetSemantics {})
+                }
                 Text(dayShort(template.weekday), style = MaterialTheme.typography.labelLarge, maxLines = 1,
                     color = MaterialTheme.colorScheme.onSecondaryContainer)
             }
@@ -736,7 +742,11 @@ internal fun RestAlertSetup(env: AppEnv, onDone: () -> Unit) {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("setup-rest-on")) {
                         RebuildIcon(R.drawable.ic_check, contentDescription = null, tint = accentText())
-                        Text(if (late) "Rest alerts are on, but battery saving may delay them." else "Rest alerts are on.",
+                        Text(when {
+                            !env.status.exactAlarmsAllowed -> "Rest alerts are on, but Android may let them arrive a little late."
+                            late -> "Rest alerts are on, but battery saving may delay them."
+                            else -> "Rest alerts are on."
+                        },
                             style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                     }
                     if (late) SecondaryButton(
@@ -792,7 +802,10 @@ internal fun ChangeSplitScreen(env: AppEnv, onBack: () -> Unit) {
     val unchanged = chosen?.id == state.activeSplitId && gear == state.gear
     val pinned = actionsPinned()
     val switch: @Composable () -> Unit = {
-        Button(
+        if (unchanged) Text("This is your plan now. Change an answer or pick another split to switch.",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(vertical = 8.dp).testTag("split-unchanged"))
+        else Button(
             onClick = { confirming = true },
             enabled = active == null && chosen != null && experience != null && !env.runner.busy && !unchanged,
             modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("split-switch")
@@ -813,7 +826,7 @@ internal fun ChangeSplitScreen(env: AppEnv, onBack: () -> Unit) {
             Text("Answer again, or pick a split yourself. Your workouts so far, and the changes you made to this plan, " +
                 "are kept.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             SectionHeader("How much have you trained?")
-            Text("This helps pick a split. Your phase stays ${state.phase?.title}; change it on the Plan tab.",
+            Text("This helps pick a split. Your phase stays ${state.phase?.title}; change it with Change phase.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Experience.entries.forEach { option ->
@@ -840,9 +853,12 @@ internal fun ChangeSplitScreen(env: AppEnv, onBack: () -> Unit) {
                     ChoiceCard(split == chosen, { pickedId = split.id }, split.name,
                         "${split.days} days a week" + if (split.id == state.activeSplitId) " · your split now" else "",
                         tag = "split-pick-${split.id}") {
-                        Box(Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                        val on = split == chosen
+                        Box(Modifier.size(44.dp).clip(CircleShape).background(
+                            if (on) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh),
                             contentAlignment = Alignment.Center) {
-                            Text("${split.days}", style = MaterialTheme.typography.titleMedium)
+                            Text("${split.days}", style = MaterialTheme.typography.titleMedium,
+                                color = if (on) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
                         }
                     }
                 }

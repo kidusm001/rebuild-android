@@ -139,4 +139,28 @@ class SplitsTest {
         assertEquals(6, bench.minReps)
         assertEquals(10, bench.maxReps)
     }
+
+    @Test fun aDumbbellPlansBodyweightExercisesKeepTheirWiderRepRange() {
+        val split = Splits.byId(Splits.UPPER_LOWER)
+        val state = Seed.initialState().let {
+            it.copy(phase = Phase.BASELINE, templates = it.templates + split.templates,
+                split = SplitChoice(split.id, Gear.DUMBBELLS, Experience.REGULAR, "2026-11-16"))
+        }
+        val lowerB = split.templates.single { it.id == "upper-lower-lower-b" }
+        val bridge = state.plannedExercises(lowerB, Phase.BASELINE).single { it.exerciseId == "glute-bridge" }
+        assertEquals(12..20, bridge.minReps!!..bridge.maxReps!!)
+        val goblet = state.plannedExercises(lowerB, Phase.BASELINE).single { it.exerciseId == "squat-goblet" }
+        assertEquals("a loaded dumbbell lift keeps the gym range", 10..15, goblet.minReps!!..goblet.maxReps!!)
+    }
+
+    @Test fun aSwapNeverRepeatsAnExerciseTheDayAlreadyHas() {
+        Splits.all.filterNot { it.rampsDays }.flatMap { it.templates }.forEach { template ->
+            for (gear in listOf(Gear.DUMBBELLS, Gear.BODYWEIGHT)) {
+                val day = template.slots.mapNotNull { it.exerciseFor(gear) }.toSet()
+                template.slots.forEach { slot ->
+                    assertTrue("${slot.id} with $gear", slot.alternativesFor(gear).none { it in day })
+                }
+            }
+        }
+    }
 }

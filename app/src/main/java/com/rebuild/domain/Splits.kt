@@ -70,7 +70,6 @@ object Splits {
         "bench-db" -> listOf("pushup")
         "row-db" -> listOf("row-db-chest-supported")
         "row-db-chest-supported" -> listOf("row-db")
-        "squat-goblet" -> listOf("lunge-db")
         "split-squat" -> listOf("lunge-db", "split-squat-bodyweight")
         else -> emptyList()
     }
@@ -219,6 +218,9 @@ object Splits {
         val weekdays = weekdays(days.size)
         return days.mapIndexed { i, (key, name, blueprints) ->
             val templateId = "$splitId-$key"
+            // A swap never offers an exercise the same day already asks for with that gear.
+            val dayDumbbell = blueprints.mapNotNull { it.dumbbell }.toSet()
+            val dayBodyweight = blueprints.mapNotNull { it.bodyweight }.toSet()
             WorkoutTemplate(templateId, name, weekdays[i], slots = blueprints.map { bp ->
                 PlanSlot(
                     id = "$templateId-${bp.key}",
@@ -232,8 +234,8 @@ object Splits {
                     perLeg = bp.perLeg,
                     muscle = bp.muscle,
                     gear = SlotGear(bp.dumbbell, bp.bodyweight, bp.bodyweightReps?.first, bp.bodyweightReps?.last,
-                        bp.dumbbellAlternatives.filter { it != bp.dumbbell },
-                        bp.bodyweightAlternatives.filter { it != bp.bodyweight })
+                        bp.dumbbellAlternatives.filter { it !in dayDumbbell },
+                        bp.bodyweightAlternatives.filter { it !in dayBodyweight })
                 )
             }, splitId = splitId)
         }
@@ -253,7 +255,7 @@ object Splits {
             "Every workout trains your whole body, so your main muscles work twice a week.",
             anyGear, build(FULL_BODY_2, listOf(Triple("a", "Full body A", fullA), Triple("b", "Full body B", fullB)))),
         Split(FULL_BODY_3, "Full body, 3 days", 3,
-            "Every workout trains your whole body, so you practise each lift three times a week. A good way to start.",
+            "Every workout trains your whole body, so you practise squatting, pressing and pulling three times a week. A good way to start.",
             anyGear, build(FULL_BODY_3, listOf(Triple("a", "Full body A", fullA), Triple("b", "Full body B", fullB),
                 Triple("c", "Full body C", fullC)))),
         Split(UPPER_LOWER, "Upper and lower", 4,
