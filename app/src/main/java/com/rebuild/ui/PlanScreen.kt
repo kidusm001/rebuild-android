@@ -114,6 +114,7 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
             }
         }
         ScrollBody {
+            YourPlanCard(state, onChange = { onNavigate(Routes.SPLIT) })
             TonalCard { Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -545,4 +546,27 @@ private class PlanDefaults(slot: PlanSlot, phase: Phase) {
         Phase.INTRO_TWO, Phase.FIVE_TWO -> 2
         Phase.BASELINE -> slot.baselineSets
     }
+}
+
+/** The split in use: its name, days, equipment and unit, and the way to change it. Phases are a separate card. */
+@Composable
+private fun YourPlanCard(state: com.rebuild.domain.AppState, onChange: () -> Unit) {
+    val split = com.rebuild.domain.Splits.all.find { it.id == state.activeSplitId }
+    val days = if (split?.rampsDays == true) "4 or 5 days a week, by phase"
+        else "${countLabel(state.availableTemplates(state.phase ?: Phase.BASELINE).size, "day")} a week"
+    TonalCard { Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Your plan", style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            SecondaryButton(
+                onClick = onChange,
+                modifier = Modifier.heightIn(min = 48.dp).testTag("plan-change-split")
+                    .semantics { contentDescription = "Change split" }
+            ) { Text("Change") }
+        }
+        Text(split?.name ?: "Your plan", style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.semantics { heading() }.testTag("plan-split-name"))
+        Text("$days · ${state.gear.short()} · ${state.liftingUnit.symbol}", style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+    } }
 }

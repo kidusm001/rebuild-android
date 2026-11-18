@@ -45,55 +45,6 @@ internal fun PhaseChoices(state: AppState, selected: Phase?, onSelect: (Phase) -
 }
 
 @Composable
-internal fun FirstRunScreen(env: AppEnv) {
-    var choice by rememberSaveable { mutableStateOf<Phase?>(null) }
-    var error by rememberSaveable { mutableStateOf<String?>(null) }
-    Column(
-        Modifier
-            .fillMaxHeight()
-            .readableWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(
-            "Choose where to start",
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.semantics { heading() }
-        )
-        Text(
-            "Pick the phase that matches how training feels now.\nRebuild never changes it for you.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        PhaseChoices(env.state, choice) { choice = it }
-        ErrorText(error)
-        Button(
-            onClick = {
-                val phase = choice ?: return@Button
-                error = null
-                env.runner.run(Action.SelectPhase(phase), onError = { error = it })
-            },
-            enabled = choice != null && !env.runner.busy,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp)
-        ) { Text(choice?.let { "Start with ${phaseShort(it)}" } ?: "Choose a phase") }
-        Text(
-            "Moving from another phone? Restore a backup instead.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        OutlinedButton(
-            onClick = { env.platform.chooseRestore() },
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp)
-        ) { Text("Restore a backup") }
-    }
-}
-
-@Composable
 internal fun PhaseSettingsScreen(env: AppEnv, onBack: () -> Unit) {
     val current = env.state.phase
     var choice by rememberSaveable { mutableStateOf(current) }

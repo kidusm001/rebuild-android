@@ -106,6 +106,7 @@ internal enum class Tab(val route: String, val label: String, @DrawableRes val i
 internal object Routes {
     const val WORKOUT = "workout"
     const val PHASE = "phase"
+    const val SPLIT = "split"
     const val BACKUP = "backup"
     const val HELP = "help"
     const val REST_ALERT = "rest-alert"
@@ -194,6 +195,8 @@ fun RebuildApp(
         val status by platform.status.collectAsStateWithLifecycle()
         val restAlert by platform.restAlert.collectAsStateWithLifecycle()
         val ringingSince by platform.alarmRingingSince.collectAsStateWithLifecycle()
+        // Setup's last step (rest alerts) comes after the plan is saved, so it's shown by this flag, not the data.
+        var setupRestStep by rememberSaveable { mutableStateOf(false) }
         val restEnd = remember { RestEndState() }
         // Where the rest bar's top edge was, so a sweep at its end starts from the bar itself.
         var restBarTop by remember { mutableStateOf<Float?>(null) }
@@ -272,7 +275,7 @@ fun RebuildApp(
         val route = nav.current
         // Navigation stays everywhere except the workout itself, a past workout's detail (its note drafts are guarded
         // by Back) and editors with an unsaved draft.
-        val showNav = state.phase != null && route != Routes.WORKOUT && !route.startsWith("workout-detail/") &&
+        val showNav = state.phase != null && !setupRestStep && route != Routes.WORKOUT && !route.startsWith("workout-detail/") &&
             !Routes.isEditor(route)
         // Wide windows (landscape phones, tablets) put the destinations in a rail so content keeps its height.
         val wide = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.width.toDp() } >= 600.dp
@@ -373,7 +376,9 @@ fun RebuildApp(
                         .imePadding()
                 ) {
                     if (state.phase == null) {
-                        FirstRunScreen(env)
+                        SetupFlow(env, onPlanSaved = { setupRestStep = true })
+                    } else if (setupRestStep) {
+                        RestAlertSetup(env, onDone = { setupRestStep = false })
                     } else {
                         BackHandler(enabled = nav.stack.size > 1 || nav.current != Tab.HOME.route) { nav.pop() }
                         AppDestination(env, nav)
@@ -557,6 +562,7 @@ private fun RouteContent(env: AppEnv, nav: Navigator, route: String) {
             if (workout != null) WorkoutScreen(env, workout, onBack = { nav.pop() })
         }
         route == Routes.PHASE -> PhaseSettingsScreen(env, onBack = { nav.pop() })
+        route == Routes.SPLIT -> ChangeSplitScreen(env, onBack = { nav.pop() })
         route == Routes.BACKUP -> BackupScreen(env, onBack = { nav.pop() })
         route == Routes.HELP -> HelpScreen(onBack = { nav.pop() })
         route == Routes.REST_ALERT -> RestAlertScreen(env, onBack = { nav.pop() })
