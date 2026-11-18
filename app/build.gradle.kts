@@ -65,6 +65,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.core:core-ktx:1.16.0")
+    // The launch splash on every supported version (API 26+), with the icon on its launcher disc.
+    implementation("androidx.core:core-splashscreen:1.2.0")
     // Installs the baseline profiles Compose and our own code ship with, so screens are compiled ahead of first use.
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
