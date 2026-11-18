@@ -22,9 +22,13 @@ Everything visual comes from `ui/theme/Theme.kt` and the shared components in
   controls use `primary`: amber-ink `#7A4D00` on light and `#FFB94A` on dark. Selection is
   `secondaryContainer` everywhere (chips, tabs, segmented controls). `ThemeTest`
   holds every text and control pair at WCAG 4.5:1 (3:1 for outlines) in both themes.
-- **Type.** Roboto for words, the platform's `sans-serif-condensed` Bold for the
-  numbers a lifter reads at a glance (countdown, set values, entry tiles, stat
-  tiles, chart readouts); every role uses tabular figures. Top-level screens name
+- **Type.** The app ships its own fonts, so a maker's or user's system font never
+  mixes with its design: Archivo (width 100, 400–700) for words, and Archivo at
+  width 80, Bold for the numbers a lifter reads at a glance (countdown, set
+  values, entry tiles, stat tiles, chart readouts); every role uses tabular
+  figures. `scripts/fonts/build_archivo.py` builds them with Roboto's vertical
+  metrics, `↳ ● ○`, and a wider space in the numerals; the choice is in
+  `design-council/app-fonts/decision.md`. Top-level screens name
   themselves in `headlineLarge` (32 sp, tight tracking); exercise and session names
   are `headlineMedium`. Logged sets use `ledgerValueStyle()`.
 - **Shape.** Buttons are full pills; chips, fields, tiles and exercise tabs 12 dp;

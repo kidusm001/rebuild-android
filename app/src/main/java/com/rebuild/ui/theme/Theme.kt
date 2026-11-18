@@ -15,12 +15,12 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.material.ripple.RippleAlpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.DeviceFontFamilyName
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rebuild.R
 
 // Ink + Ember. A warm tinted canvas with lighter (light) or raised (dark) cards, separated by tone, never borders.
 // Filled actions are ink in light and amber in dark; signal amber (primaryContainer) is always a fill with ink on it,
@@ -104,13 +104,25 @@ internal val Dark = darkColorScheme(
 private fun TextStyle.tabular() = copy(fontFeatureSettings = "tnum")
 
 /**
- * Numbers the lifter reads at a glance (the rest countdown, set values, stat tiles) use the platform's condensed
- * sans, bold and tabular; it ships with Android, so the app stays offline, and its narrow figures survive 200% text.
+ * Archivo for every word. The app ships its own fonts so a maker's or user's system font never mixes with its design;
+ * the council's choice and the build script are in design-council/app-fonts/ and scripts/fonts/.
  */
-internal val Numerals = FontFamily(Font(DeviceFontFamilyName("sans-serif-condensed"), FontWeight.Bold))
+internal val Archivo = FontFamily(
+    Font(R.font.archivo_regular, FontWeight.Normal),
+    Font(R.font.archivo_medium, FontWeight.Medium),
+    Font(R.font.archivo_semibold, FontWeight.SemiBold),
+    Font(R.font.archivo_bold, FontWeight.Bold)
+)
 
 /**
- * Roboto for words, condensed for numerals. Display and headline sizes track tight; overlines (labelMedium) are
+ * Numbers the lifter reads at a glance (the rest countdown, set values, stat tiles) use Archivo at 80% width, bold and
+ * tabular: no wider than the condensed figures the 200% text layouts were built around, with a wider space so "42.5 kg"
+ * doesn't run together.
+ */
+internal val Numerals = FontFamily(Font(R.font.archivo_numerals, FontWeight.Bold))
+
+/**
+ * Archivo for words, its narrow cut for numerals. Display and headline sizes track tight; overlines (labelMedium) are
  * small, bold and spaced.
  */
 internal val RebuildTypography = Typography().run {
@@ -121,21 +133,27 @@ internal val RebuildTypography = Typography().run {
             lineHeight = 52.sp, letterSpacing = (-1).sp).tabular(),
         displaySmall = displaySmall.copy(fontFamily = Numerals, fontWeight = FontWeight.Bold, fontSize = 36.sp,
             lineHeight = 40.sp, letterSpacing = (-0.6).sp).tabular(),
-        headlineLarge = headlineLarge.copy(fontWeight = FontWeight.Bold, fontSize = 32.sp, lineHeight = 38.sp,
-            letterSpacing = (-0.8).sp).tabular(),
-        headlineMedium = headlineMedium.copy(fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 34.sp,
-            letterSpacing = (-0.5).sp).tabular(),
-        headlineSmall = headlineSmall.copy(fontWeight = FontWeight.Bold, fontSize = 24.sp, lineHeight = 30.sp,
-            letterSpacing = (-0.4).sp).tabular(),
-        titleLarge = titleLarge.copy(fontWeight = FontWeight.SemiBold, letterSpacing = (-0.2).sp).tabular(),
-        titleMedium = titleMedium.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp).tabular(),
-        titleSmall = titleSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.sp).tabular(),
-        bodyLarge = bodyLarge.copy(letterSpacing = 0.sp).tabular(),
-        bodyMedium = bodyMedium.copy(letterSpacing = 0.sp).tabular(),
-        bodySmall = bodySmall.copy(letterSpacing = 0.1.sp).tabular(),
-        labelLarge = labelLarge.copy(fontWeight = FontWeight.SemiBold, fontSize = 15.sp, letterSpacing = 0.1.sp).tabular(),
-        labelMedium = labelMedium.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.3.sp).tabular(),
-        labelSmall = labelSmall.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.4.sp).tabular()
+        headlineLarge = headlineLarge.copy(fontFamily = Archivo, fontWeight = FontWeight.Bold, fontSize = 32.sp,
+            lineHeight = 38.sp, letterSpacing = (-0.8).sp).tabular(),
+        headlineMedium = headlineMedium.copy(fontFamily = Archivo, fontWeight = FontWeight.Bold, fontSize = 28.sp,
+            lineHeight = 34.sp, letterSpacing = (-0.5).sp).tabular(),
+        headlineSmall = headlineSmall.copy(fontFamily = Archivo, fontWeight = FontWeight.Bold, fontSize = 24.sp,
+            lineHeight = 30.sp, letterSpacing = (-0.4).sp).tabular(),
+        titleLarge = titleLarge.copy(fontFamily = Archivo, fontWeight = FontWeight.SemiBold,
+            letterSpacing = (-0.2).sp).tabular(),
+        titleMedium = titleMedium.copy(fontFamily = Archivo, fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.sp).tabular(),
+        titleSmall = titleSmall.copy(fontFamily = Archivo, fontWeight = FontWeight.Bold,
+            letterSpacing = 0.sp).tabular(),
+        bodyLarge = bodyLarge.copy(fontFamily = Archivo, letterSpacing = 0.sp).tabular(),
+        bodyMedium = bodyMedium.copy(fontFamily = Archivo, letterSpacing = 0.sp).tabular(),
+        bodySmall = bodySmall.copy(fontFamily = Archivo, letterSpacing = 0.1.sp).tabular(),
+        labelLarge = labelLarge.copy(fontFamily = Archivo, fontWeight = FontWeight.SemiBold, fontSize = 15.sp,
+            letterSpacing = 0.1.sp).tabular(),
+        labelMedium = labelMedium.copy(fontFamily = Archivo, fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.3.sp).tabular(),
+        labelSmall = labelSmall.copy(fontFamily = Archivo, fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.4.sp).tabular()
     )
 }
 
