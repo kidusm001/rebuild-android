@@ -53,13 +53,19 @@ class ScrollEdgeAccessibilityTest {
     }
 
     @Test
-    fun planPhaseChipsKeepTheirWholeTargetsOverARowScrolledUnderThem() {
+    fun planPhaseChipsScrollWithThePageAndKeepWholeTargets() {
+        // The phase chips sit in the page, right above the phase card they preview, beneath the Your plan card; with
+        // nothing fixed above the body there is no edge for a row to tuck under, so each chip only needs its target.
         val repo = MainThreadCollection(introRepository())
         rule.setContent { RebuildApp(repo, FakePlatform(), clock = { FIXED_NOW }) }
         rule.onNodeWithText("Plan", substring = false).performClick()
-        val chips = listOf("Return gently", "Build consistency", "Two-set start").map { rule.onNodeWithText(it).fetchSemanticsNode() }
-        tuckRowUnderTopEdge(hasScrollAction() and hasAnyDescendant(hasTestTag("plan-routines")), chips)
-        chips.forEach { assertWholeProviderTarget(it.config[SemanticsProperties.Text].joinToString(), it) }
+        val density = rule.activity.resources.displayMetrics.density
+        listOf("Return gently", "Build consistency", "Two-set start").forEach { name ->
+            val chip = rule.onNode(hasClickAction() and hasAnyDescendant(androidx.compose.ui.test.hasText(name)) or
+                (hasClickAction() and androidx.compose.ui.test.hasText(name)) and hasAnyAncestor(hasScrollAction()))
+                .performScrollTo().fetchSemanticsNode()
+            assertTrue("$name keeps a 48 dp target", chip.touchBoundsInRoot.height / density >= 47.5f)
+        }
     }
 
     /** In landscape the short body scrolls its full-width rows under the rail. */

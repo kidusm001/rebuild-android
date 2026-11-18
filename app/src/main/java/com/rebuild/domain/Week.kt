@@ -67,7 +67,13 @@ fun AppState.weekChecklist(today: LocalDate, zone: ZoneId = ZoneId.systemDefault
     val phase = phase ?: return null
     val start = weekStartOf(today)
     val week = workouts.filter { it.weekStart(zone) == start }
-    val templates = scheduledRoutines(phase)
+    // The week a split started (at setup or a change) only lists what the split could have asked for: days before
+    // it never read as missed, and workouts already done that week from the split before keep their credit.
+    val since = split?.since?.let(LocalDate::parse)?.takeIf { weekStartOf(it) == start }
+    val previous = if (since == null) emptyList() else templates.filter { template ->
+        template.splitId != activeSplitId && week.any { it.templateId == template.id && it.countsForWeek() }
+    }
+    val templates = (previous + scheduledRoutines(phase)).sortedBy { it.weekday }
     val routines = templates.map { template ->
         val mine = week.filter { it.templateId == template.id }
         val doneBy = mine.filter { it.countsForWeek() }.minByOrNull { it.startedAt }
@@ -78,7 +84,7 @@ fun AppState.weekChecklist(today: LocalDate, zone: ZoneId = ZoneId.systemDefault
             else -> RoutineStatus.NOT_DONE
         }
         RoutineWeek(template, status, doneBy)
-    }
+    }.filter { since == null || it.template.weekday >= since.dayOfWeek.value || it.status != RoutineStatus.NOT_DONE }
     val listed = templates.map { it.id }.toSet()
     val other = week.filter { !it.extra && it.templateId !in listed && it.hasWorkingEffort() }.sortedBy { it.startedAt }
     val extras = week.filter { it.extra && it.hasWorkingEffort() }.sortedBy { it.startedAt }
@@ -109,6 +115,9 @@ fun AppState.todayPlan(today: LocalDate, checklist: WeekChecklist): TodayPlan {
         checklist.complete -> TodayPlan(TodayKind.WEEK_COMPLETE, todays.firstOrNull(), null)
         todayUnfinished != null -> TodayPlan(TodayKind.SCHEDULED, todayUnfinished, todayUnfinished)
         todays.isNotEmpty() -> TodayPlan(TodayKind.NEXT_UNFINISHED, todays.first(), unfinished)
+        // A split that started too late in the week for any of its days: its first workout, as an optional start.
+        checklist.routines.isEmpty() -> TodayPlan(TodayKind.REST, null,
+            phase?.let { scheduledRoutines(it).firstOrNull() })
         else -> TodayPlan(TodayKind.REST, null, unfinished)
     }
 }

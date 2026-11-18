@@ -31,7 +31,7 @@ class PlanMigrationTest {
         assertEquals(old.vertical().copy(exerciseId = "pulldown", alternatives = emptyList()), updated.vertical())
         assertEquals(old.templates.filter { it.id != "pull" }, updated.templates.filter { it.id != "pull" })
         assertEquals("No library exercise changes; catalog revision two's are only added",
-            old.exercises + ExerciseCatalog.revisionTwo, updated.exercises)
+            old.exercises + ExerciseCatalog.revisionTwo + ExerciseCatalog.revisionThree, updated.exercises)
         assertEquals(13L, updated.revision)
         assertEquals(5000L, updated.unbackedUpSince)
         assertEquals(old.lastBackupRevision, updated.lastBackupRevision)
@@ -72,7 +72,7 @@ class PlanMigrationTest {
         assertEquals(custom.id, updated.vertical().exerciseId)
         assertEquals(listOf("pulldown"), updated.vertical().alternatives)
         assertEquals(old.overrides, updated.overrides)
-        assertEquals(old.exercises + ExerciseCatalog.revisionTwo, updated.exercises)
+        assertEquals(old.exercises + ExerciseCatalog.revisionTwo + ExerciseCatalog.revisionThree, updated.exercises)
     }
 
     private fun withSnapshots(): AppState {

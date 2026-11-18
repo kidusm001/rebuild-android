@@ -22,7 +22,7 @@ object SnapshotCodec {
     const val MAX_REPS = 1000
     const val MAX_PLATES = 1000
     const val MAX_REST_SECONDS = 3600
-    const val SCHEMA_VERSION = 7
+    const val SCHEMA_VERSION = 8
     const val MAX_BODY_RECORDS = 20000
     private val plateCountToken = Regex("[1-9][0-9]*")
     private val timestampToken = Regex("0|[1-9][0-9]*")
@@ -90,6 +90,8 @@ object SnapshotCodec {
                         "Use a version-six backup.")
                 ensure(schemaVersion >= 7 || key !in versionSevenFields,
                     "Older backups cannot contain pounds, weigh-ins or body measurements. Use a version-seven backup.")
+                ensure(schemaVersion >= 8 || key !in versionEightFields,
+                    "Older backups cannot contain training splits or equipment choices. Use a version-eight backup.")
                 when (key) {
                     "lb", "value" -> ensure(child == JsonNull || (child is JsonPrimitive && !child.isString &&
                         child.doubleOrNull != null), "Pounds and body values must be numbers or null.")
@@ -189,6 +191,7 @@ object SnapshotCodec {
     private val versionFourFields = setOf("planAdditions", "planRemovals", "optional", "skipped")
     private val versionFiveFields = setOf("routines", "placements", "scheduleRemovals", "routineId", "removedFromPlan")
     private val versionSevenFields = setOf("lb", "bodyweights", "measurements", "measurementSites", "liftingUnit")
+    private val versionEightFields = setOf("split", "splitId", "gear")
     private val versionSixFields = setOf("measure", "efforts", "durationSeconds", "distance", "thousandths", "unit",
         "effortSeconds", "effortDistance", "totalSeconds", "totalDistance", "stopwatch", "elapsedMs", "runningSince",
         "boot", "session", "stopped", "needsConfirmation", "step")
@@ -376,25 +379,48 @@ object SnapshotCodec {
                     "An original routine's exercises and alternatives are counted in reps.")
                 targets(slot.baselineSets, slot.upperSets, slot.minReps, slot.maxReps, slot.restSeconds)
                 text(slot.muscle, 80, "Muscle group")
+                slot.gear?.let { gear ->
+                    (listOfNotNull(gear.dumbbell, gear.bodyweight) + gear.dumbbellAlternatives +
+                        gear.bodyweightAlternatives).forEach {
+                        ensure(it in exerciseIds && measures[it] == Measure.REPS,
+                            "A slot's dumbbell or bodyweight exercise must be in the library and counted in reps.")
+                    }
+                    ensure((gear.bodyweightMinReps == null) == (gear.bodyweightMaxReps == null),
+                        "A bodyweight rep range needs both ends.")
+                    if (gear.bodyweightMinReps != null) targets(slot.baselineSets, slot.upperSets,
+                        gear.bodyweightMinReps, gear.bodyweightMaxReps!!, slot.restSeconds)
+                }
             }
         }
         validateSchedule(state, measures)
+        // Every split in the plan, in use or kept for history, schedules one workout a day in each phase.
+        state.templates.groupBy { it.splitId }.values.forEach { split ->
+            Phase.entries.forEach { phase ->
+                val schedule = split.filter { it.availableIn(phase) }
+                ensure(schedule.isNotEmpty(), "Every phase must have at least one workout template.")
+                ensure(schedule.map { it.weekday }.distinct().size == schedule.size,
+                    "A phase cannot schedule two workouts on the same weekday.")
+            }
+        }
         Phase.entries.forEach { phase ->
-            val schedule = state.availableTemplates(phase)
-            ensure(schedule.isNotEmpty(), "Every phase must have at least one workout template.")
-            ensure(schedule.map { it.weekday }.distinct().size == schedule.size,
-                "A phase cannot schedule two workouts on the same weekday.")
+            ensure(state.availableTemplates(phase).isNotEmpty(), "Every phase must have at least one workout template.")
             ensure(state.scheduledRoutines(phase).isNotEmpty(), "Every phase's week must keep at least one routine.")
         }
+        state.split?.let { split ->
+            ensure(state.phase != null, "A training split needs a phase.")
+            id(split.splitId)
+            ensure(state.templates.any { it.splitId == split.splitId }, "The chosen split's workouts are missing.")
+            calendarDate(split.since)
+        }
         ensure(state.overrides.size <= 40000, "There are too many saved plan changes.")
-        ensure(state.overrides.map { it.phase to it.slotId }.distinct().size == state.overrides.size,
+        ensure(state.overrides.map { Triple(it.phase, it.slotId, it.gear) }.distinct().size == state.overrides.size,
             "The backup contains duplicate plan changes for a phase and slot.")
         state.overrides.forEach { override ->
             ensure(override.slotId in slotsById, "A saved plan change refers to a missing slot.")
             ensure(override.exerciseId in exerciseIds, "A saved plan change refers to a missing exercise.")
             ensure(measures[override.exerciseId] == Measure.REPS,
                 "An original routine's exercise can only be swapped for another rep-based exercise.")
-            ensure(state.availableTemplates(override.phase).any { t -> t.slots.any { it.id == override.slotId } },
+            ensure(state.templatesIn(override.phase).any { t -> t.slots.any { it.id == override.slotId } },
                 "A saved plan change belongs to a workout unavailable in that phase.")
             setTarget(override.sets)
             rest(override.restSeconds)
@@ -437,7 +463,7 @@ object SnapshotCodec {
             } else {
                 // An original routine of the phase, or a scheduled copy of that phase even after it left the week.
                 ensure(template != null || placement != null, "A workout refers to a missing template.")
-                ensure(if (template != null) state.availableTemplates(workout.phase).any { it.id == template.id }
+                ensure(if (template != null) template.availableIn(workout.phase)
                     else placement!!.phase == workout.phase,
                     "A workout's template is unavailable in its recorded phase.")
                 ensure(workout.exercises.size in 1..MAX_WORKOUT_EXERCISES, "A recorded workout must contain 1–100 exercises.")
@@ -598,6 +624,12 @@ object SnapshotCodec {
     }
 
     /** A strict ISO calendar date that is the start's local date in some real time zone (UTC−12 to UTC+14). */
+    /** A plain ISO calendar date, such as the day a split started. */
+    fun calendarDate(value: String) {
+        ensure(value.matches(isoDate) && runCatching { java.time.LocalDate.parse(value) }.isSuccess,
+            "The date a split started must be a calendar date.")
+    }
+
     fun startDate(value: String?, startedAt: Long) {
         ensure(value != null && value.matches(isoDate), "Every workout must record the calendar date it started on.")
         val date = try {
@@ -800,13 +832,13 @@ object SnapshotCodec {
             "The backup lists a removed plan exercise twice.")
         state.planRemovals.forEach { removal ->
             id(removal.slotId)
-            ensure(state.availableTemplates(removal.phase).any { t -> t.slots.any { it.id == removal.slotId } },
+            ensure(state.templatesIn(removal.phase).any { t -> t.slots.any { it.id == removal.slotId } },
                 "A removed plan exercise belongs to a workout unavailable in that phase.")
         }
         unique(state.planAdditions.map { it.id }, "added plan exercise")
         state.planAdditions.forEach { addition ->
             ensure(addition.id !in slotIds, "An added plan exercise cannot reuse an original slot ID.")
-            ensure(state.availableTemplates(addition.phase).any { it.id == addition.templateId } ||
+            ensure(state.templatesIn(addition.phase).any { it.id == addition.templateId } ||
                 state.placementsIn(addition.phase).any { it.id == addition.templateId },
                 "An added plan exercise belongs to a workout unavailable in that phase.")
             val measure = measures[addition.exerciseId]
@@ -826,6 +858,9 @@ object SnapshotCodec {
             }
         }
     }
+
+    /** Every split's workouts on [phase]'s week: plan records stay valid for a split kept for history. */
+    private fun AppState.templatesIn(phase: Phase): List<WorkoutTemplate> = templates.filter { it.availableIn(phase) }
 
     fun routineName(value: String) = text(value, MAX_ROUTINE_NAME, "Routine name")
 
@@ -872,7 +907,7 @@ object SnapshotCodec {
             "The backup lists a routine taken off the week twice.")
         state.scheduleRemovals.forEach { removal ->
             id(removal.templateId)
-            ensure(state.availableTemplates(removal.phase).any { it.id == removal.templateId },
+            ensure(state.templatesIn(removal.phase).any { it.id == removal.templateId },
                 "A routine taken off the week belongs to a workout unavailable in that phase.")
         }
     }

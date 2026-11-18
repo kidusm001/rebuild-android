@@ -1,6 +1,9 @@
 package com.rebuild.ui
 
+import com.rebuild.domain.AppState
 import com.rebuild.domain.Exercise
+import com.rebuild.domain.ORIGINAL_SPLIT
+import com.rebuild.domain.availableTemplates
 import com.rebuild.domain.LoadingType
 import com.rebuild.domain.Measure
 import com.rebuild.domain.LoadUnit
@@ -155,17 +158,28 @@ internal fun weekdayOf(millis: Long): Int =
 internal fun weekdayName(weekday: Int, style: TextStyle = TextStyle.FULL): String =
     if (weekday in 1..7) DayOfWeek.of(weekday).getDisplayName(style, Locale.getDefault()) else "Unscheduled"
 
-internal fun phasePrescription(phase: Phase): String = when (phase) {
-    Phase.INTRO_ONE -> "4 days a week · 1 working set per exercise · about 4 reps in reserve"
-    Phase.INTRO_TWO -> "4 days a week · 2 working sets per exercise · about 3 reps in reserve"
-    Phase.FIVE_TWO -> "5 days a week · 2 working sets per exercise · about 3 reps in reserve"
-    Phase.BASELINE -> "5 days a week · baseline sets (66 weekly) · about 2 reps in reserve"
+/** What [phase] asks of this plan's split: its days, the sets per exercise and the effort. Days come from the split. */
+internal fun AppState.phasePrescription(phase: Phase): String {
+    val days = availableTemplates(phase).size
+    val sets = when (phase) {
+        Phase.INTRO_ONE -> "1 working set per exercise"
+        Phase.INTRO_TWO, Phase.FIVE_TWO -> "2 working sets per exercise"
+        Phase.BASELINE -> "baseline sets (${weeklyBaselineSets()} weekly)"
+    }
+    // A split sets the days; only the original plan's days follow the phase, so only there are they named here.
+    val dayPart = if (activeSplitId == ORIGINAL_SPLIT) "${countLabel(days, "day")} a week · " else ""
+    return "$dayPart$sets · about ${phase.targetRir} reps in reserve"
 }
 
-internal fun phaseGuidance(phase: Phase): String = when (phase) {
+/** The split's full weekly volume at Baseline, counting only the exercises its gear keeps. */
+internal fun AppState.weeklyBaselineSets(): Int = availableTemplates(Phase.BASELINE)
+    .flatMap { it.slots }.filter { it.exerciseFor(gear) != null }.sumOf { it.baselineSets }
+
+internal fun AppState.phaseGuidance(phase: Phase): String = when (phase) {
     Phase.INTRO_ONE -> "Choose this after a long break or if you are unsure. Every set should feel comfortably submaximal."
     Phase.INTRO_TWO -> "Choose this once single sets feel easy and you recover well between sessions."
-    Phase.FIVE_TWO -> "Choose this when four days are routine and you are ready for the fifth day."
+    Phase.FIVE_TWO -> if (activeSplitId == ORIGINAL_SPLIT) "Choose this when four days are routine and you are ready for the fifth day."
+        else "Choose this when two sets feel routine and you recover well between sessions."
     Phase.BASELINE -> "Choose this only after gradually adding 2–4 weekly sets at a time toward the baseline."
 }
 

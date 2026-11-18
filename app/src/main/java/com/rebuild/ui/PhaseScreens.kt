@@ -25,10 +25,11 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.rebuild.domain.Action
+import com.rebuild.domain.AppState
 import com.rebuild.domain.Phase
 
 @Composable
-internal fun PhaseChoices(selected: Phase?, onSelect: (Phase) -> Unit) {
+internal fun PhaseChoices(state: AppState, selected: Phase?, onSelect: (Phase) -> Unit) {
     Column(Modifier.selectableGroup()) {
         Phase.entries.forEachIndexed { index, phase ->
             if (index > 0) HorizontalDivider()
@@ -36,59 +37,10 @@ internal fun PhaseChoices(selected: Phase?, onSelect: (Phase) -> Unit) {
                 text = phase.title,
                 selected = selected == phase,
                 onClick = { onSelect(phase) },
-                supporting = phasePrescription(phase) + "\n" + phaseGuidance(phase),
+                supporting = state.phasePrescription(phase) + "\n" + state.phaseGuidance(phase),
                 modifier = Modifier.testTag("phase-${phase.name}")
             )
         }
-    }
-}
-
-@Composable
-internal fun FirstRunScreen(env: AppEnv) {
-    var choice by rememberSaveable { mutableStateOf<Phase?>(null) }
-    var error by rememberSaveable { mutableStateOf<String?>(null) }
-    Column(
-        Modifier
-            .fillMaxHeight()
-            .readableWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(
-            "Choose where to start",
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.semantics { heading() }
-        )
-        Text(
-            "Pick the phase that matches how training feels now.\nRebuild never changes it for you.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        PhaseChoices(choice) { choice = it }
-        ErrorText(error)
-        Button(
-            onClick = {
-                val phase = choice ?: return@Button
-                error = null
-                env.runner.run(Action.SelectPhase(phase), onError = { error = it })
-            },
-            enabled = choice != null && !env.runner.busy,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp)
-        ) { Text(choice?.let { "Start with ${phaseShort(it)}" } ?: "Choose a phase") }
-        Text(
-            "Moving from another phone? Restore a backup instead.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        OutlinedButton(
-            onClick = { env.platform.chooseRestore() },
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp)
-        ) { Text("Restore a backup") }
     }
 }
 
@@ -119,7 +71,7 @@ internal fun PhaseSettingsScreen(env: AppEnv, onBack: () -> Unit) {
                     modifier = Modifier.testTag("phase-locked")
                 )
             }
-            PhaseChoices(choice) { choice = it }
+            PhaseChoices(env.state, choice) { choice = it }
             ErrorText(error)
             Button(
                 onClick = { confirming = true },
@@ -134,7 +86,7 @@ internal fun PhaseSettingsScreen(env: AppEnv, onBack: () -> Unit) {
     if (confirming && target != null && env.state.activeWorkout == null) {
         ConfirmDialog(
             title = "Switch to ${phaseShort(target)}?",
-            text = "${target.title}: ${phasePrescription(target)}. Nothing already logged changes.",
+            text = "${target.title}: ${env.state.phasePrescription(target)}. Nothing already logged changes.",
             confirmLabel = "Switch phase",
             busy = env.runner.busy,
             error = error,

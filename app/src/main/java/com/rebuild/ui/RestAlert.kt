@@ -126,7 +126,7 @@ internal fun RestAlertScreen(env: AppEnv, onBack: () -> Unit) {
 }
 
 @Composable
-private fun <T : Enum<T>> ChoiceGroup(
+internal fun <T : Enum<T>> ChoiceGroup(
     options: List<T>,
     selected: T,
     tagPrefix: String,

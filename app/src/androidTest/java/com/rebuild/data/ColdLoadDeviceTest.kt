@@ -46,7 +46,7 @@ class ColdLoadDeviceTest {
             ActivityScenario.launch(MainActivity::class.java).use {
                 try {
                     rule.onNodeWithText("Opening your saved workouts").assertIsDisplayed()
-                    rule.onNodeWithText("Choose where to start").assertDoesNotExist()
+                    rule.onNodeWithText("Get started").assertDoesNotExist()
                     rule.onNodeWithTag("start-scheduled").assertDoesNotExist()
                     rule.onNodeWithTag("log-set").assertDoesNotExist()
                 } finally {

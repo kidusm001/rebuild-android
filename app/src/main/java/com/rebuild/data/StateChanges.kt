@@ -152,6 +152,22 @@ internal object StateChanges {
             ensure(action.sites.isNotEmpty(), "Keep at least one site to measure.")
             state.copy(measurementSites = action.sites.distinct())
         }
+        is Action.CompleteSetup -> {
+            ensure(state.phase == null, "Setup is already done. Change your split from Plan.")
+            val split = chosenSplit(action.splitId, action.gear)
+            SnapshotCodec.calendarDate(action.today)
+            apply(withSplit(state, split), Action.SetLiftingUnit(action.unit)).copy(
+                phase = Splits.startingPhase(action.experience),
+                split = SplitChoice(split.id, action.gear, action.experience, action.today)
+            )
+        }
+        is Action.ChangeSplit -> {
+            ensure(state.phase != null, "Finish setup before changing your split.")
+            ensure(state.activeWorkoutId == null, "Finish or discard your active workout before changing your split.")
+            val split = chosenSplit(action.splitId, action.gear)
+            SnapshotCodec.calendarDate(action.today)
+            withSplit(state, split).copy(split = SplitChoice(split.id, action.gear, action.experience, action.today))
+        }
         is Action.SetLiftingUnit -> state.copy(
             liftingUnit = action.unit,
             exercises = state.exercises.map {
@@ -406,7 +422,8 @@ internal object StateChanges {
                 state.plannedExercises(template, action.phase).none { it.exerciseId == definition.id },
                 "${definition.name} is already in ${template.name} for this phase.")
             checkTarget(action.sets, action.restSeconds, slot.upperSets, action.allowAboveCap)
-            override(state, PlanOverride(action.phase, action.slotId, action.exerciseId, action.sets, action.restSeconds))
+            override(state, PlanOverride(action.phase, action.slotId, action.exerciseId, action.sets, action.restSeconds,
+                storedGear(state.gear)))
         }
         is Action.EditToday -> editToday(state, action)
         is Action.AddExercise -> {
@@ -773,7 +790,7 @@ internal object StateChanges {
                     "${entry.exercise.name} was removed from this phase's plan. Restore it in Plan to change it.")
                 requireNotAdded(state, template, workout.phase, replacement)
                 changed = override(changed, PlanOverride(workout.phase, slot.id, replacement.id, action.sets!!,
-                    action.restSeconds))
+                    action.restSeconds, storedGear(state.gear)))
             } else {
                 // A removed addition is never brought back by a change made to today's copy of it.
                 val addition = state.planAdditions.find { it.id == entry.slotId && it.phase == workout.phase }
@@ -1106,6 +1123,17 @@ internal object StateChanges {
             exercise?.openGroup()?.method != SetMethod.REST_PAUSE) state.copy(restTimer = null) else state
     }
 
+    private fun chosenSplit(splitId: String, gear: Gear): Split {
+        val split = Splits.all.find { it.id == splitId } ?: throw RepositoryException("This split isn't available.")
+        ensure(gear in split.gear, "${split.name} needs a gym.")
+        return split
+    }
+
+    /** The plan with [split]'s workouts in it. A split's workouts are added once and kept, so history stays whole. */
+    private fun withSplit(state: AppState, split: Split): AppState =
+        if (state.templates.any { it.splitId == split.id }) state
+        else state.copy(templates = state.templates + split.templates)
+
     private fun library(state: AppState, id: String): Exercise =
         state.exercises.find { it.id == id } ?: throw RepositoryException("The selected exercise no longer exists.")
 
@@ -1117,7 +1145,9 @@ internal object StateChanges {
     }
 
     private fun override(state: AppState, target: PlanOverride) =
-        state.copy(overrides = state.overrides.filterNot { it.phase == target.phase && it.slotId == target.slotId } + target)
+        state.copy(overrides = state.overrides.filterNot {
+            it.phase == target.phase && it.slotId == target.slotId && it.gear == target.gear
+        } + target)
 
     private fun editWorkout(state: AppState, id: String, edit: (Workout) -> Workout): AppState {
         ensure(state.workouts.any { it.id == id }, "This workout no longer exists.")

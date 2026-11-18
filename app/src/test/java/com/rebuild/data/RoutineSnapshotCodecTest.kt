@@ -77,8 +77,8 @@ class RoutineSnapshotCodecTest {
     @Test fun versionFiveRoundTripKeepsRoutinesCopiesRemovalsAndTheirWorkoutsExactly() = runTest {
         val state = recorded()
         val encoded = SnapshotCodec.encode(state)
-        assertTrue(encoded.contains("\"version\":7"))
-        assertTrue(encoded.contains("\"schemaVersion\":7"))
+        assertTrue(encoded.contains("\"version\":8"))
+        assertTrue(encoded.contains("\"schemaVersion\":8"))
         val decoded = SnapshotCodec.decode(encoded)
         assertEquals(state, decoded)
         assertEquals(encoded, SnapshotCodec.encode(decoded))
@@ -329,7 +329,7 @@ class RoutineSnapshotCodecTest {
         assertEquals("Every workout, set, stage, plan edit, credit and timer is kept exactly; only the library grows",
             old.copy(schemaVersion = SnapshotCodec.SCHEMA_VERSION, revision = migrated.revision,
                 unbackedUpSince = migrated.unbackedUpSince, catalogRevision = ExerciseCatalog.REVISION,
-                exercises = old.exercises + ExerciseCatalog.revisionTwo), migrated)
+                exercises = old.exercises + ExerciseCatalog.revisionTwo + ExerciseCatalog.revisionThree), migrated)
         assertTrue(migrated.routines.isEmpty() && migrated.placements.isEmpty() && migrated.scheduleRemovals.isEmpty())
         assertEquals("The week is exactly the original routines", listOf("push", "pull", "lower-a", "upper", "lower-b"),
             migrated.scheduledRoutines(Phase.BASELINE).map { it.id })

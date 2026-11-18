@@ -101,13 +101,13 @@ class SnapshotCodecTest {
         val good = SnapshotCodec.encode(seed)
         listOf(
             "", "not json", "{}", "[]", good.dropLast(5),
-            good.replace("\"version\":7", "\"version\":8"),
-            good.replace("\"schemaVersion\":7", "\"schemaVersion\":99"),
+            good.replace("\"version\":8", "\"version\":9"),
+            good.replace("\"schemaVersion\":8", "\"schemaVersion\":99"),
             good.replace("\"format\":\"rebuild-backup\"", "\"format\":\"another-app\""),
-            good.replace("\"version\":7,", ""),
+            good.replace("\"version\":8,", ""),
             good.replace("\"format\":\"rebuild-backup\",", ""),
-            good.replace("\"version\":7", "\"version\":7,\"version\":7"),
-            good.replace("\"version\":7", "\"version\":7,\"\\u0076ersion\":7"),
+            good.replace("\"version\":8", "\"version\":8,\"version\":8"),
+            good.replace("\"version\":8", "\"version\":8,\"\\u0076ersion\":7"),
             good.replace("\"state\":", "\"unknown\":true,\"state\":")
         ).forEach { invalid -> rejected { SnapshotCodec.decode(invalid) } }
     }

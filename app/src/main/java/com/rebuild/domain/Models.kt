@@ -4,12 +4,56 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 
 @Serializable
+/**
+ * How hard and how much: the working sets per exercise and the reps kept in reserve. A phase never sets the days; the
+ * split does. [fourDay] is the original plan's own day ramp (4 days early on, 5 from Two-set start), and no other
+ * split's.
+ */
 enum class Phase(val title: String, val targetRir: Int, val fourDay: Boolean) {
-    INTRO_ONE("Return gently · 4 days", 4, true),
-    INTRO_TWO("Build consistency · 4 days", 3, true),
-    FIVE_TWO("Two-set start · 5 days", 3, false),
-    BASELINE("Baseline · 5 days", 2, false)
+    INTRO_ONE("Return gently", 4, true),
+    INTRO_TWO("Build consistency", 3, true),
+    FIVE_TWO("Two-set start", 3, false),
+    BASELINE("Baseline", 2, false)
 }
+
+/** What a split's exercises are done with. The original plan needs a gym; the other splits work with any of these. */
+@Serializable
+enum class Gear { GYM, DUMBBELLS, BODYWEIGHT }
+
+/** How long someone has been training, in their own words at setup. It only picks the split and starting phase. */
+@Serializable
+enum class Experience { NEW, RETURNING, REGULAR, EXPERIENCED }
+
+/** The split every install had before setup existed, and the one a missing [AppState.split] means. */
+const val ORIGINAL_SPLIT = "original"
+
+/**
+ * The split chosen at setup or later in Plan: its [splitId], what it's done with, the answer that picked it, and the
+ * day it took effect ([since], an ISO date). Days before [since] in that week are never counted as missed.
+ */
+@Serializable
+data class SplitChoice(
+    val splitId: String,
+    val gear: Gear,
+    val experience: Experience,
+    val since: String
+)
+
+/**
+ * A slot's exercise for the other kinds of gear, written by hand per slot. A null option means the slot is left out
+ * with that gear. Bodyweight sets can't add load, so a bodyweight option can carry its own wider rep range.
+ */
+@Serializable
+data class SlotGear(
+    val dumbbell: String?,
+    val bodyweight: String?,
+    val bodyweightMinReps: Int? = null,
+    val bodyweightMaxReps: Int? = null,
+    /** Swaps offered for the dumbbell option: easier or harder versions that need no more than it does. */
+    val dumbbellAlternatives: List<String> = emptyList(),
+    /** Swaps offered for the bodyweight option, such as an easier row for a pull-up. */
+    val bodyweightAlternatives: List<String> = emptyList()
+)
 
 @Serializable
 enum class LoadingType { EXTERNAL, BODYWEIGHT, ASSISTANCE }
@@ -169,8 +213,35 @@ data class PlanSlot(
     val maxReps: Int,
     val restSeconds: Int,
     val perLeg: Boolean = false,
-    val muscle: String
-)
+    val muscle: String,
+    /** The slot's exercise with dumbbells or bodyweight. Null on the original plan's slots, which need a gym. */
+    val gear: SlotGear? = null
+) {
+    /** The exercise this slot asks for with [with], or null when the slot is left out with that gear. */
+    fun exerciseFor(with: Gear): String? = when (with) {
+        Gear.GYM -> exerciseId
+        Gear.DUMBBELLS -> gear?.dumbbell
+        Gear.BODYWEIGHT -> gear?.bodyweight
+    }
+
+    /** The swaps this slot offers with [with]: only exercises that need no more than that gear. */
+    fun alternativesFor(with: Gear): List<String> = when (with) {
+        Gear.GYM -> alternatives
+        Gear.DUMBBELLS -> gear?.dumbbellAlternatives.orEmpty()
+        Gear.BODYWEIGHT -> gear?.bodyweightAlternatives.orEmpty()
+    }
+
+    /**
+     * The rep range with [with]. An exercise done without added load (any bodyweight option, and a dumbbell option
+     * that is the same bodyweight exercise) uses the slot's wider bodyweight range.
+     */
+    fun repsFor(with: Gear): IntRange {
+        val unloaded = with == Gear.BODYWEIGHT || (with == Gear.DUMBBELLS && gear?.dumbbell != null && gear.dumbbell == gear.bodyweight)
+        return if (unloaded && gear?.bodyweightMinReps != null && gear.bodyweightMaxReps != null)
+            gear.bodyweightMinReps..gear.bodyweightMaxReps
+        else minReps..maxReps
+    }
+}
 
 /**
  * A routine on a phase's weekly checklist, identified by [id] alone and never by its name: an original routine of the
@@ -189,8 +260,17 @@ data class WorkoutTemplate(
     override val weekday: Int,
     val introOnly: Boolean = false,
     val establishedOnly: Boolean = false,
-    val slots: List<PlanSlot>
-) : ScheduledRoutine
+    val slots: List<PlanSlot>,
+    /** The split this workout belongs to. A split's workouts stay in the plan once chosen, so history keeps them. */
+    val splitId: String = ORIGINAL_SPLIT
+) : ScheduledRoutine {
+    /**
+     * Whether this workout is on its split's week in [phase]. Only the original plan ramps its days with the phase;
+     * every other split trains the same days in every phase.
+     */
+    fun availableIn(phase: Phase): Boolean = splitId != ORIGINAL_SPLIT ||
+        if (phase.fourDay) !establishedOnly else !introOnly
+}
 
 /**
  * One exercise of a saved routine with the targets the user confirmed: working sets and reps, timed or distance sets
@@ -248,8 +328,18 @@ data class PlanOverride(
     val slotId: String,
     val exerciseId: String,
     val sets: Int,
-    val restSeconds: Int
-)
+    val restSeconds: Int,
+    /**
+     * The gear the change was made with; null is a gym. A swap made for one kind of gear never follows the plan to
+     * another, so a dumbbell plan never asks for a barbell squat chosen at the gym.
+     */
+    val gear: Gear? = null
+) {
+    fun appliesTo(with: Gear): Boolean = (gear ?: Gear.GYM) == with
+}
+
+/** How a plan change records [gear]: null for a gym, so changes made before gear existed read the same. */
+fun storedGear(gear: Gear): Gear? = gear.takeIf { it != Gear.GYM }
 
 /**
  * The user's own exercise in one routine's future workouts of one [phase]: a customization with targets the user
@@ -455,7 +545,7 @@ data class RestTimer(
 
 @Serializable
 data class AppState(
-    val schemaVersion: Int = 7,
+    val schemaVersion: Int = 8,
     val planRevision: Int = 0,
     val revision: Long = 0,
     val phase: Phase? = null,
@@ -481,9 +571,15 @@ data class AppState(
     /** The sites offered on the weekly measuring form, in order. */
     val measurementSites: List<BodySite> = listOf(BodySite.WAIST),
     /** The mass unit new exercises start in, and the one the last "all exercises" switch chose. */
-    val liftingUnit: MassUnit = MassUnit.KG
+    val liftingUnit: MassUnit = MassUnit.KG,
+    /** The split in use. Null is the original plan with a gym, which every install had before setup existed. */
+    val split: SplitChoice? = null
 ) {
     val activeWorkout: Workout? get() = workouts.find { it.id == activeWorkoutId }
+    val activeSplitId: String get() = split?.splitId ?: ORIGINAL_SPLIT
+    val gear: Gear get() = split?.gear ?: Gear.GYM
+    /** The active split's workouts, whichever phase. */
+    val activeTemplates: List<WorkoutTemplate> get() = templates.filter { it.splitId == activeSplitId }
 }
 
 sealed interface Action {
@@ -607,6 +703,22 @@ sealed interface Action {
      * unit new exercises start in. Plate-count exercises keep plates; nothing logged changes or is converted.
      */
     data class SetLiftingUnit(val unit: MassUnit) : Action
+    /**
+     * Ends first-run setup in one change: the split recommended (or chosen) for [experience], its gear, the starting
+     * phase and the weight unit. [today] (an ISO date) is when the split starts; earlier days that week never count.
+     */
+    data class CompleteSetup(
+        val experience: Experience,
+        val splitId: String,
+        val gear: Gear,
+        val unit: MassUnit,
+        val today: String
+    ) : Action
+    /**
+     * Switches to another split, or the same split with other gear, from [today] on. Finished workouts, history and the
+     * old split's plan changes are kept (they come back if the split does); the phase stays.
+     */
+    data class ChangeSplit(val splitId: String, val gear: Gear, val experience: Experience, val today: String) : Action
     /** Moves one exercise of a routine's future workouts in [phase] to [toIndex]. Started workouts keep their order. */
     data class MovePlannedExercise(val phase: Phase, val routineId: String, val slotId: String, val toIndex: Int) : Action
     /** Leaves an original slot out of [phase]'s future workouts, or restores it. Snapshots never change. */
@@ -794,8 +906,9 @@ interface AppRepository {
     suspend fun consumeRestTimer(timerId: String, now: Long): Boolean
 }
 
+/** The active split's workouts on [phase]'s week. Other splits' workouts stay in the plan for history, unlisted. */
 fun AppState.availableTemplates(phase: Phase = requireNotNull(this.phase)): List<WorkoutTemplate> =
-    templates.filter { if (phase.fourDay) !it.establishedOnly else !it.introOnly }
+    activeTemplates.filter { it.availableIn(phase) }
 
 fun AppState.scheduledTemplate(weekday: Int): WorkoutTemplate? =
     phase?.let { availableTemplates(it).find { template -> template.weekday == weekday } }
@@ -835,9 +948,13 @@ internal fun AppState.loadUnitDefinition(workoutId: String, exerciseId: String):
         snapshot.custom == definition.custom) snapshot.copy(equipment = definition.equipment) else null
 }
 
+/**
+ * A slot's target in [phase]: a saved change, else the slot's exercise for the plan's gear. A slot the gear leaves
+ * out keeps its gym exercise here; [AppState.plannedExercises] leaves it out of workouts.
+ */
 fun AppState.targetFor(slot: PlanSlot, phase: Phase): PlanOverride =
-    overrides.find { it.phase == phase && it.slotId == slot.id } ?: PlanOverride(
-        phase, slot.id, slot.exerciseId,
+    overrides.find { it.phase == phase && it.slotId == slot.id && it.appliesTo(gear) } ?: PlanOverride(
+        phase, slot.id, slot.exerciseFor(gear) ?: slot.exerciseId,
         when (phase) {
             Phase.INTRO_ONE -> 1
             Phase.INTRO_TWO, Phase.FIVE_TWO -> 2

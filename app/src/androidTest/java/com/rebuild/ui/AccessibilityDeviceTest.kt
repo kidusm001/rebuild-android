@@ -133,14 +133,24 @@ class AccessibilityDeviceTest {
     }
 
     @Test
-    fun phaseChoiceAndHomePassNativeChecks() {
-        val repo = FakeRepository(seedState())
+    fun setupAndHomePassNativeChecks() {
+        val repo = FakeRepository(com.rebuild.domain.Seed.initialState())
         rule.setContent { RebuildApp(repo, FakePlatform(), clock = { FIXED_NOW }) }
-        rule.onNodeWithText("Choose a phase").assertIsNotEnabled()
         rule.onRoot().tryPerformAccessibilityChecks()
-        captureEvidence("disabled-phase")
-        rule.onNodeWithTag("phase-INTRO_ONE").performClick()
-        rule.onNodeWithText("Start with Return gently").performClick()
+        rule.onNodeWithTag("setup-action").performClick()
+        rule.onNodeWithTag("setup-action").assertIsNotEnabled()
+        rule.onRoot().tryPerformAccessibilityChecks()
+        captureEvidence("setup-experience")
+        rule.onNodeWithTag("setup-experience-new").performClick()
+        rule.onNodeWithTag("setup-action").performClick()
+        rule.onNodeWithTag("setup-days-3").performClick()
+        rule.onNodeWithTag("setup-action").performClick()
+        rule.onNodeWithTag("setup-gear-gym").performClick()
+        rule.onNodeWithTag("setup-action").performClick()
+        rule.onRoot().tryPerformAccessibilityChecks()
+        rule.onNodeWithTag("setup-action").performClick()
+        rule.onRoot().tryPerformAccessibilityChecks()
+        rule.onNodeWithTag("setup-rest-done").performClick()
         rule.onRoot().tryPerformAccessibilityChecks()
         assertEquals(Phase.INTRO_ONE, repo.state.value.phase)
     }

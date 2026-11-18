@@ -67,22 +67,6 @@ class RebuildAppTest {
     }
 
     @Test
-    fun firstRunRequiresExplicitPhaseChoice() {
-        val repo = FakeRepository(seedState())
-        launch(repo)
-        rule.onNodeWithText("Choose where to start").assertIsDisplayed()
-        rule.onNodeWithText("Choose a phase").assertIsNotEnabled()
-        Phase.entries.forEach { rule.onNodeWithTag("phase-${it.name}").assertIsDisplayed() }
-
-        rule.onNodeWithTag("phase-INTRO_ONE").performClick()
-        rule.onNodeWithText("Start with Return gently").assertIsEnabled().performClick()
-        rule.waitForIdle()
-
-        assertEquals(listOf(Action.SelectPhase(Phase.INTRO_ONE)), repo.actions)
-        rule.onNodeWithText("Start Upper A").assertIsDisplayed()
-    }
-
-    @Test
     fun startAndLogWorkingSet() {
         val repo = FakeRepository(seedState(Phase.INTRO_TWO))
         launch(repo)

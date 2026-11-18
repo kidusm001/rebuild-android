@@ -9,15 +9,15 @@ class ExerciseCatalogTest {
     private val state = Seed.initialState()
 
     @Test fun catalogIsBoundedUniqueDescribedAndDoesNotPrescribePullups() {
-        assertEquals(74, state.exercises.size)
+        assertEquals(87, state.exercises.size)
         assertEquals(31, ExerciseCatalog.legacyExercises.size)
-        assertEquals(74, state.exercises.map { it.id }.distinct().size)
-        assertEquals("Revision two only adds timed, distance and cardio exercises",
-            mapOf(Measure.REPS to 60, Measure.TIMED to 5, Measure.DISTANCE to 2, Measure.CARDIO to 7),
+        assertEquals(87, state.exercises.map { it.id }.distinct().size)
+        assertEquals("Revision two only adds timed, distance and cardio exercises; revision three only rep-based ones",
+            mapOf(Measure.REPS to 73, Measure.TIMED to 5, Measure.DISTANCE to 2, Measure.CARDIO to 7),
             state.exercises.groupingBy { it.measure }.eachCount())
-        assertEquals(ExerciseCatalog.revisionOne + ExerciseCatalog.revisionTwo, state.exercises)
-        assertEquals(2, state.catalogRevision)
-        assertEquals(7, state.schemaVersion)
+        assertEquals(ExerciseCatalog.revisionOne + ExerciseCatalog.revisionTwo + ExerciseCatalog.revisionThree, state.exercises)
+        assertEquals(3, state.catalogRevision)
+        assertEquals(8, state.schemaVersion)
         assertTrue(state.exercises.all {
             it.equipment != Equipment.UNKNOWN && it.primaryMuscle != MuscleGroup.UNKNOWN &&
                 it.aliases.isNotEmpty() && it.preferredLoadUnit == LoadUnit.KG
@@ -33,7 +33,7 @@ class ExerciseCatalogTest {
         listOf("LAT PULLDOWN", "lat—pull.down", "lat pulldown", "Lat pull down").forEach {
             assertTrue(it, state.searchExercises(it).any { e -> e.id == "pulldown" })
         }
-        assertEquals(listOf("rdl"), state.searchExercises("r.d.l.").map { it.id })
+        assertEquals(listOf("rdl", "rdl-db"), state.searchExercises("r.d.l.").map { it.id })
         assertEquals(listOf("split-squat"), state.searchExercises("RFESS").map { it.id })
         assertTrue(state.searchExercises("pullup").any { it.id == "pullup" })
         assertTrue(state.searchExercises("press dumbbell incline").any { it.id == "incline-db" })

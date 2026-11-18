@@ -45,6 +45,12 @@ internal object StateMigrations {
             updated = updated.copy(catalogRevision = 2,
                 exercises = updated.exercises + ExerciseCatalog.revisionTwo.filterNot { it.id in existingIds }.take(room))
         }
+        if (updated.catalogRevision < 3) {
+            val existingIds = updated.exercises.map { it.id }.toSet()
+            val room = (1000 - updated.exercises.size).coerceAtLeast(0)
+            updated = updated.copy(catalogRevision = 3,
+                exercises = updated.exercises + ExerciseCatalog.revisionThree.filterNot { it.id in existingIds }.take(room))
+        }
         return updated
     }
 

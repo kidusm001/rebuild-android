@@ -35,11 +35,17 @@ fun AppState.slotRemoved(phase: Phase, slotId: String): Boolean =
  */
 fun AppState.plannedExercises(routine: ScheduledRoutine, phase: Phase): List<PlannedExercise> {
     val slots = when (routine) {
-        is WorkoutTemplate -> routine.slots.filterNot { slotRemoved(phase, it.id) }.map { slot ->
-            val target = targetFor(slot, phase)
-            PlannedExercise(slot.id, target.exerciseId, target.sets, slot.baselineSets, slot.upperSets, slot.minReps,
-                slot.maxReps, target.restSeconds, slot.perLeg, slot, null)
-        }
+        // A slot the plan's gear leaves out (no dumbbell or bodyweight match) isn't asked for, unless a saved
+        // change has already given it an exercise.
+        is WorkoutTemplate -> routine.slots.filterNot { slotRemoved(phase, it.id) }
+            .filter { slot -> slot.exerciseFor(gear) != null ||
+                overrides.any { it.phase == phase && it.slotId == slot.id && it.appliesTo(gear) } }
+            .map { slot ->
+                val target = targetFor(slot, phase)
+                val reps = slot.repsFor(gear)
+                PlannedExercise(slot.id, target.exerciseId, target.sets, slot.baselineSets, slot.upperSets, reps.first,
+                    reps.last, target.restSeconds, slot.perLeg, slot, null)
+            }
         is RoutinePlacement -> emptyList()
     }
     val planned = slots + planAdditions.filter { it.phase == phase && it.templateId == routine.id }.map {
@@ -52,6 +58,10 @@ fun AppState.plannedExercises(routine: ScheduledRoutine, phase: Phase): List<Pla
         .sortedWith(compareBy({ rank[it.value.slotId] ?: Int.MAX_VALUE }, { it.index }))
         .map { it.value }
 }
+
+/** Whether [exerciseId] is this slot's exercise, a listed alternative, or its dumbbell or bodyweight option. */
+private fun PlanSlot.holds(exerciseId: String): Boolean = exerciseId == this.exerciseId || exerciseId in alternatives ||
+    exerciseId == gear?.dumbbell || exerciseId == gear?.bodyweight
 
 /** Original slots left out of [phase]'s future workouts. They stay visible as a reference and can be restored. */
 fun AppState.removedSlots(template: WorkoutTemplate, phase: Phase): List<PlanSlot> =
@@ -68,8 +78,8 @@ fun AppState.perLegConvention(
     excludingAdditionId: String? = null,
     excludingOwnerId: String? = null
 ): Boolean? {
-    val slots = templates.flatMap { it.slots }.associateBy { it.id }
-    val conventions = (slots.values.filter { it.exerciseId == exerciseId || exerciseId in it.alternatives }
+    val slots = activeTemplates.flatMap { it.slots }.associateBy { it.id }
+    val conventions = (slots.values.filter { it.holds(exerciseId) }
         .map { it.perLeg } +
         overrides.filter { it.exerciseId == exerciseId }.mapNotNull { slots[it.slotId]?.perLeg } +
         planAdditions.filter {
@@ -101,7 +111,7 @@ private val ONE_LEG_CANDIDATES = setOf(MuscleGroup.QUADS, MuscleGroup.HAMSTRINGS
  */
 fun AppState.asksPerLeg(exercise: Exercise): Boolean {
     if (exercise.measured || settledPerLeg(exercise.id) != null) return false
-    val heldByPlan = templates.any { t -> t.slots.any { it.exerciseId == exercise.id || exercise.id in it.alternatives } } ||
+    val heldByPlan = activeTemplates.any { t -> t.slots.any { it.holds(exercise.id) } } ||
         overrides.any { it.exerciseId == exercise.id } || planAdditions.any { it.exerciseId == exercise.id } ||
         routines.any { r -> r.exercises.any { it.exerciseId == exercise.id } }
     return heldByPlan || exercise.primaryMuscle in ONE_LEG_CANDIDATES
@@ -131,8 +141,8 @@ fun AppState.restSuggestion(exerciseId: String, phase: Phase?, excludingEntryId:
         .flatMap { plannedExercises(it, phase).asSequence() }
         .firstOrNull { it.exerciseId == exerciseId }
         ?.let { return RestSuggestion(it.restSeconds, RestSource.PLAN) }
-    templates.asSequence().flatMap { it.slots.asSequence() }
-        .firstOrNull { it.exerciseId == exerciseId || exerciseId in it.alternatives }
+    activeTemplates.asSequence().flatMap { it.slots.asSequence() }
+        .firstOrNull { it.holds(exerciseId) }
         ?.let { return RestSuggestion(it.restSeconds, RestSource.PLAN) }
     routines.asSequence().flatMap { it.exercises.asSequence() }
         .firstOrNull { it.exerciseId == exerciseId }
