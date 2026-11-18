@@ -428,6 +428,8 @@ internal object StateChanges {
         is Action.EditToday -> editToday(state, action)
         is Action.AddExercise -> {
             SnapshotCodec.validateExercise(action.exercise)
+            ensure(state.exercises.any { it.id == action.exercise.id } || state.exercises.size < SnapshotCodec.MAX_OWN_LIBRARY,
+                "The exercise library is full (${SnapshotCodec.MAX_OWN_LIBRARY} exercises).")
             state.exercises.find { it.id == action.exercise.id }?.let {
                 ensure(it.measure == action.exercise.measure, "How ${it.name} is measured can't change, so its " +
                     "records keep their meaning. Create a new exercise instead.")
@@ -1129,10 +1131,22 @@ internal object StateChanges {
         return split
     }
 
+    /** A split's exercises must all be in the library; the catalog migration adds them, so this only guards. */
+    private fun ensureExercises(state: AppState, split: Split) {
+        val ids = state.exercises.map { it.id }.toSet()
+        val missing = split.templates.flatMap { it.slots }.flatMap { s ->
+            listOfNotNull(s.exerciseId, s.gear?.dumbbell, s.gear?.bodyweight) + s.alternatives +
+                s.gear?.dumbbellAlternatives.orEmpty() + s.gear?.bodyweightAlternatives.orEmpty()
+        }.filterNot { it in ids }
+        ensure(missing.isEmpty(), "This plan needs exercises your library doesn't have yet. Update Rebuild and try again.")
+    }
+
     /** The plan with [split]'s workouts in it. A split's workouts are added once and kept, so history stays whole. */
-    private fun withSplit(state: AppState, split: Split): AppState =
-        if (state.templates.any { it.splitId == split.id }) state
+    private fun withSplit(state: AppState, split: Split): AppState {
+        ensureExercises(state, split)
+        return if (state.templates.any { it.splitId == split.id }) state
         else state.copy(templates = state.templates + split.templates)
+    }
 
     private fun library(state: AppState, id: String): Exercise =
         state.exercises.find { it.id == id } ?: throw RepositoryException("The selected exercise no longer exists.")

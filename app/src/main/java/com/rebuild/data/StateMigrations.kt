@@ -46,10 +46,10 @@ internal object StateMigrations {
                 exercises = updated.exercises + ExerciseCatalog.revisionTwo.filterNot { it.id in existingIds }.take(room))
         }
         if (updated.catalogRevision < 3) {
+            // Every split needs these, so they're added even to a full library (the cap leaves room for them).
             val existingIds = updated.exercises.map { it.id }.toSet()
-            val room = (1000 - updated.exercises.size).coerceAtLeast(0)
             updated = updated.copy(catalogRevision = 3,
-                exercises = updated.exercises + ExerciseCatalog.revisionThree.filterNot { it.id in existingIds }.take(room))
+                exercises = updated.exercises + ExerciseCatalog.revisionThree.filterNot { it.id in existingIds })
         }
         return updated
     }

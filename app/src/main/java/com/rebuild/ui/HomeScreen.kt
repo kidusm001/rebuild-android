@@ -147,6 +147,15 @@ internal fun HomeScreen(env: AppEnv, onOpenWorkout: () -> Unit, onNavigate: (Str
                             )
                             null
                         }
+                        // A split started after its last day this week: its first workout, offered, never required.
+                        plan.kind == TodayKind.REST && checklist.routines.isEmpty() && suggested != null -> {
+                            ScheduledSessionCard(
+                                env, suggested, phase,
+                                "Your plan's first workout · optional today, or wait for ${weekdayName(suggested.weekday)}",
+                                "start-suggested", status = checklist.statusOf(suggested.id), onStart = { start(suggested) }
+                            )
+                            suggested.id
+                        }
                         plan.kind == TodayKind.NEXT_UNFINISHED && scheduled != null -> {
                             NoteCard("Done this week", (if (todays.size > 1) "${weekdayName(today)}'s routines are"
                                 else "${scheduled.name} is") + " already done this week.")
@@ -469,7 +478,8 @@ private fun WeekChecklistSection(
         Column {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
                 SectionHeader("This week", Modifier.weight(1f).alignByBaseline())
-                Text(
+                // A week with nothing left to ask for (a split started after its last day) has no count to show.
+                if (total > 0) Text(
                     "$done of $total",
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier
@@ -502,7 +512,9 @@ private fun WeekChecklistSection(
                         DayBlock(weekdayName(template.weekday, TextStyle.SHORT), null, weekdayName(template.weekday),
                             emphasized = template.weekday == today.dayOfWeek.value)
                     },
-                    trailing = if (onStart == null || template.id == featured) null else {
+                    // A workout from the split before keeps its credit but can't be started again from here.
+                    trailing = if (onStart == null || template.id == featured ||
+                        (template is com.rebuild.domain.WorkoutTemplate && template.splitId != env.state.activeSplitId)) null else {
                         {
                             SecondaryButton(
                                 onClick = { onStart(template) },

@@ -491,7 +491,7 @@ private fun PlanSlotDialog(env: AppEnv, phase: Phase, slot: PlanSlot, onDismiss:
                     rest, { rest = it }, slot.baselineSets, slot.upperSets, allowAboveCap, { allowAboveCap = it }
                 )
                 TextButton(onClick = {
-                    exerciseId = slot.exerciseId
+                    exerciseId = slot.exerciseFor(env.state.gear) ?: slot.exerciseId
                     sets = defaults.sets
                     rest = slot.restSeconds.toString()
                     allowAboveCap = false

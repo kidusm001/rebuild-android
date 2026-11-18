@@ -48,7 +48,12 @@ fun AppState.plannedExercises(routine: ScheduledRoutine, phase: Phase): List<Pla
             }
         is RoutinePlacement -> emptyList()
     }
-    val planned = slots + planAdditions.filter { it.phase == phase && it.templateId == routine.id }.map {
+    // An exercise you added that a slot now asks for itself (say, push-ups once the gear is bodyweight) is set aside
+    // rather than listed twice; it stays saved and comes back with the gear it was added for.
+    val fromSlots = slots.map { it.exerciseId }.toSet()
+    val planned = slots + planAdditions.filter {
+        it.phase == phase && it.templateId == routine.id && it.exerciseId !in fromSlots
+    }.map {
         PlannedExercise(it.id, it.exerciseId, it.sets, null, null, it.minReps, it.maxReps, it.restSeconds,
             it.perLeg, null, it, it.measuredGoal)
     }

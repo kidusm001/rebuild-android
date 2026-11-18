@@ -158,4 +158,27 @@ class SetupFlowDeviceTest {
         assertEquals("the phase stays", Phase.INTRO_ONE, repo.state.value.phase)
         rule.onNodeWithTag("plan-split-name").assertTextEquals("Upper and lower")
     }
+
+    @Test fun aSaturdaySignUpIsOfferedThePlansFirstWorkoutToday() {
+        val saturday = java.time.LocalDateTime.of(2026, 9, 26, 10, 0).atZone(java.time.ZoneId.systemDefault())
+            .toInstant().toEpochMilli()
+        val start = com.rebuild.data.StateChanges.apply(Seed.initialState(),
+            Action.CompleteSetup(Experience.NEW, "full-body-3", Gear.GYM, MassUnit.KG, localDateOf(saturday).toString()))
+        val repo = FakeRepository(start)
+        rule.setContent { RebuildApp(repo, FakePlatform(), clock = { saturday }) }
+        rule.onNodeWithTag("start-suggested").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Monday", substring = true).assertExists()
+    }
+
+    @Test fun changeSplitKeepsASplitPickedByHand() {
+        val start = com.rebuild.data.StateChanges.apply(Seed.initialState(),
+            Action.CompleteSetup(Experience.EXPERIENCED, "full-body-3", Gear.GYM, MassUnit.KG, localDateOf(FIXED_NOW).toString()))
+        val repo = FakeRepository(start)
+        rule.setContent { RebuildApp(repo, FakePlatform(), clock = { FIXED_NOW }) }
+        rule.onNodeWithText("Plan").performClick()
+        rule.onNodeWithTag("plan-change-split").performClick()
+        // The quiz would suggest Push, pull, legs for an experienced 3-day lifter; the hand-picked split stays chosen.
+        rule.onNodeWithTag("split-pick-full-body-3").performScrollTo().assertIsSelected()
+        rule.onNodeWithTag("split-unchanged").assertExists()
+    }
 }
