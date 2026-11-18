@@ -126,6 +126,12 @@ internal object Routes {
 /** Minimal saveable back stack; routes are plain strings so they survive process death. */
 internal class Navigator(initial: List<String>) {
     val stack = mutableStateListOf<String>().apply { addAll(initial.ifEmpty { listOf(Tab.HOME.route) }) }
+
+    /**
+     * A workout start from Today is in flight. The workout then opens in the very composition whose state has it
+     * active, before Today redraws around it: Today leaves as it was when Start was tapped.
+     */
+    var openOnStart by mutableStateOf(false)
     val current: String get() = stack.last()
     val tab: Tab get() = Tab.entries.firstOrNull { it.route == stack.first() } ?: Tab.HOME
 
@@ -265,9 +271,16 @@ fun RebuildApp(
         LaunchedEffect(pending, state.workouts) {
             if (pending != null && state.workouts.none { it.id == pending }) runner.receiptShown()
         }
-        // What is drawn: the real stack, less a workout that is no longer active (the effect below cleans the stack).
-        val renderStack = nav.stack.filterNot { it == Routes.WORKOUT && state.activeWorkoutId == null }
+        // What is drawn: the real stack, less a workout that is no longer active (the effect below cleans the stack),
+        // plus a workout just started from Today, which the side effect below then pushes for real.
+        val opening = nav.openOnStart && state.activeWorkoutId != null
+        val renderStack = (if (opening && nav.current != Routes.WORKOUT) nav.stack + Routes.WORKOUT else nav.stack)
+            .filterNot { it == Routes.WORKOUT && state.activeWorkoutId == null }
             .ifEmpty { listOf(Tab.HOME.route) }
+        if (opening) SideEffect {
+            nav.openOnStart = false
+            nav.push(Routes.WORKOUT)
+        }
         val setupShown = state.phase == null || setupRestStep
         val route = if (setupShown) SETUP_ROUTE else renderStack.last()
         // Wide windows (landscape phones, tablets) put the destinations in a rail so content keeps its height.
@@ -675,7 +688,8 @@ private fun InactiveBack(disabled: Boolean, content: @Composable () -> Unit) {
 private fun RouteContent(env: AppEnv, nav: Navigator, route: String) {
     val state = env.state
     when {
-        route == Tab.HOME.route -> HomeScreen(env, onOpenWorkout = { nav.push(Routes.WORKOUT) }, onNavigate = nav::push)
+        route == Tab.HOME.route -> HomeScreen(env, onOpenWorkout = { nav.push(Routes.WORKOUT) }, onNavigate = nav::push,
+            onStarting = { nav.openOnStart = it })
         route == Tab.HISTORY.route -> HistoryScreen(env, onNavigate = nav::push, onOpenToday = { nav.select(Tab.HOME) })
         route == Tab.PLAN.route -> PlanScreen(env, onNavigate = nav::push)
         route == Tab.MORE.route -> MoreScreen(env, onNavigate = nav::push)

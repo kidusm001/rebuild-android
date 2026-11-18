@@ -33,6 +33,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.mutableStateMapOf
+import com.rebuild.ui.theme.FadeInOver
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -84,7 +87,13 @@ private const val SESSION_PREVIEW = 4
 private val dayMonthFormat: DateTimeFormatter get() = DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
 
 @Composable
-internal fun HomeScreen(env: AppEnv, onOpenWorkout: () -> Unit, onNavigate: (String) -> Unit) {
+internal fun HomeScreen(
+    env: AppEnv,
+    onOpenWorkout: () -> Unit,
+    onNavigate: (String) -> Unit,
+    /** Marks a start in flight, so the workout opens in the composition its state arrives in (see Navigator). */
+    onStarting: (Boolean) -> Unit = {}
+) {
     val state = env.state
     val phase = state.phase ?: return
     val now = env.clock()
@@ -93,82 +102,97 @@ internal fun HomeScreen(env: AppEnv, onOpenWorkout: () -> Unit, onNavigate: (Str
     val checklist = state.weekChecklist(date) ?: return
     val active = state.activeWorkout
     var startError by rememberSaveable { mutableStateOf<String?>(null) }
-
     fun start(template: ScheduledRoutine) {
         startError = null
-        env.runner.run(Action.StartWorkout(template.id, env.clock()), onError = { startError = it }) {
-            onOpenWorkout()
-        }
+        if (env.runner.run(Action.StartWorkout(template.id, env.clock()),
+                onError = { startError = it; onStarting(false) })) onStarting(true)
     }
 
     fun startExtra() {
         startError = null
-        env.runner.run(Action.StartExtraWorkout(env.clock()), onError = { startError = it }) { onOpenWorkout() }
+        if (env.runner.run(Action.StartExtraWorkout(env.clock()),
+                onError = { startError = it; onStarting(false) })) onStarting(true)
     }
 
+    val heroes = remember { mutableStateMapOf<String, @Composable () -> Unit>() }
+    var shownHero by remember { mutableStateOf("") }
     ScreenScaffold(title = weekdayName(today), subtitle = "${dayMonthFormat.format(date)} · ${phaseShort(phase)}") {
         ScrollBody {
             // Sections sit 24dp apart: 16 here plus the section header's own 8 above its title.
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                if (active != null) {
-                    ActiveSessionCard(env, active, onResume = onOpenWorkout)
-                    TodayNotices(env, now, onNavigate)
-                    BodySection(env, onNavigate)
-                    WeekChecklistSection(env, checklist, date, featured = null, onStart = null)
-                } else {
-                    val plan = state.todayPlan(date, checklist)
-                    val scheduled = plan.scheduled
-                    val suggested = plan.suggested
-                    // A day can hold several routines; each keeps its own Start in the week below.
-                    val todays = checklist.routines.filter { it.template.weekday == today }
-                    val featured = when {
-                        plan.kind == TodayKind.SCHEDULED && scheduled != null -> {
-                            // The header already names the day, so the card needs no "Scheduled for" line.
+                // The hero card is replaced in place by Fade in over (the old card stays opaque underneath while the
+                // new one fades in on top) and its height changes by Expand or Collapse, so what's below moves
+                // instead of jumping: on Start (hidden by the push), Discard, Finish and a new day.
+                fun hero(key: String, card: @Composable () -> Unit): String {
+                    heroes[key] = card
+                    return key
+                }
+                val plan = if (active == null) state.todayPlan(date, checklist) else null
+                val scheduled = plan?.scheduled
+                val suggested = plan?.suggested
+                // A day can hold several routines; each keeps its own Start in the week below.
+                val todays = checklist.routines.filter { it.template.weekday == today }
+                var featured: String? = null
+                val heroKey = when {
+                    active != null -> hero("active:${active.id}") { ActiveSessionCard(env, active, onResume = onOpenWorkout) }
+                    plan == null -> hero("none") { }
+                    plan.kind == TodayKind.SCHEDULED && scheduled != null -> {
+                        featured = scheduled.id
+                        // The header already names the day, so the card needs no "Scheduled for" line.
+                        hero("scheduled:${scheduled.id}") {
                             ScheduledSessionCard(
                                 env, scheduled, phase, reason = null, "start-scheduled",
                                 status = checklist.statusOf(scheduled.id), onStart = { start(scheduled) }
                             )
-                            scheduled.id
                         }
-                        plan.kind == TodayKind.NEXT_UNFINISHED && scheduled != null && suggested != null -> {
+                    }
+                    plan.kind == TodayKind.NEXT_UNFINISHED && scheduled != null && suggested != null -> {
+                        featured = suggested.id
+                        hero("next:${suggested.id}") {
                             ScheduledSessionCard(
                                 env, suggested, phase,
                                 (if (todays.size > 1) "${weekdayName(today)}'s routines are" else "${scheduled.name} is") +
                                     " done this week · next unfinished",
                                 "start-suggested", status = checklist.statusOf(suggested.id), onStart = { start(suggested) }
                             )
-                            suggested.id
                         }
-                        plan.kind == TodayKind.WEEK_COMPLETE -> {
-                            NoteCard(
-                                "Week complete",
-                                "All ${checklist.routines.size} workouts done this week.",
-                                Modifier.testTag("week-complete")
-                            )
-                            null
-                        }
-                        // A split started after its last day this week: its first workout, offered, never required.
-                        plan.kind == TodayKind.REST && checklist.routines.isEmpty() && suggested != null -> {
+                    }
+                    plan.kind == TodayKind.WEEK_COMPLETE -> hero("week-complete") {
+                        NoteCard(
+                            "Week complete",
+                            "All ${checklist.routines.size} workouts done this week.",
+                            Modifier.testTag("week-complete")
+                        )
+                    }
+                    // A split started after its last day this week: its first workout, offered, never required.
+                    plan.kind == TodayKind.REST && checklist.routines.isEmpty() && suggested != null -> {
+                        featured = suggested.id
+                        hero("first:${suggested.id}") {
                             ScheduledSessionCard(
                                 env, suggested, phase,
                                 "Your plan's first workout · optional today, or wait for ${weekdayName(suggested.weekday)}",
                                 "start-suggested", status = checklist.statusOf(suggested.id), onStart = { start(suggested) }
                             )
-                            suggested.id
-                        }
-                        plan.kind == TodayKind.NEXT_UNFINISHED && scheduled != null -> {
-                            NoteCard("Done this week", (if (todays.size > 1) "${weekdayName(today)}'s routines are"
-                                else "${scheduled.name} is") + " already done this week.")
-                            null
-                        }
-                        else -> {
-                            NoteCard(
-                                "Rest day",
-                                "Nothing scheduled for ${weekdayName(today)}."
-                            )
-                            null
                         }
                     }
+                    plan.kind == TodayKind.NEXT_UNFINISHED && scheduled != null -> hero("done-this-week") {
+                        NoteCard("Done this week", (if (todays.size > 1) "${weekdayName(today)}'s routines are"
+                            else "${scheduled.name} is") + " already done this week.")
+                    }
+                    else -> hero("rest-day") {
+                        NoteCard(
+                            "Rest day",
+                            "Nothing scheduled for ${weekdayName(today)}."
+                        )
+                    }
+                }
+                SideEffect { heroes.keys.retainAll(setOf(heroKey, shownHero)); shownHero = heroKey }
+                FadeInOver(heroKey, label = "today-hero") { key -> heroes[key]?.invoke() }
+                if (active != null) {
+                    TodayNotices(env, now, onNavigate)
+                    BodySection(env, onNavigate)
+                    WeekChecklistSection(env, checklist, date, featured = null, onStart = null)
+                } else if (plan != null) {
                     val alsoToday = todays.filter { it.template.id != featured }
                     if (plan.kind == TodayKind.SCHEDULED && alsoToday.isNotEmpty()) Text(
                         "Also on ${weekdayName(today)}: " + alsoToday.joinToString { "${it.template.name} (${statusWord(it.status)})" },
