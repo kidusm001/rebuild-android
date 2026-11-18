@@ -281,7 +281,10 @@ fun RebuildApp(
         val wide = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.width.toDp() } >= 600.dp
         // Test tags double as Android resource IDs, so an on-device driver (uiautomator, the verify-rebuild skill) can
         // find controls by the same stable handles the tests use instead of by visible text. Nothing visible changes.
-        Row(modifier.fillMaxSize().semantics { testTagsAsResourceId = true }
+        Row(modifier.fillMaxSize().semantics {
+            testTagsAsResourceId = true
+            this[ActionGuard] = runner.busy
+        }
             .background(MaterialTheme.colorScheme.surface)) {
             if (showNav && wide) {
                 NavigationRail(containerColor = MaterialTheme.colorScheme.surfaceContainer) {

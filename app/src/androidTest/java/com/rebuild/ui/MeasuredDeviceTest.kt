@@ -164,7 +164,7 @@ class MeasuredDeviceTest {
     }
 
     private fun waitEnabled(tag: String) = rule.waitUntil(5_000) {
-        rule.onAllNodes(hasTestTag(tag) and isEnabled()).fetchSemanticsNodes().isNotEmpty()
+        rule.actionGuardOpen() && rule.onAllNodes(hasTestTag(tag) and isEnabled()).fetchSemanticsNodes().isNotEmpty()
     }
 
     /** Taps [tag] once the app's busy guard allows it: a tap while it is closed would be ignored. */
@@ -230,8 +230,8 @@ class MeasuredDeviceTest {
         tap("log-effort")
         rule.waitUntil(5_000) { entry(repo, entryId).efforts.size == before + 1 }
         rule.waitUntil(5_000) {
-            rule.onAllNodes(hasTestTag("log-effort")).fetchSemanticsNodes().isEmpty() ||
-                rule.onAllNodes(hasTestTag("log-effort") and isEnabled()).fetchSemanticsNodes().isNotEmpty()
+            rule.actionGuardOpen() && (rule.onAllNodes(hasTestTag("log-effort")).fetchSemanticsNodes().isEmpty() ||
+                rule.onAllNodes(hasTestTag("log-effort") and isEnabled()).fetchSemanticsNodes().isNotEmpty())
         }
         rule.waitForIdle()
     }
@@ -267,7 +267,7 @@ class MeasuredDeviceTest {
     /** The workout's own Finish, once enabled: a tap while the app's busy guard is closed would be ignored. */
     private fun clickFinish() {
         val finish = hasText("Finish") and hasClickAction() and !hasAnyAncestor(isDialog())
-        rule.waitUntil(5_000) { rule.onAllNodes(finish and isEnabled()).fetchSemanticsNodes().size == 1 }
+        rule.waitUntil(5_000) { rule.actionGuardOpen() && rule.onAllNodes(finish and isEnabled()).fetchSemanticsNodes().size == 1 }
         rule.onNode(finish).performClick()
         rule.waitForIdle()
     }

@@ -185,7 +185,7 @@ internal fun HomeScreen(env: AppEnv, onOpenWorkout: () -> Unit, onNavigate: (Str
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             OutlinedButton(
                                 onClick = ::startExtra,
-                                enabled = !env.runner.busy,
+                                enabled = !env.runner.showsBusy,
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("start-empty")
                             ) {
                                 RebuildIcon(R.drawable.ic_plus, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -332,7 +332,7 @@ private fun ScheduledSessionCard(
             )
             Button(
                 onClick = onStart,
-                enabled = !env.runner.busy,
+                enabled = !env.runner.showsBusy,
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 56.dp)
@@ -518,7 +518,7 @@ private fun WeekChecklistSection(
                         {
                             SecondaryButton(
                                 onClick = { onStart(template) },
-                                enabled = !env.runner.busy,
+                                enabled = !env.runner.showsBusy,
                                 modifier = Modifier.semantics {
                                     contentDescription = "${if (isDone) "Repeat" else "Start"} ${template.name} ($day)"
                                 }
@@ -621,14 +621,14 @@ private fun ActiveSessionCard(env: AppEnv, workout: Workout, onResume: () -> Uni
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                SecondaryButton(onClick = { finishing = true }, enabled = !env.runner.busy, icon = R.drawable.ic_check) {
+                SecondaryButton(onClick = { finishing = true }, enabled = !env.runner.showsBusy, icon = R.drawable.ic_check) {
                     Text("Finish")
                 }
                 // Discard sits at the far edge, so a thumb aimed at Finish never lands on it; quiet red text.
                 Spacer(Modifier.weight(1f))
                 TextButton(
                     onClick = { discarding = true },
-                    enabled = !env.runner.busy,
+                    enabled = !env.runner.showsBusy,
                     colors = ButtonDefaults.textButtonColors(contentColor = colors.error),
                     modifier = Modifier.heightIn(min = 48.dp)
                 ) { Text("Discard") }

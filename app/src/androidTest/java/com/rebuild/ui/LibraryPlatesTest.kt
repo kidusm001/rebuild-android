@@ -57,7 +57,7 @@ class LibraryPlatesTest {
     }
     private fun switch(unit: LoadUnit) {
         rule.waitUntil(5000) {
-            rule.onAllNodes(hasTestTag("choose-load-unit") and isEnabled()).fetchSemanticsNodes().size == 1
+            rule.actionGuardOpen() && rule.onAllNodes(hasTestTag("choose-load-unit") and isEnabled()).fetchSemanticsNodes().size == 1
         }
         rule.onNodeWithTag("choose-load-unit").performScrollTo().assertIsEnabled().performClick()
         rule.onNodeWithTag("unit-${unit.name}").performScrollTo().performClick()

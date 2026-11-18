@@ -303,10 +303,11 @@ internal fun EntryPanel(
         }
         // Decided before the save: the save itself replaces this draft with a fresh one.
         onCarry(if (!dropping) DropCarry.NONE else if (draft.extra) DropCarry.DROP_PAST_TARGET else DropCarry.DROP)
-        env.runner.run(action, onError = { draft.error = it }, cooldownMs = ActionRunner.NEW_SET_COOLDOWN_MS) {
-            // A short tick confirms the set is saved without looking at the screen.
-            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-        }
+        env.runner.run(action, onError = { draft.error = it }, cooldownMs = ActionRunner.NEW_SET_COOLDOWN_MS,
+            tag = LOG_SET_TAG,
+            // A short tick confirms the set is saved without looking at the screen: the moment it lands, not after
+            // the double-tap cooldown.
+            onSaved = { haptics.performHapticFeedback(HapticFeedbackType.Confirm) })
     }
 
     fun finishGroup() {
@@ -332,7 +333,7 @@ internal fun EntryPanel(
     @Composable fun LogButton(modifier: Modifier) {
         val logModifier = modifier.heightIn(min = 56.dp).testTag("log-set")
         val label = when {
-            env.runner.saving -> "Saving…"
+            env.runner.showsBusy(LOG_SET_TAG) -> "Saving…"
             open != null -> "Add ${open.method.stageNoun}"
             dropping -> "Log drop"
             method != null -> "Log stage 1"
@@ -341,9 +342,9 @@ internal fun EntryPanel(
         }
         // Extra sets stay available but are never styled as the expected next step; an open set's next stage is.
         if (extra && open == null) {
-            OutlinedButton(onClick = { log() }, enabled = !env.runner.busy, modifier = logModifier) { Text(label, maxLines = 1) }
+            OutlinedButton(onClick = { log() }, enabled = !env.runner.showsBusy, modifier = logModifier) { Text(label, maxLines = 1) }
         } else {
-            Button(onClick = { log() }, enabled = !env.runner.busy, modifier = logModifier) { Text(label, maxLines = 1) }
+            Button(onClick = { log() }, enabled = !env.runner.showsBusy, modifier = logModifier) { Text(label, maxLines = 1) }
         }
     }
 
@@ -353,7 +354,7 @@ internal fun EntryPanel(
                 // Typed values that were never added as a stage are not silently dropped.
                 if (draft.reps.isNotBlank() && !draft.shows(offered)) confirmingFinish = true else finishGroup()
             },
-            enabled = !env.runner.busy,
+            enabled = !env.runner.showsBusy,
             modifier = modifier.heightIn(min = 56.dp).testTag("finish-group")
         ) { Text("Finish set", maxLines = 1) }
     }
@@ -362,7 +363,7 @@ internal fun EntryPanel(
         SecondaryButton(
             onClick = { env.runner.run(Action.StartShortPause(workout.id, we.id, SHORT_PAUSE_SECONDS, env.clock()),
                 onError = { draft.error = it }) },
-            enabled = !env.runner.busy,
+            enabled = !env.runner.showsBusy,
             icon = R.drawable.ic_rest,
             modifier = Modifier.testTag("short-pause")
         ) { Text("Start ${SHORT_PAUSE_SECONDS} s pause") }
@@ -381,7 +382,7 @@ internal fun EntryPanel(
     val showWarmup = open == null && method == null
     val typeButton = @Composable {
         if (open == null) SetTypeButton(
-            method, enabled = !env.runner.busy, onSelect = ::chooseMethod, named = landscape,
+            method, enabled = !env.runner.showsBusy, onSelect = ::chooseMethod, named = landscape,
             dropOnto = dropTarget?.let { entries.indexOf(it) + 1 },
             dropping = dropping,
             onDrop = {
@@ -471,7 +472,7 @@ internal fun EntryPanel(
             title = "Check this set",
             text = "$reason Save it as typed, or go back and fix it.",
             confirmLabel = "Save as typed",
-            busy = env.runner.busy,
+            busy = env.runner.showsBusy,
             onDismiss = { unlikelyReason = null },
             onConfirm = { log(confirmed = true) }
         )
@@ -483,7 +484,7 @@ internal fun EntryPanel(
             text = "The values in the fields aren't logged. Finish the ${open.method.title.lowercase()} with its " +
                 "${countLabel(stagesLogged, "logged stage")}, or cancel and tap Add ${open.method.stageNoun} first.",
             confirmLabel = "Finish set",
-            busy = env.runner.busy,
+            busy = env.runner.showsBusy,
             onDismiss = { confirmingFinish = false },
             onConfirm = ::finishGroup
         )
@@ -717,3 +718,6 @@ internal fun LogDock(
         }
     }
 }
+
+/** The tag Log set runs its save with, so only Log set says "Saving…" when a save is slow. */
+internal const val LOG_SET_TAG = "log-set"

@@ -1,5 +1,6 @@
 package com.rebuild.ui
 
+import androidx.compose.ui.test.isNotEnabled
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -211,7 +212,11 @@ class RebuildAppTest {
         val gate = CompletableDeferred<Unit>()
         repo.gate = gate
         rule.onNodeWithTag("log-set").performScrollTo().performClick()
-        rule.onNodeWithTag("log-set").assertIsNotEnabled().performClick()
+        // Still enabled-looking at first (a normal save never greys out), but the guard ignores the second tap.
+        rule.onNodeWithTag("log-set").performClick()
+        // Once the save has run for the busy threshold of real time it shows, and a tap there is ignored too.
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("log-set") and isNotEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("log-set").performClick()
         gate.complete(Unit)
         rule.waitForIdle()
         assertEquals(1, repo.saves().size)
@@ -347,7 +352,7 @@ class RebuildAppTest {
         assertEquals(1, repo.saves().size)
 
         rule.waitUntil(timeoutMillis = 5_000) {
-            rule.onAllNodes(hasTestTag("log-set") and isEnabled()).fetchSemanticsNodes().isNotEmpty()
+            rule.actionGuardOpen() && rule.onAllNodes(hasTestTag("log-set") and isEnabled()).fetchSemanticsNodes().isNotEmpty()
         }
         rule.onNodeWithTag("log-set").performScrollTo().performClick()
         rule.waitForIdle()
@@ -387,7 +392,7 @@ class RebuildAppTest {
 
         rule.onNodeWithTag("working-count").assert(hasContentDescription("Working sets: 1 of 2", substring = true))
         rule.waitUntil(timeoutMillis = 5_000) {
-            rule.onAllNodes(hasTestTag("log-set") and isEnabled()).fetchSemanticsNodes().isNotEmpty()
+            rule.actionGuardOpen() && rule.onAllNodes(hasTestTag("log-set") and isEnabled()).fetchSemanticsNodes().isNotEmpty()
         }
         rule.onNodeWithTag("entry-kg").performScrollTo().performTextReplacement("45")
         rule.onNodeWithTag("entry-reps").performTextReplacement("9")

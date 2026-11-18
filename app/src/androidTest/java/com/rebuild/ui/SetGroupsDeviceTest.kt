@@ -32,14 +32,16 @@ class SetGroupsDeviceTest {
     private fun text(tag: String) = rule.onNodeWithTag(tag).fetchSemanticsNode().config[SemanticsProperties.EditableText].text
 
     private fun awaitIdleRunner() {
-        rule.waitUntil(5_000) { SemanticsProperties.Disabled !in rule.onNodeWithTag("log-set").fetchSemanticsNode().config }
+        rule.waitUntil(5_000) {
+            rule.actionGuardOpen() && SemanticsProperties.Disabled !in rule.onNodeWithTag("log-set").fetchSemanticsNode().config
+        }
     }
 
     /** The type menu, like Log, is disabled for the cooldown after a save; a tap then would be ignored. */
     /** Opens the set-type menu once the button is enabled again (it waits out the save cooldown) and the menu is up. */
     private fun openSetTypeMenu() {
         rule.waitUntil(5_000) {
-            rule.onAllNodes(hasTestTag("set-type") and isEnabled()).fetchSemanticsNodes().size == 1
+            rule.actionGuardOpen() && rule.onAllNodes(hasTestTag("set-type") and isEnabled()).fetchSemanticsNodes().size == 1
         }
         rule.onNodeWithTag("set-type").performScrollTo().performClick()
         rule.waitUntil(5_000) { rule.onAllNodesWithTag("set-type-normal").fetchSemanticsNodes().isNotEmpty() }
@@ -54,7 +56,7 @@ class SetGroupsDeviceTest {
 
     /** Like Log, the short pause is disabled for the post-save cooldown, so an early tap is ignored by design. */
     private fun clickWhenEnabled(tag: String) {
-        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag(tag) and isEnabled()).fetchSemanticsNodes().size == 1 }
+        rule.waitUntil(5_000) { rule.actionGuardOpen() && rule.onAllNodes(hasTestTag(tag) and isEnabled()).fetchSemanticsNodes().size == 1 }
         rule.onNodeWithTag(tag).performScrollTo().performClick()
     }
 
@@ -91,7 +93,7 @@ class SetGroupsDeviceTest {
 
     private fun switchUnit(unit: LoadUnit) {
         rule.waitUntil(5_000) {
-            rule.onAllNodes(hasTestTag("choose-load-unit") and isEnabled()).fetchSemanticsNodes().size == 1
+            rule.actionGuardOpen() && rule.onAllNodes(hasTestTag("choose-load-unit") and isEnabled()).fetchSemanticsNodes().size == 1
         }
         rule.onNodeWithTag("choose-load-unit").performScrollTo().performClick()
         rule.onNodeWithTag("unit-${unit.name}").performScrollTo().performClick()
@@ -271,6 +273,9 @@ class SetGroupsDeviceTest {
         val gate = CompletableDeferred<Unit>()
         repo.gate = gate
         rule.onNodeWithTag("log-set").performScrollTo().performClick()
+        // The guarded second tap: the button still looks ready (no busy look before the threshold) but does nothing.
+        rule.onNodeWithTag("log-set").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("log-set") and isNotEnabled()).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithTag("log-set").assertIsNotEnabled().performClick()
         gate.complete(Unit)
         repo.gate = null
@@ -352,7 +357,7 @@ class SetGroupsDeviceTest {
         chooseType("rest_pause")
         logEntry(repo, "40", "10")
         rule.waitUntil(5_000) {
-            rule.onAllNodes(hasText("Finish") and hasClickAction() and isEnabled()).fetchSemanticsNodes().size == 1
+            rule.actionGuardOpen() && rule.onAllNodes(hasText("Finish") and hasClickAction() and isEnabled()).fetchSemanticsNodes().size == 1
         }
         rule.onNodeWithText("Finish", substring = false).performClick()
         // The dialog takes focus from the reps field, so it settles once the keyboard has closed.

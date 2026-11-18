@@ -180,7 +180,7 @@ class FlexibleWorkoutDeviceTest {
     }
 
     private fun waitEnabled(tag: String) = rule.waitUntil(5_000) {
-        rule.onAllNodes(hasTestTag(tag) and isEnabled()).fetchSemanticsNodes().isNotEmpty()
+        rule.actionGuardOpen() && rule.onAllNodes(hasTestTag(tag) and isEnabled()).fetchSemanticsNodes().isNotEmpty()
     }
 
     private fun addFacePull(repo: AppRepository, expectedCount: Int): WorkoutExercise {
@@ -199,8 +199,8 @@ class FlexibleWorkoutDeviceTest {
         rule.waitUntil(5_000) { active(repo).exercises.single { it.id == entryId }.sets.size == before + 1 }
         // The app keeps its double-tap guard briefly after a logged set; taps before it lifts are ignored.
         rule.waitUntil(5_000) {
-            rule.onAllNodes(hasTestTag("log-set")).fetchSemanticsNodes().isEmpty() ||
-                rule.onAllNodes(hasTestTag("log-set") and isEnabled()).fetchSemanticsNodes().isNotEmpty()
+            rule.actionGuardOpen() && (rule.onAllNodes(hasTestTag("log-set")).fetchSemanticsNodes().isEmpty() ||
+                rule.onAllNodes(hasTestTag("log-set") and isEnabled()).fetchSemanticsNodes().isNotEmpty())
         }
         rule.waitForIdle()
     }
@@ -217,7 +217,7 @@ class FlexibleWorkoutDeviceTest {
     /** The workout's own Finish, once enabled: a tap while the app's busy guard is closed would be ignored. */
     private fun clickFinish() {
         val finish = hasText("Finish") and hasClickAction() and !hasAnyAncestor(isDialog())
-        rule.waitUntil(5_000) { rule.onAllNodes(finish and isEnabled()).fetchSemanticsNodes().size == 1 }
+        rule.waitUntil(5_000) { rule.actionGuardOpen() && rule.onAllNodes(finish and isEnabled()).fetchSemanticsNodes().size == 1 }
         rule.onNode(finish).performClick()
         rule.waitForIdle()
     }

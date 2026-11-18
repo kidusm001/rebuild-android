@@ -411,7 +411,7 @@ internal fun MeasuredEntryPanel(
     val measure = exercise.measure
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val large = LocalDensity.current.fontScale > 1.3f
-    val busy = env.runner.busy
+    val busy = env.runner.showsBusy
     val watch = env.state.stopwatch
     val ownWatch = watch?.takeIf { it.timesEntry(workout, we) }
     val otherWatch = watch?.takeIf { ownWatch == null }
@@ -477,7 +477,8 @@ internal fun MeasuredEntryPanel(
             Action.SaveEffort(workout.id, we.id, effortId, valid.durationSeconds, valid.distance, valid.kg, env.clock(),
                 loadUnit, valid.plates, watchStep = ownWatch?.step),
             onError = { form.error = it },
-            cooldownMs = ActionRunner.NEW_SET_COOLDOWN_MS
+            cooldownMs = ActionRunner.NEW_SET_COOLDOWN_MS,
+            tag = LOG_EFFORT_TAG
         )
     }
 
@@ -634,7 +635,7 @@ internal fun MeasuredEntryPanel(
                 modifier = buttonModifier.testTag("stop-stopwatch")
             ) { IconLabel(R.drawable.ic_square, "Stop") }
             else -> {
-                val label = if (env.runner.saving) "Saving…" else "Log $noun"
+                val label = if (env.runner.showsBusy(LOG_EFFORT_TAG)) "Saving…" else "Log $noun"
                 // An extra effort stays available but is never styled as the expected next step.
                 if (extra && phase == WatchPhase.NONE) {
                     OutlinedButton(onClick = ::log, enabled = !busy, modifier = buttonModifier.testTag("log-effort")) {
@@ -780,7 +781,7 @@ internal fun MeasuredEntryPanel(
                 " won't be logged. Nothing else changes. This can't be undone.",
             confirmLabel = "Discard",
             destructive = true,
-            busy = busy,
+            busy = env.runner.showsBusy,
             error = discardError,
             onDismiss = { discardingStep = null },
             onConfirm = {
@@ -878,7 +879,7 @@ internal fun StopwatchElsewhere(env: AppEnv, workout: Workout, watch: Stopwatch,
                 error = null
                 env.runner.run(Action.PauseStopwatch(watch.id, watch.step, env.monotonic()), onError = { error = it })
             },
-            enabled = !env.runner.busy,
+            enabled = !env.runner.showsBusy,
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("pause-stopwatch-elsewhere")
         ) {
             RebuildIcon(R.drawable.ic_pause, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -947,12 +948,12 @@ internal fun StopwatchBar(env: AppEnv, watch: Stopwatch, onOpen: (() -> Unit)?) 
             when {
                 watch.running -> IconButton(
                     onClick = { env.runner.run(Action.PauseStopwatch(watch.id, watch.step, env.monotonic())) },
-                    enabled = !env.runner.busy,
+                    enabled = !env.runner.showsBusy,
                     modifier = Modifier.testTag("bar-pause-stopwatch")
                 ) { RebuildIcon(R.drawable.ic_pause, contentDescription = "Pause stopwatch") }
                 !watch.stopped -> IconButton(
                     onClick = { env.runner.run(Action.ResumeStopwatch(watch.id, watch.step, env.monotonic())) },
-                    enabled = !env.runner.busy,
+                    enabled = !env.runner.showsBusy,
                     modifier = Modifier.testTag("bar-resume-stopwatch")
                 ) { RebuildIcon(R.drawable.ic_play, contentDescription = "Resume stopwatch") }
             }
@@ -979,3 +980,6 @@ internal fun extraEffortLabel(measure: Measure): String = when (measure) {
     Measure.DISTANCE -> "Extra distance set"
     else -> "Another effort"
 }
+
+/** The tag a typed effort's save runs with, so only its Log button says "Saving…" when a save is slow. */
+private const val LOG_EFFORT_TAG = "log-effort"
