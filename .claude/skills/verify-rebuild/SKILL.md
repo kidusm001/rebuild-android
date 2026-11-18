@@ -64,6 +64,8 @@ The features each journey proves, and how to reach them, are in [`features/`](fe
 $S/evidence.sh shot workout-after               # screenshot
 $S/evidence.sh record rest-end 8                # 8-second screen recording (foreground)
 $S/evidence.sh frames rest-end 15               # split it into frames to inspect motion
+$S/evidence.sh record-while start 60 $S/flows.sh start-workout   # record while a flow drives the app
+$S/evidence.sh sheet start 3.2 1 30             # one time-stamped contact sheet: 1 s from 3.2 s at 30 fps
 $S/evidence.sh notifications countdown          # the notification shade
 $S/evidence.sh theme dark                       # the app follows the system theme
 ```
