@@ -552,7 +552,8 @@ internal fun SkippedPanel(
     var error by rememberSaveable(we.id) { mutableStateOf<String?>(null) }
     val large = LocalDensity.current.fontScale > 1.3f
     Column(Modifier.testTag("skipped-panel"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(LocalDockRise.current, verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             RebuildIcon(R.drawable.ic_skip_forward, contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(

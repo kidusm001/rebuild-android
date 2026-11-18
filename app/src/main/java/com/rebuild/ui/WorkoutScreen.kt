@@ -1,9 +1,28 @@
 package com.rebuild.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.updateTransition
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.ui.unit.IntSize
+import com.rebuild.ui.theme.FadeInOver
+import com.rebuild.ui.theme.Motion
+import com.rebuild.ui.theme.fadeOver
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.gestures.animateScrollBy
+import kotlinx.coroutines.coroutineScope
+
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.rememberUpdatedState
 import kotlinx.coroutines.launch
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -14,19 +33,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.ui.unit.sp
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.foundation.shape.CircleShape
 import com.rebuild.domain.loadUnitChoices
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.geometry.Offset
@@ -68,20 +80,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -122,7 +131,6 @@ import com.rebuild.domain.nextEntrySuggestion
 import com.rebuild.domain.openGroup
 import com.rebuild.domain.openGroupExercise
 import com.rebuild.domain.previousComparable
-import com.rebuild.domain.resumeExercise
 import com.rebuild.domain.stages
 import com.rebuild.domain.warmupSetCount
 import com.rebuild.domain.weekStart
@@ -195,12 +203,20 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
         }
     }
 
+    // Typing a set: the rail and subtitle collapse the moment a set field takes focus and expand back once the
+    // keyboard has fully closed (the field may keep focus); in landscape any keyboard collapses them.
+    val imeShowing = keyboardOpenOrMoving()
+    var hiddenForEntry by remember { mutableStateOf(false) }
+    LaunchedEffect(entryFocused) { hiddenForEntry = entryFocused }
+    LaunchedEffect(imeShowing) { if (!imeShowing) hiddenForEntry = false }
+    val railHidden = (entryFocused && (hiddenForEntry || imeShowing)) || (landscape && imeShowing)
     ScreenScaffold(
         title = workout.name,
         subtitle = (if (workout.extra) "Outside your plan" else phaseShort(workout.phase)) +
             " · started ${formatTime(workout.startedAt)}",
         onBack = { guarded(LEAVE_BACK, onBack) },
         compactWhenKeyboard = true,
+        compactNow = railHidden,
         actions = {
             SecondaryButton(onClick = { guarded(LEAVE_FINISH) { finishing = true } }, enabled = !env.runner.showsBusy) { Text("Finish") }
             IconButton(onClick = { menuOpen = true }) {
@@ -244,8 +260,11 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
         }
     ) {
         val watch = env.state.stopwatch?.takeIf { it.workoutId == workout.id }
-        val keyboardUp = WindowInsets.isImeVisible && (landscape || entryFocused)
-        if (workout.exercises.isNotEmpty() && !keyboardUp) {
+        // Typing a set: the rail collapses as the keyboard starts to open and expands back once it has fully closed,
+        // so the ledger glides instead of jumping (the subtitle above goes the same way).
+        val keyboardUp = railHidden
+        AnimatedVisibility(workout.exercises.isNotEmpty() && !keyboardUp,
+            enter = Motion.expand(), exit = Motion.collapse()) {
             ExerciseRail(env, workout, focusedIndex, watch, onAdd = { adding = true }, addEnabled = !env.runner.showsBusy,
                 onSelect = ::select, onNotice = { notice = it })
         }
@@ -258,17 +277,66 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
             EmptyWorkoutBody(onAdd = { adding = true }, enabled = !env.runner.showsBusy,
                 modifier = Modifier.weight(1f).yieldsToFixedControls())
         } else {
-            // Next passes over exercises skipped today; they stay one tap away in the rail.
-            val next = workout.nextAfter(focusedIndex)
-            val onNext: (() -> Unit)? = next?.let { n -> { select(n.id) } }
-            // A fresh composition per exercise: no content, entry or dialog state can outlive a switch.
-            key(focused.id) {
+            // A fresh composition per exercise: no content, entry or dialog state can outlive a switch. Switching,
+            // the body travels the way the strip goes while the dock stays put: the new dock fades in over the old.
+            val switch = updateTransition(focused.id, label = "exercise")
+            val dockSizes = remember { mutableStateMapOf<String, IntSize>() }
+            val shift = with(LocalDensity.current) { Motion.Shift.toPx() }
+            switch.AnimatedContent(
+                transitionSpec = {
+                    ContentTransform(EnterTransition.None, ExitTransition.KeepUntilTransitionsFinished, sizeTransform = null)
+                },
+                modifier = Modifier.weight(1f).yieldsToFixedControls()
+            ) { id ->
+                val shown = workout.exercises.find { it.id == id }
+                if (shown == null) {
+                    Box(Modifier.fillMaxSize())
+                    return@AnimatedContent
+                }
+                val index = workout.exercises.indexOf(shown)
+                // Which way the strip went: later exercises come in from the right, earlier ones from the left.
+                fun direction(): Float {
+                    val from = workout.exercises.indexOfFirst { it.id == switch.currentState }
+                    val to = workout.exercises.indexOfFirst { it.id == switch.targetState }
+                    return if (from < 0 || to < 0 || from == to) 1f else kotlin.math.sign((to - from).toFloat())
+                }
+                val bodyAlpha by transition.animateFloat(transitionSpec = {
+                    if (targetState == EnterExitState.Visible) Motion.fadeInSpec() else Motion.fadeOutSpec()
+                }, label = "body-alpha") { if (it == EnterExitState.Visible) 1f else 0f }
+                val dx by transition.animateFloat(transitionSpec = {
+                    if (targetState == EnterExitState.Visible) Motion.lateralEnterTravelSpec(navigation = false)
+                    else Motion.lateralExitSpec()
+                }, label = "body-travel") {
+                    when (it) {
+                        EnterExitState.PreEnter -> direction() * shift
+                        EnterExitState.Visible -> 0f
+                        EnterExitState.PostExit -> -direction() * shift
+                    }
+                }
+                val dockAlpha by transition.animateFloat(transitionSpec = { Motion.fadeInSpec() }, label = "dock-alpha") {
+                    if (it == EnterExitState.PreEnter) 0f else 1f
+                }
+                val overhang by transition.animateFloat(transitionSpec = { Motion.fadeOutSpec() }, label = "dock-overhang") {
+                    if (it == EnterExitState.PostExit) 0f else 1f
+                }
+                val leaving = transition.targetState == EnterExitState.PostExit
+                // Next passes over exercises skipped today; they stay one tap away in the rail.
+                val next = workout.nextAfter(index)
+                val onNext: (() -> Unit)? = next?.let { n -> { select(n.id) } }
                 ExerciseFocus(
-                    env, workout, focused, focusedIndex, drafts, onNext, nextName = next?.exercise?.name,
+                    env, workout, shown, index, drafts, onNext, nextName = next?.exercise?.name,
                     onFinish = { guarded(LEAVE_FINISH) { finishing = true } },
-                    onEntryFocus = { entryFocused = it },
+                    onEntryFocus = { if (!leaving) entryFocused = it },
                     onSelect = ::select,
-                    modifier = Modifier.weight(1f).yieldsToFixedControls()
+                    motion = remember {
+                        FocusMotion(
+                            bodyAlpha = { bodyAlpha }, dx = { dx }, dockAlpha = { dockAlpha }, overhang = { overhang },
+                            incomingDock = { dockSizes[switch.targetState].takeIf { switch.targetState != id } }
+                        )
+                    },
+                    onDockSize = { dockSizes[id] = it },
+                    // The copy leaving is drawn but inert: no taps, nothing for screen readers, no duplicate tags.
+                    modifier = Modifier.fillMaxSize().then(if (leaving) INERT else Modifier)
                 )
             }
         }
@@ -356,13 +424,19 @@ private fun ExerciseRail(
     val density = LocalDensity.current
     val peek = with(density) { 48.dp.roundToPx() }
     // Bring the focused pill into view only when it isn't already, with a peek of its neighbour, so a drop or a tap
-    // never makes the strip jump.
-    LaunchedEffect(focusedIndex) {
+    // never makes the strip jump. Keyed by the exercise, not its place: a reorder moves no focus, so it scrolls nothing.
+    val focusedKey = workout.exercises.getOrNull(focusedIndex)?.id
+    LaunchedEffect(focusedKey) {
         val info = listState.layoutInfo
-        val item = info.visibleItemsInfo.firstOrNull { it.index == focusedIndex }
+        val item = info.visibleItemsInfo.firstOrNull { it.key == focusedKey }
         val inView = item != null && item.offset >= info.viewportStartOffset &&
             item.offset + item.size <= info.viewportEndOffset
-        if (!inView) listState.animateScrollToItem(focusedIndex, scrollOffset = -peek)
+        when {
+            inView -> {}
+            // Moves within the strip, in step with the body changing below it.
+            item != null -> listState.animateScrollBy((item.offset - peek).toFloat(), Motion.moveWithinSpec())
+            else -> listState.animateScrollToItem(focusedIndex, scrollOffset = -peek)
+        }
     }
     // The order shown: the workout's, except while a pill is being dragged, when it follows the finger.
     val saved = workout.exercises.map { it.id }
@@ -372,8 +446,10 @@ private fun ExerciseRail(
     var dragLeft by remember { mutableFloatStateOf(0f) }
     // The finger along the strip, for edge scrolling: the strip moves when the finger nears its edge, not the pill.
     var fingerX by remember { mutableFloatStateOf(0f) }
-    // 1 while held; eases to 0 after the drop as the pill settles into its slot and loses its lift.
+    // The held pill's lift (scale, shadow, edge): Settles up when the hold is recognised and down after the drop.
     val lift = remember { Animatable(0f) }
+    // 1 while the pill follows the finger (never eased); Settles to 0 after the drop as the pill goes into its slot.
+    val follow = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     var menuFor by remember { mutableStateOf<String?>(null) }
     var removing by remember { mutableStateOf<String?>(null) }
@@ -477,12 +553,14 @@ private fun ExerciseRail(
         }
     }
 
+    val stripPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)
+    Box(Modifier.readableWidth()) {
     LazyRow(
         state = listState,
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+        contentPadding = stripPadding,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         userScrollEnabled = dragging == null,
-        modifier = Modifier.readableWidth().selectableGroup().testTag("exercise-picker")
+        modifier = Modifier.fillMaxWidth().selectableGroup().testTag("exercise-picker")
             .onPlaced { stripCoordinates = it }
     ) {
         itemsIndexed(order.mapNotNull { byId[it] }, key = { _, it -> it.id }) { index, ex ->
@@ -490,22 +568,12 @@ private fun ExerciseRail(
             val pillCoordinates = remember { arrayOfNulls<LayoutCoordinates>(1) }
             Box(
                 Modifier
-                    .zIndex(if (lifted) 1f else 0f)
-                    .then(if (lifted) Modifier else Modifier.animateItem())
-                    .graphicsLayer {
-                        if (lifted) {
-                            // Drawn where the finger has it, whatever slot the last layout put it in, so it never
-                            // jumps back for a frame after passing a neighbour. After the drop it eases into its slot.
-                            val laidOut = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == ex.id }
-                            translationX = if (laidOut == null) 0f else (dragLeft - laidOut.offset) * lift.value
-                            val scale = 1f + LIFT_SCALE * lift.value
-                            scaleX = scale
-                            scaleY = scale
-                            shadowElevation = 8.dp.toPx() * lift.value
-                            shape = RoundedCornerShape(12.dp)
-                            clip = false
-                        }
-                    }
+                    // Neighbours make way by Settle while a pill is held; pills added or removed move within.
+                    .then(if (lifted) Modifier else Modifier.animateItem(fadeInSpec = Motion.fadeInSpec(),
+                        placementSpec = if (dragging != null) Motion.settle() else Motion.moveWithinSpec(),
+                        fadeOutSpec = Motion.fadeOutSpec()))
+                    // The held pill is drawn above the strip (below); its place in the row is an empty slot.
+                    .graphicsLayer { alpha = if (lifted) 0f else 1f }
                     .onPlaced { pillCoordinates[0] = it }
                     .pointerInput(ex.id, workout.id) {
                         var travelled = 0f
@@ -519,9 +587,27 @@ private fun ExerciseRail(
                         var pillStart = 0f
                         fun endDrag() {
                             dragMoved = false
-                            // The pill eases from under the finger into its slot, then drops its lift.
+                            // The pill settles from under the finger into its slot as it loses its lift, then the
+                            // strip's own copy takes its place in the same frame.
                             scope.launch {
-                                lift.animateTo(0f, tween(180, easing = FastOutSlowInEasing))
+                                coroutineScope {
+                                    launch { follow.animateTo(0f, Motion.settle()) }
+                                    launch { lift.animateTo(0f, Motion.settle()) }
+                                    // A pill dropped mostly out of sight is brought in, once, as it settles.
+                                    launch {
+                                        val info = listState.layoutInfo
+                                        val item = info.visibleItemsInfo.firstOrNull { it.key == ex.id }
+                                            ?: return@launch
+                                        val start = info.viewportStartOffset + info.beforeContentPadding
+                                        val end = info.viewportEndOffset - info.afterContentPadding
+                                        val seen = (minOf(end, item.offset + item.size) - maxOf(start, item.offset))
+                                            .coerceAtLeast(0)
+                                        if (seen * 2 < item.size) listState.animateScrollBy(
+                                            if (item.offset < start) (item.offset - start - peek).toFloat()
+                                            else (item.offset + item.size - end + peek).toFloat(),
+                                            Motion.moveWithinSpec())
+                                    }
+                                }
                                 if (lift.targetValue == 0f) {
                                     dragging = null
                                     if (savedWhileDragging) order = currentSaved
@@ -542,7 +628,9 @@ private fun ExerciseRail(
                                 fingerX = fingerStart
                                 dragLeft = pillStart
                                 dragging = ex.id
-                                scope.launch { lift.snapTo(1f) }
+                                // The tick and the lift start together; the pill follows the finger from the first move.
+                                scope.launch { follow.snapTo(1f) }
+                                scope.launch { lift.animateTo(1f, Motion.settle()) }
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             },
                             onDrag = { change, amount ->
@@ -607,6 +695,33 @@ private fun ExerciseRail(
             }
         }
         item(key = "add-exercise") { AddExercisePill(onAdd, addEnabled) }
+    }
+    // The held pill, above every pill in the strip so no neighbour's label is ever drawn over it. It is where the
+    // finger has it, whatever slot the last layout gave it; after the drop it settles into its slot.
+    dragging?.let { id -> byId[id] }?.let { ex ->
+        val stripTop = with(density) { stripPadding.calculateTopPadding().toPx() }
+        Box(
+            Modifier
+                .graphicsLayer {
+                    val info = listState.layoutInfo
+                    val slot = info.visibleItemsInfo.firstOrNull { it.key == ex.id }?.offset?.toFloat()
+                    val left = if (slot == null) dragLeft else slot + (dragLeft - slot) * follow.value
+                    translationX = left - info.viewportStartOffset
+                    translationY = stripTop
+                    val scale = 1f + LIFT_SCALE * lift.value
+                    scaleX = scale
+                    scaleY = scale
+                    shadowElevation = 8.dp.toPx() * lift.value
+                    shape = RoundedCornerShape(12.dp)
+                    clip = false
+                }
+                .clearAndSetSemantics {}
+        ) {
+            ExercisePill(order.indexOf(ex.id).coerceAtLeast(0), workout.exercises.size, ex,
+                selected = workout.exercises.indexOf(ex) == focusedIndex, watch = watch?.takeIf { it.exerciseId == ex.id },
+                lifted = true, liftAmount = { lift.value }) {}
+        }
+    }
     }
     removing?.let { id -> byId[id] }?.let { we ->
         RemoveEntryDialog(env, workout, we, onDismiss = { removing = null })
@@ -710,6 +825,8 @@ private fun ExercisePill(
     selected: Boolean,
     watch: Stopwatch?,
     lifted: Boolean = false,
+    /** How far the lift has come (0–1): the amber edge follows it. */
+    liftAmount: () -> Float = { 1f },
     actions: List<CustomAccessibilityAction> = emptyList(),
     onClick: () -> Unit
 ) {
@@ -726,16 +843,20 @@ private fun ExercisePill(
     }
     // A tab, not a button: 12 dp corners rather than a full pill.
     val shape = MaterialTheme.shapes.small
+    val fill by animateColorAsState(if (selected) colors.secondaryContainer else colors.surfaceContainerHigh,
+        Motion.colourSpec(), label = "pill-fill")
     val large = LocalDensity.current.fontScale > 1.3f
     Box(
         Modifier
             .heightIn(min = 48.dp)
             .widthIn(max = if (large) 280.dp else 208.dp)
             .clip(shape)
-            // Filled, never outlined: the current exercise is the amber-tinted pill, the rest sit on tone.
-            .background(if (selected) colors.secondaryContainer else colors.surfaceContainerHigh)
+            // Filled, never outlined: the current exercise is the amber-tinted pill, the rest sit on tone. A new
+            // selection recolours by the Colour rule.
+            .background(fill)
             // Held: an amber edge marks the pill being moved.
-            .then(if (lifted) Modifier.border(2.dp, colors.primaryContainer, shape) else Modifier)
+            .then(if (lifted) Modifier.border(2.dp, colors.primaryContainer.copy(alpha = liftAmount().coerceIn(0f, 1f)),
+                shape) else Modifier)
             .selectable(selected = selected, role = Role.Tab, onClick = onClick)
             .semantics {
                 contentDescription = "Exercise ${index + 1} of $count: ${we.exercise.name}, " +
@@ -786,7 +907,9 @@ private fun ExerciseFocus(
     onFinish: () -> Unit,
     onEntryFocus: (Boolean) -> Unit,
     onSelect: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    motion: FocusMotion = FocusMotion(),
+    onDockSize: (IntSize) -> Unit = {}
 ) {
     val exercise = we.exercise
     // Reps counted per leg are never compared with a total count, or the other way round.
@@ -840,31 +963,72 @@ private fun ExerciseFocus(
     // While the stopwatch times another exercise nothing new is logged here, so its way back takes the entry's place.
     val timingElsewhere = watch?.takeIf { it.running && !watchHere }
 
-    @Composable fun Entry(viewportHeight: Int) {
-        confinedKey(draftKey) {
-            when {
-                openElsewhere != null -> OpenGroupElsewhere(env, workout, openElsewhere) { onSelect(openElsewhere.id) }
-                timingElsewhere != null -> StopwatchElsewhere(env, workout, timingElsewhere) {
-                    onSelect(timingElsewhere.exerciseId)
-                }
-                watchHere -> MeasuredEntryPanel(env, workout, we, draft.extra, onCancelExtra = { draft.extra = false },
-                    onGoTo = onSelect, viewportHeight = viewportHeight, onFocusChange = onEntryFocus)
-                we.showsSkipped() -> SkippedPanel(env, workout, we, nextName, onNext, onFinish)
-                measured && (!targetMet || draft.extra) -> MeasuredEntryPanel(env, workout, we, draft.extra,
-                    onCancelExtra = { draft.extra = false }, onGoTo = onSelect, viewportHeight = viewportHeight,
-                    onFocusChange = onEntryFocus)
-                measured -> TargetMetPanel(nextName, onNext, onFinish, finishEnabled = !env.runner.showsBusy,
-                    message = if (we.optional || exercise.measure == Measure.CARDIO) "Goal done" else "Target done",
-                    extraLabel = extraEffortLabel(exercise.measure)) { draft.extra = true }
-                !targetMet || draft.extra || open != null ->
-                    EntryPanel(env, workout, we, draft, offered, suggestionFor, viewportHeight, onEntryFocus,
-                        onCarry = { dropCarry = it })
-                else -> TargetMetPanel(nextName, onNext, onFinish, finishEnabled = !env.runner.showsBusy,
-                    message = if (we.optional) "Goal done" else "Target done",
-                    dropLabel = we.dropTarget()?.let { target -> "Add drop to set ${we.workEntries().indexOf(target) + 1}" },
-                    onDrop = { draft.extra = true; draft.drop = true; draft.kg = ""; draft.reps = "" }) {
-                    dropCarry = DropCarry.NONE
-                    draft.extra = true
+    @Composable fun DockContent(face: DockFace, viewportHeight: Int) {
+        val we = face.we
+        val workout = face.workout
+        val draft = face.draft
+        when (face.kind) {
+            DockKind.OPEN_ELSEWHERE -> openElsewhere?.let { OpenGroupElsewhere(env, workout, it) { onSelect(it.id) } }
+            DockKind.TIMING_ELSEWHERE -> timingElsewhere?.let { StopwatchElsewhere(env, workout, it) {
+                onSelect(it.exerciseId)
+            } }
+            DockKind.SKIPPED -> SkippedPanel(env, workout, we, nextName, onNext, onFinish)
+            DockKind.MEASURED_ENTRY -> MeasuredEntryPanel(env, workout, we, draft.extra,
+                onCancelExtra = { draft.extra = false }, onGoTo = onSelect, viewportHeight = viewportHeight,
+                onFocusChange = onEntryFocus)
+            DockKind.MEASURED_MET -> TargetMetPanel(nextName, onNext, onFinish, finishEnabled = !env.runner.showsBusy,
+                message = if (we.optional || exercise.measure == Measure.CARDIO) "Goal done" else "Target done",
+                extraLabel = extraEffortLabel(exercise.measure)) { draft.extra = true }
+            DockKind.ENTRY -> EntryPanel(env, workout, we, draft, face.offered, suggestionFor, viewportHeight,
+                onEntryFocus, onCarry = { dropCarry = it })
+            DockKind.TARGET_MET -> TargetMetPanel(nextName, onNext, onFinish, finishEnabled = !env.runner.showsBusy,
+                message = if (we.optional) "Goal done" else "Target done",
+                dropLabel = we.dropTarget()?.let { target -> "Add drop to set ${we.workEntries().indexOf(target) + 1}" },
+                onDrop = { draft.extra = true; draft.drop = true; draft.kg = ""; draft.reps = "" }) {
+                dropCarry = DropCarry.NONE
+                draft.extra = true
+            }
+        }
+    }
+
+    val kind = when {
+        openElsewhere != null -> DockKind.OPEN_ELSEWHERE
+        timingElsewhere != null -> DockKind.TIMING_ELSEWHERE
+        watchHere -> DockKind.MEASURED_ENTRY
+        we.showsSkipped() -> DockKind.SKIPPED
+        measured && (!targetMet || draft.extra) -> DockKind.MEASURED_ENTRY
+        measured -> DockKind.MEASURED_MET
+        !targetMet || draft.extra || open != null -> DockKind.ENTRY
+        else -> DockKind.TARGET_MET
+    }
+    val dockColor = MaterialTheme.colorScheme.surfaceContainer
+    val canvasColor = MaterialTheme.colorScheme.surface
+    val nudge = with(density) { Motion.Nudge.toPx() }
+
+    /**
+     * The entry, or what takes its place. When it changes kind (Target done, Skipped, back to the entry) the new one,
+     * on its own opaque backing, fades in over the old, which keeps drawing as it was until it is covered; the size
+     * follows by Expand or Collapse from the foot, so Log set and Next sit where they end from the first frame, and
+     * only the line above the buttons rises.
+     */
+    @Composable fun Entry(viewportHeight: Int, inDock: Boolean) {
+        FadeInOver(
+            DockFace(kind, draftKey, we, workout, draft, offered),
+            contentKey = { it.kind },
+            contentAlignment = if (inDock) Alignment.BottomStart else Alignment.TopStart,
+            clip = true,
+            backing = if (inDock) dockColor else canvasColor,
+            label = "dock-content"
+        ) { face ->
+            val rise by transition.animateFloat(transitionSpec = { Motion.riseSpec() }, label = "dock-rise") {
+                if (it == EnterExitState.PreEnter) nudge else 0f
+            }
+            val riseModifier = remember { Modifier.graphicsLayer { translationY = rise } }
+            CompositionLocalProvider(LocalDockRise provides riseModifier) {
+                Column {
+                    confinedKey(face.key) {
+                        DockContent(face, viewportHeight)
+                    }
                 }
             }
         }
@@ -884,6 +1048,11 @@ private fun ExerciseFocus(
         body = {
             Column(
                 Modifier
+                    // The body slot alone moves on an exercise switch; with the entry inline it only fades.
+                    .graphicsLayer {
+                        alpha = motion.bodyAlpha()
+                        translationX = if (pinned) motion.dx() else 0f
+                    }
                     .fillMaxHeight()
                     // A short window (a phone on its side) keeps every column it has: narrowed, the entry would wrap
                     // into rows the keyboard leaves no room for.
@@ -951,7 +1120,7 @@ private fun ExerciseFocus(
                     )
                 }
 
-                if (!pinned) Entry(workspaceViewport)
+                if (!pinned) Entry(workspaceViewport, inDock = false)
 
                 if (measured) {
                     EffortLedger(env, workout, we, onEdit = { editingEffort = it.id })
@@ -979,8 +1148,7 @@ private fun ExerciseFocus(
                             modifier = Modifier.weight(1f)
                         )
                     }
-                    AnimatedVisibility(details, enter = fadeIn(tween(200)) + expandVertically(tween(200)),
-                        exit = fadeOut(tween(150)) + shrinkVertically(tween(150))) {
+                    AnimatedVisibility(details, enter = Motion.expand(), exit = Motion.collapse()) {
                         // AnimatedVisibility stacks its children like a Box; the options are a column.
                         Column {
                             EntryOptions(
@@ -998,7 +1166,16 @@ private fun ExerciseFocus(
                 }
             }
         },
-        dock = { if (pinned) LogDock(onFocusChange = { dockFocused = it }) { viewport -> Entry(viewport) } }
+        dock = {
+            if (pinned) LogDock(
+                onFocusChange = { dockFocused = it },
+                modifier = Modifier
+                    .onSizeChanged(onDockSize)
+                    // Switching exercises: the new dock fades in over the old one, which stays whole beneath it.
+                    .graphicsLayer { alpha = motion.dockAlpha() }
+                    .fadeOver(motion.incomingDock, motion.overhang, Alignment.BottomStart)
+            ) { viewport -> Entry(viewport, inDock = true) }
+        }
     )
 
     val set = we.sets.find { it.id == editingSet }
@@ -1416,3 +1593,27 @@ internal fun DiscardWorkoutDialog(env: AppEnv, workout: Workout, onDismiss: () -
     )
 }
 
+
+/** What the dock shows: the entry or what takes its place. Each kind is a new surface; within one, it updates. */
+private enum class DockKind { OPEN_ELSEWHERE, TIMING_ELSEWHERE, SKIPPED, MEASURED_ENTRY, MEASURED_MET, ENTRY, TARGET_MET }
+
+/** One dock face with what it was drawn from, so a face leaving keeps drawing as it was while the next covers it. */
+private class DockFace(
+    val kind: DockKind,
+    val key: String,
+    val we: WorkoutExercise,
+    val workout: Workout,
+    val draft: EntryDraft,
+    val offered: EntrySuggestion?
+)
+
+/** How an exercise's body and dock are drawn while the exercise changes; still outside a switch. */
+@Stable
+internal class FocusMotion(
+    val bodyAlpha: () -> Float = { 1f },
+    val dx: () -> Float = { 0f },
+    val dockAlpha: () -> Float = { 1f },
+    val overhang: () -> Float = { 1f },
+    /** The incoming dock's size while this copy is leaving, else null. */
+    val incomingDock: () -> IntSize? = { null }
+)

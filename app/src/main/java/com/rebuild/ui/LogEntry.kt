@@ -1,10 +1,12 @@
 package com.rebuild.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
+
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
-import androidx.compose.ui.unit.sp
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -25,8 +27,6 @@ import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -35,7 +35,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -43,7 +42,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
@@ -604,10 +602,11 @@ internal fun TargetMetPanel(
     onExtra: () -> Unit
 ) {
     val large = LocalDensity.current.fontScale > 1.3f
-    EnterOnce { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // A green status pill: a done target reads as a fact, not a celebration.
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // A green status pill: a done target reads as a fact, not a celebration. It rises as the panel arrives; the
+        // buttons below never move.
         Row(
-            Modifier.padding(vertical = 2.dp),
+            LocalDockRise.current.padding(vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -658,8 +657,14 @@ internal fun TargetMetPanel(
                 Extra(Modifier.weight(1f))
             }
         }
-    } }
+    }
 }
+
+/**
+ * The Rise of content arriving in the dock as its kind changes (Target done, Skipped, back to the entry): applied to
+ * the line above the buttons, never to the buttons, so Next and Log set sit where they end from the first frame.
+ */
+internal val LocalDockRise = staticCompositionLocalOf<Modifier> { Modifier }
 
 /**
  * Stacks [body] over [dock]. The dock is measured first, capped at [dockShare] of the height, and the body gets

@@ -98,8 +98,7 @@ class MotionCurvesTest {
         val ALLOWED = setOf("Motion.kt", "RestEndMotion.kt")
         /** Screens whose motion later phases of the spec rework (P0-8, P1-*, P2-*); this list only shrinks. */
         val NOT_YET_MIGRATED = setOf(
-            "Charts.kt", "ExerciseProgress.kt", "HomeScreen.kt", "WorkoutScreen.kt", "Setup.kt", "SetLedger.kt",
-            "Components.kt"
+            "Charts.kt", "ExerciseProgress.kt", "HomeScreen.kt", "Setup.kt"
         )
     }
 }
