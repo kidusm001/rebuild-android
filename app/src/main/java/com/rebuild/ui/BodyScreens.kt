@@ -166,7 +166,7 @@ internal fun BodyweightDialog(env: AppEnv, existing: BodyweightEntry?, onDismiss
                 "${formatTime(existing.at)} is removed. This can't be undone.",
             confirmLabel = "Delete",
             destructive = true,
-            busy = env.runner.busy,
+            busy = env.runner.looksBusy(),
             onDismiss = { deleting = false },
             onConfirm = { env.runner.run(Action.DeleteBodyweight(existing.id), onSuccess = onDismiss) }
         )
@@ -199,7 +199,7 @@ internal fun BodyweightDialog(env: AppEnv, existing: BodyweightEntry?, onDismiss
             ) { Text("Delete weigh-in") }
         },
         confirmButton = {
-            TextButton(onClick = ::save, enabled = !env.runner.busy, modifier = Modifier.testTag("bodyweight-save")) {
+            TextButton(onClick = ::save, enabled = !env.runner.looksBusy(), modifier = Modifier.testTag("bodyweight-save")) {
                 Text("Save")
             }
         },
@@ -426,7 +426,7 @@ private fun SitesDialog(env: AppEnv, onDismiss: () -> Unit) {
             TextButton(onClick = {
                 val sites = BodySite.entries.filter { it.name in chosen }
                 env.runner.run(Action.SetMeasurementSites(sites), onError = { error = it }, onSuccess = onDismiss)
-            }, enabled = !env.runner.busy) { Text("Save") }
+            }, enabled = !env.runner.looksBusy()) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
@@ -490,7 +490,7 @@ internal fun MeasureScreen(env: AppEnv, onBack: () -> Unit) {
                 )
             }
             ErrorText(error)
-            Button(onClick = ::save, enabled = !env.runner.busy,
+            Button(onClick = ::save, enabled = !env.runner.looksBusy(),
                 modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("measure-save")) { Text("Save measurements") }
         }
     }
@@ -593,7 +593,7 @@ private fun MeasurementDialog(env: AppEnv, entry: BodyMeasurement, onDismiss: ()
             title = "Delete this measurement?",
             text = "${entry.site.title} ${lengthText(entry.value, entry.unit)} on ${dayText(entry.localDate())} is " +
                 "removed. This can't be undone.",
-            confirmLabel = "Delete", destructive = true, busy = env.runner.busy,
+            confirmLabel = "Delete", destructive = true, busy = env.runner.looksBusy(),
             onDismiss = { deleting = false },
             onConfirm = { env.runner.run(Action.DeleteMeasurement(entry.id), onSuccess = onDismiss) }
         )
@@ -615,7 +615,7 @@ private fun MeasurementDialog(env: AppEnv, entry: BodyMeasurement, onDismiss: ()
                 val value = parseDecimal(text) ?: run { error = "Enter a number."; return@TextButton }
                 env.runner.run(Action.SaveMeasurements(listOf(entry.copy(value = value, unit = unit))),
                     onError = { error = it }, onSuccess = onDismiss)
-            }, enabled = !env.runner.busy) { Text("Save") }
+            }, enabled = !env.runner.looksBusy()) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )

@@ -1231,7 +1231,7 @@ private fun ExerciseFocus(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 val choices = env.state.loadUnitChoices(workout.id, we.id)
-                LoadUnitSelector(we.entryLoadUnit, choices, enabled = !env.runner.busy) { unit ->
+                LoadUnitSelector(we.entryLoadUnit, choices, enabled = !env.runner.looksBusy()) { unit ->
                     unitError = null
                     env.runner.run(Action.SetLoadUnit(workout.id, we.id, unit), onError = { unitError = it }) {
                         choosingUnit = false
@@ -1293,7 +1293,7 @@ internal fun ExerciseNoteField(env: AppEnv, workoutId: String, we: WorkoutExerci
                     editing = false
                 }
             },
-            enabled = !env.runner.busy
+            enabled = !env.runner.looksBusy()
         ) { Text("Save note") }
     }
     SecondaryButton(onClick = { drafts.clear(we.id); editing = false }, enabled = !env.runner.busy) { Text("Cancel note edit") }
@@ -1323,7 +1323,7 @@ internal fun NoteDialog(
         confirmButton = {
             TextButton(
                 onClick = { env.runner.run(action(text), onError = { error = it }) { onDismiss() } },
-                enabled = !env.runner.busy
+                enabled = !env.runner.looksBusy()
             ) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
@@ -1422,7 +1422,7 @@ private fun AdjustTodayDialog(env: AppEnv, workout: Workout, we: WorkoutExercise
             }
         },
         confirmButton = {
-            TextButton(onClick = ::save, enabled = !env.runner.busy && (!aboveCap || allowAboveCap)) { Text("Apply") }
+            TextButton(onClick = ::save, enabled = !env.runner.looksBusy() && (!aboveCap || allowAboveCap)) { Text("Apply") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
@@ -1613,7 +1613,7 @@ internal fun DiscardWorkoutDialog(env: AppEnv, workout: Workout, onDismiss: () -
         },
         confirmLabel = "Discard",
         destructive = true,
-        busy = env.runner.busy,
+        busy = env.runner.looksBusy(),
         error = error,
         onDismiss = onDismiss,
         onConfirm = {

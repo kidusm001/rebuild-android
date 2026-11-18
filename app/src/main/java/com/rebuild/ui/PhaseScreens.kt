@@ -88,7 +88,7 @@ internal fun PhaseSettingsScreen(env: AppEnv, onBack: () -> Unit) {
             title = "Switch to ${phaseShort(target)}?",
             text = "${target.title}: ${env.state.phasePrescription(target)}. Nothing already logged changes.",
             confirmLabel = "Switch phase",
-            busy = env.runner.busy,
+            busy = env.runner.looksBusy(),
             error = error,
             onDismiss = { confirming = false },
             onConfirm = {

@@ -200,7 +200,7 @@ internal fun RemoveEntryDialog(env: AppEnv, workout: Workout, we: WorkoutExercis
         },
         confirmLabel = if (records == 0) "Remove" else "Remove and delete ${countLabel(records, "record")}",
         destructive = records > 0,
-        busy = env.runner.busy,
+        busy = env.runner.looksBusy(),
         error = error,
         onDismiss = onDismiss,
         onConfirm = {
@@ -246,12 +246,12 @@ internal fun ReorderDialog(env: AppEnv, workout: Workout, onDismiss: () -> Unit)
                                 if (status != null) Text(status, style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            IconButton(onClick = { move(we, index - 1) }, enabled = index > 0 && !env.runner.busy,
+                            IconButton(onClick = { move(we, index - 1) }, enabled = index > 0 && !env.runner.looksBusy(),
                                 modifier = Modifier.testTag("move-up-$index")) {
                                 RebuildIcon(R.drawable.ic_arrow_up, contentDescription = "Move ${we.exercise.name} up")
                             }
                             IconButton(onClick = { move(we, index + 1) },
-                                enabled = index < workout.exercises.lastIndex && !env.runner.busy,
+                                enabled = index < workout.exercises.lastIndex && !env.runner.looksBusy(),
                                 modifier = Modifier.testTag("move-down-$index")) {
                                 RebuildIcon(R.drawable.ic_arrow_down, contentDescription = "Move ${we.exercise.name} down")
                             }
@@ -400,7 +400,7 @@ internal fun EntryGoalDialog(env: AppEnv, workout: Workout, we: WorkoutExercise,
             ErrorText(error)
         },
         confirmButton = {
-            TextButton(onClick = ::save, enabled = !env.runner.busy, modifier = Modifier.testTag("goal-save")) {
+            TextButton(onClick = ::save, enabled = !env.runner.looksBusy(), modifier = Modifier.testTag("goal-save")) {
                 Text("Save")
             }
         },
@@ -508,7 +508,7 @@ internal fun PlanAdditionDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = ::save, enabled = !env.runner.busy, modifier = Modifier.testTag("plan-addition-save")) {
+            TextButton(onClick = ::save, enabled = !env.runner.looksBusy(), modifier = Modifier.testTag("plan-addition-save")) {
                 Text(if (existing != null) "Save changes" else "Save to plan")
             }
         },
@@ -522,7 +522,7 @@ internal fun PlanAdditionDialog(
                 "Started and finished " +
                 "workouts keep it with everything logged.",
             confirmLabel = "Remove",
-            busy = env.runner.busy,
+            busy = env.runner.looksBusy(),
             error = removeError,
             onDismiss = { confirmingRemove = false },
             onConfirm = {

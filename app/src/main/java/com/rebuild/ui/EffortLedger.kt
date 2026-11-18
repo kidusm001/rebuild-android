@@ -395,7 +395,7 @@ private fun EffortEditContent(
             text = "${effortText(effort, exercise)} will be removed from ${exercise.name}. This can't be undone.",
             confirmLabel = "Delete $noun",
             destructive = true,
-            busy = env.runner.busy,
+            busy = env.runner.looksBusy(),
             error = error,
             onDismiss = { confirmDelete = false },
             onConfirm = {
@@ -487,7 +487,7 @@ private fun EffortEditContent(
             }
         },
         confirmButton = {
-            TextButton(onClick = ::save, enabled = !env.runner.busy, modifier = Modifier.testTag("save-effort")) {
+            TextButton(onClick = ::save, enabled = !env.runner.looksBusy(), modifier = Modifier.testTag("save-effort")) {
                 Text("Save")
             }
         },

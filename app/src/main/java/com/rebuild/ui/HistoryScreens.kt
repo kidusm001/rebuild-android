@@ -740,7 +740,7 @@ private fun HistoryExerciseNote(
                         onOpenChange(false)
                     }
                 },
-                enabled = note != we.notes && !env.runner.busy
+                enabled = note != we.notes && !env.runner.looksBusy()
             ) { Text("Save note") }
             SecondaryButton(
                 onClick = { drafts.clear(we.id); error = null; onOpenChange(false) },
@@ -784,7 +784,7 @@ private fun WorkoutNote(env: AppEnv, workout: Workout, drafts: NoteDrafts) {
                             open = false
                         }
                     },
-                    enabled = note != workout.notes && !env.runner.busy
+                    enabled = note != workout.notes && !env.runner.looksBusy()
                 ) { Text("Save note") }
                 SecondaryButton(
                     onClick = {
