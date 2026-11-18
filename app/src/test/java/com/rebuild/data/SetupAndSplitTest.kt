@@ -47,7 +47,7 @@ class SetupAndSplitTest {
         assertEquals(listOf(1, 3, 5), state.scheduledRoutines().map { it.weekday })
         // One working set per exercise to start, with dumbbells in place of the gym's machines and cables.
         val first = state.plannedExercises(state.scheduledRoutines().first(), Phase.INTRO_ONE)
-        assertEquals(listOf("squat-goblet", "bench-db", "row-db", "rdl-db", "lateral-db", "crunch"), first.map { it.exerciseId })
+        assertEquals(listOf("squat-goblet", "bench-db", "row-db", "leg-curl-slider", "lateral-db", "crunch"), first.map { it.exerciseId })
         assertTrue(first.all { it.sets == 1 })
         assertEquals("The original plan stays in the plan, unlisted", Seed.templates.size,
             state.templates.count { it.splitId == ORIGINAL_SPLIT })
@@ -164,5 +164,21 @@ class SetupAndSplitTest {
             JsonObject(document + ("state" to JsonObject(state + ("split" to JsonNull))))
         }.toString()
         failure("version-eight") { SnapshotCodec.decode(withSplit) }
+    }
+
+    @Test fun aSwapMadeWithOneGearNeverFollowsThePlanToAnother() = runTest {
+        val repo = setUp(Experience.REGULAR, days = 3, gear = Gear.GYM)
+        val slot = "full-body-3-c-squat"
+        repo.execute(Action.EditPlan(Phase.INTRO_TWO, slot, "squat-back", 2, 180))
+        fun planned() = repo.state.value.let { s ->
+            s.plannedExercises(s.scheduledRoutines().single { it.id == "full-body-3-c" }, Phase.INTRO_TWO)
+                .single { it.slotId == slot }.exerciseId
+        }
+        assertEquals("squat-back", planned())
+        repo.execute(Action.ChangeSplit("full-body-3", Gear.BODYWEIGHT, Experience.REGULAR, "2026-11-17"))
+        assertEquals("the bodyweight plan asks for its own squat", "squat-bodyweight", planned())
+        repo.execute(Action.ChangeSplit("full-body-3", Gear.GYM, Experience.REGULAR, "2026-11-18"))
+        assertEquals("and the gym swap comes back with the gym", "squat-back", planned())
+        SnapshotCodec.validate(repo.state.value)
     }
 }

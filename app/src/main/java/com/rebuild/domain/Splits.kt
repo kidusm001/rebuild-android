@@ -53,14 +53,38 @@ object Splits {
         val isolation: Boolean = false,
         val perLeg: Boolean = false,
         val bodyweightReps: IntRange? = null,
-        val alternatives: List<String> = emptyList()
+        val alternatives: List<String> = emptyList(),
+        val dumbbellAlternatives: List<String> = emptyList(),
+        val bodyweightAlternatives: List<String> = emptyList()
     )
 
     private fun b(
         key: String, gym: String, dumbbell: String?, bodyweight: String?, sets: Int, reps: IntRange, muscle: String,
         isolation: Boolean = false, perLeg: Boolean = false, bodyweightReps: IntRange? = null,
         alternatives: List<String> = emptyList()
-    ) = Blueprint(key, gym, dumbbell, bodyweight, sets, reps, muscle, isolation, perLeg, bodyweightReps, alternatives)
+    ) = Blueprint(key, gym, dumbbell, bodyweight, sets, reps, muscle, isolation, perLeg, bodyweightReps, alternatives,
+        dumbbellAlternatives(dumbbell), bodyweightAlternatives(bodyweight))
+
+    /** Easier or neighbouring versions offered as swaps, by the option they stand beside. */
+    private fun dumbbellAlternatives(id: String?): List<String> = when (id) {
+        "bench-db" -> listOf("pushup")
+        "row-db" -> listOf("row-db-chest-supported")
+        "row-db-chest-supported" -> listOf("row-db")
+        "squat-goblet" -> listOf("lunge-db")
+        "split-squat" -> listOf("lunge-db", "split-squat-bodyweight")
+        else -> emptyList()
+    }
+
+    private fun bodyweightAlternatives(id: String?): List<String> = when (id) {
+        "pushup" -> listOf("pushup-incline")
+        "pullup" -> listOf("inverted-row", "chinup")
+        "chinup" -> listOf("inverted-row")
+        "inverted-row" -> listOf("pullup")
+        "pike-pushup" -> listOf("pushup")
+        "pushup-close" -> listOf("pushup-incline")
+        "split-squat-bodyweight" -> listOf("squat-bodyweight")
+        else -> emptyList()
+    }
 
     // Rep ranges go by movement: big compound lifts 6–10, other compounds 8–12, isolation 10–15, shoulder raises
     // 12–20, calves 10–20. Bodyweight sets can't add load, so they get wider ranges of their own.
@@ -76,9 +100,9 @@ object Splits {
         b("legs", "leg-press", "squat-goblet", "squat-bodyweight", 3, 10..15, "Quads", bodyweightReps = 12..20),
         b("press", "bench-db", "bench-db", "pushup", 3, bigCompound, "Chest", bodyweightReps = 6..20,
             alternatives = listOf("chest-machine", "bench-barbell")),
-        b("pull", "pulldown", "row-db", "pullup", 3, compound, "Back", bodyweightReps = 3..10,
+        b("pull", "pulldown", "row-db", "inverted-row", 3, compound, "Back", bodyweightReps = 6..15,
             alternatives = listOf("pulldown-neutral")),
-        b("hamstrings", "curl-seated", "rdl-db", "leg-curl-slider", 3, isolation, "Hamstrings", isolation = true,
+        b("hamstrings", "curl-seated", "leg-curl-slider", "leg-curl-slider", 3, isolation, "Hamstrings", isolation = true,
             bodyweightReps = 8..15, alternatives = listOf("curl-lying")),
         b("lateral", "lateral-cable", "lateral-db", null, 2, raise, "Side delts", isolation = true),
         b("core", "crunch-cable", "crunch", "crunch", 2, isolation, "Abs", isolation = true, bodyweightReps = 12..20)
@@ -103,7 +127,7 @@ object Splits {
         b("shoulder", "shoulder-db", "shoulder-db", "pike-pushup", 3, compound, "Front delts", bodyweightReps = 6..12,
             alternatives = listOf("shoulder-machine")),
         b("row", "row-cable", "row-db", "inverted-row", 3, compound, "Back", bodyweightReps = 6..15),
-        b("hamstrings", "curl-lying", "rdl-db", "leg-curl-slider", 2, isolation, "Hamstrings", isolation = true,
+        b("hamstrings", "curl-lying", "leg-curl-slider", "leg-curl-slider", 2, isolation, "Hamstrings", isolation = true,
             bodyweightReps = 8..15, alternatives = listOf("curl-seated")),
         b("rear-delts", "rear-delt-cable", "reverse-fly-db", null, 2, raise, "Rear delts", isolation = true),
         b("biceps", "curl-cable", "curl-hammer", "chinup", 2, isolation, "Biceps", isolation = true,
@@ -116,7 +140,7 @@ object Splits {
         b("row", "row-chest-supported", "row-db", "inverted-row", 3, compound, "Back", bodyweightReps = 6..15),
         b("shoulder", "shoulder-db", "shoulder-db", "pike-pushup", 2, compound, "Front delts", bodyweightReps = 6..12,
             alternatives = listOf("shoulder-machine")),
-        b("pulldown", "pulldown", null, "pullup", 2, compound, "Back", bodyweightReps = 3..10),
+        b("pulldown", "pulldown", "row-db-chest-supported", "pullup", 2, compound, "Back", bodyweightReps = 3..10),
         b("lateral", "lateral-cable", "lateral-db", null, 3, raise, "Side delts", isolation = true),
         b("biceps", "curl-db", "curl-db", null, 2, isolation, "Biceps", isolation = true),
         b("triceps", "pushdown", "triceps-overhead-db", "pushup-close", 2, isolation, "Triceps", isolation = true,
@@ -128,7 +152,7 @@ object Splits {
         b("hinge", "rdl-db", "rdl-db", "glute-bridge", 3, compound, "Hamstrings", bodyweightReps = 12..20,
             alternatives = listOf("rdl")),
         b("extension", "leg-extension", null, null, 2, isolation, "Quads", isolation = true),
-        b("hamstrings", "curl-seated", null, "leg-curl-slider", 3, isolation, "Hamstrings", isolation = true,
+        b("hamstrings", "curl-seated", "leg-curl-slider", "leg-curl-slider", 3, isolation, "Hamstrings", isolation = true,
             bodyweightReps = 8..15, alternatives = listOf("curl-lying")),
         b("calves", "calf-standing", "calf-raise-bodyweight", "calf-raise-bodyweight", 3, calves, "Calves",
             isolation = true, bodyweightReps = 15..25),
@@ -139,20 +163,20 @@ object Splits {
             alternatives = listOf("incline-machine")),
         b("pulldown", "pulldown-neutral", "row-db", "pullup", 3, compound, "Back", bodyweightReps = 3..10,
             alternatives = listOf("pulldown")),
-        b("row", "row-cable", null, "inverted-row", 2, compound, "Back", bodyweightReps = 6..15),
+        b("row", "row-cable", "row-db-chest-supported", "inverted-row", 2, compound, "Back", bodyweightReps = 6..15),
         b("fly", "chest-fly-cable", null, null, 2, isolation, "Chest", isolation = true),
         b("rear-delts", "rear-delt-cable", "reverse-fly-db", null, 2, raise, "Rear delts", isolation = true),
         b("biceps", "curl-cable", "curl-hammer", null, 2, isolation, "Biceps", isolation = true),
-        b("triceps", "triceps-overhead", "triceps-overhead-db", "dip", 2, isolation, "Triceps", isolation = true,
-            bodyweightReps = 6..12)
+        b("triceps", "triceps-overhead", "triceps-overhead-db", "pushup-close", 2, isolation, "Triceps", isolation = true,
+            bodyweightReps = 6..15)
     )
     private val lowerB = listOf(
         b("legs", "leg-press", "squat-goblet", "squat-bodyweight", 3, 10..15, "Quads", bodyweightReps = 12..20),
         b("split-squat", "split-squat", "split-squat", "split-squat-bodyweight", 2, compound, "Quads", perLeg = true,
             bodyweightReps = 10..15),
-        b("hamstrings", "curl-lying", "rdl-db", "leg-curl-slider", 3, isolation, "Hamstrings", isolation = true,
-            bodyweightReps = 8..15, alternatives = listOf("curl-seated")),
         b("glutes", "hip-thrust", "glute-bridge", "glute-bridge", 2, compound, "Glutes", bodyweightReps = 12..20),
+        b("hamstrings", "curl-lying", "leg-curl-slider", "leg-curl-slider", 3, isolation, "Hamstrings", isolation = true,
+            bodyweightReps = 8..15, alternatives = listOf("curl-seated")),
         b("calves", "calf-seated", "calf-raise-bodyweight", "calf-raise-bodyweight", 3, calves, "Calves",
             isolation = true, bodyweightReps = 15..25),
         b("core", "knee-raise", "crunch", "crunch", 2, isolation, "Abs", isolation = true, bodyweightReps = 12..20)
@@ -163,18 +187,18 @@ object Splits {
         b("incline", "incline-db", "incline-db", null, 2, compound, "Chest", alternatives = listOf("incline-machine")),
         b("shoulder", "shoulder-db", "shoulder-db", "pike-pushup", 3, compound, "Front delts", bodyweightReps = 6..12,
             alternatives = listOf("shoulder-machine")),
-        b("lateral", "lateral-cable", "lateral-db", null, 3, raise, "Side delts", isolation = true),
         b("fly", "chest-fly-cable", null, null, 2, isolation, "Chest", isolation = true),
-        b("triceps", "pushdown", "triceps-overhead-db", "pushup-close", 2, isolation, "Triceps", isolation = true,
+        b("lateral", "lateral-cable", "lateral-db", null, 3, raise, "Side delts", isolation = true),
+        b("triceps", "pushdown", "triceps-overhead-db", "pushup-close", 3, isolation, "Triceps", isolation = true,
             bodyweightReps = 6..15)
     )
     private val pull = listOf(
-        b("pulldown", "pulldown", null, "pullup", 3, compound, "Back", bodyweightReps = 3..10,
+        b("pulldown", "pulldown", "row-db-chest-supported", "pullup", 3, compound, "Back", bodyweightReps = 3..10,
             alternatives = listOf("pulldown-neutral")),
         b("row", "row-chest-supported", "row-db", "inverted-row", 3, compound, "Back", bodyweightReps = 6..15),
         b("rear-delts", "face-pull", "reverse-fly-db", null, 2, raise, "Rear delts", isolation = true),
         b("biceps", "curl-db", "curl-db", "chinup", 3, isolation, "Biceps", isolation = true, bodyweightReps = 3..10),
-        b("hammer", "curl-hammer", "curl-hammer", null, 2, isolation, "Biceps", isolation = true)
+        b("hammer", "curl-hammer", "curl-hammer", null, 1, isolation, "Biceps", isolation = true)
     )
     private val legs = listOf(
         b("squat", "squat-hack", "squat-goblet", "squat-bodyweight", 3, bigCompound, "Quads", bodyweightReps = 12..20,
@@ -183,7 +207,7 @@ object Splits {
             alternatives = listOf("rdl")),
         b("split-squat", "split-squat", "split-squat", "split-squat-bodyweight", 2, compound, "Quads", perLeg = true,
             bodyweightReps = 10..15),
-        b("hamstrings", "curl-seated", null, "leg-curl-slider", 3, isolation, "Hamstrings", isolation = true,
+        b("hamstrings", "curl-seated", "leg-curl-slider", "leg-curl-slider", 3, isolation, "Hamstrings", isolation = true,
             bodyweightReps = 8..15, alternatives = listOf("curl-lying")),
         b("extension", "leg-extension", null, null, 2, isolation, "Quads", isolation = true),
         b("calves", "calf-standing", "calf-raise-bodyweight", "calf-raise-bodyweight", 3, calves, "Calves",
@@ -207,7 +231,9 @@ object Splits {
                     restSeconds = if (bp.isolation) isolationRest else compoundRest,
                     perLeg = bp.perLeg,
                     muscle = bp.muscle,
-                    gear = SlotGear(bp.dumbbell, bp.bodyweight, bp.bodyweightReps?.first, bp.bodyweightReps?.last)
+                    gear = SlotGear(bp.dumbbell, bp.bodyweight, bp.bodyweightReps?.first, bp.bodyweightReps?.last,
+                        bp.dumbbellAlternatives.filter { it != bp.dumbbell },
+                        bp.bodyweightAlternatives.filter { it != bp.bodyweight })
                 )
             }, splitId = splitId)
         }
@@ -224,31 +250,31 @@ object Splits {
 
     val all: List<Split> = listOf(
         Split(FULL_BODY_2, "Full body, 2 days", 2,
-            "2 full-body days. Every workout trains your whole body, so each muscle works twice a week.",
+            "Every workout trains your whole body, so your main muscles work twice a week.",
             anyGear, build(FULL_BODY_2, listOf(Triple("a", "Full body A", fullA), Triple("b", "Full body B", fullB)))),
         Split(FULL_BODY_3, "Full body, 3 days", 3,
-            "3 full-body days. Every workout trains your whole body, so you practise each lift often. A good way to start.",
+            "Every workout trains your whole body, so you practise each lift three times a week. A good way to start.",
             anyGear, build(FULL_BODY_3, listOf(Triple("a", "Full body A", fullA), Triple("b", "Full body B", fullB),
                 Triple("c", "Full body C", fullC)))),
         Split(UPPER_LOWER, "Upper and lower", 4,
-            "4 days that alternate upper and lower body. Each muscle gets 2 workouts a week, with rest between them.",
+            "Upper and lower body take turns, so each muscle gets two workouts a week with rest between them.",
             anyGear, build(UPPER_LOWER, listOf(Triple("upper-a", "Upper A", upperA), Triple("lower-a", "Lower A", lowerA),
                 Triple("upper-b", "Upper B", upperB), Triple("lower-b", "Lower B", lowerB)))),
         Split(PUSH_PULL_LEGS, "Push, pull, legs", 3,
-            "3 days: pushing muscles, pulling muscles, then legs. Each workout has room for more sets per muscle.",
+            "Pushing muscles, pulling muscles, then legs. Each muscle gets one longer workout a week.",
             anyGear, build(PUSH_PULL_LEGS, listOf(Triple("push", "Push", push), Triple("pull", "Pull", pull),
                 Triple("legs", "Legs", legs)))),
         Split(UPPER_LOWER_PPL, "Upper, lower, push, pull, legs", 5,
-            "5 days: an upper and a lower day, then push, pull and legs. Each muscle gets 2 workouts a week.",
-            anyGear, build(UPPER_LOWER_PPL, listOf(Triple("upper", "Upper", upperA), Triple("lower", "Lower", lowerA),
+            "An upper and a lower day, then push, pull and legs, so each muscle gets two workouts a week.",
+            anyGear, build(UPPER_LOWER_PPL, listOf(Triple("upper", "Upper", upperA), Triple("lower", "Lower", lowerB),
                 Triple("push", "Push", push), Triple("pull", "Pull", pull), Triple("legs", "Legs", legs)))),
         Split(PUSH_PULL_LEGS_2, "Push, pull, legs twice", 6,
-            "6 days: push, pull and legs, twice a week. Each muscle gets 2 workouts a week, one rest day.",
+            "Push, pull and legs, twice through, so each muscle gets two workouts a week and Sunday is rest.",
             anyGear, build(PUSH_PULL_LEGS_2, listOf(Triple("push-a", "Push A", push), Triple("pull-a", "Pull A", pull),
                 Triple("legs-a", "Legs A", legs), Triple("push-b", "Push B", push), Triple("pull-b", "Pull B", pull),
                 Triple("legs-b", "Legs B", legs)))),
         Split(ORIGINAL_SPLIT, "Rebuild's gym plan", 5,
-            "Upper, lower, push and pull days on machines and dumbbells. 4 days now, 5 when you move to Two-set start.",
+            "Upper, lower, push and pull days, mostly on machines and dumbbells. A gentle start that grows to 5 days.",
             setOf(Gear.GYM), Seed.templates, rampsDays = true)
     )
 

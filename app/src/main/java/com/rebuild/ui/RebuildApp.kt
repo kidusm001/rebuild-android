@@ -376,7 +376,7 @@ fun RebuildApp(
                         .imePadding()
                 ) {
                     if (state.phase == null) {
-                        SetupFlow(env, onPlanSaved = { setupRestStep = true })
+                        SetupFlow(env, onPlanSaving = { setupRestStep = it })
                     } else if (setupRestStep) {
                         RestAlertSetup(env, onDone = { setupRestStep = false })
                     } else {

@@ -166,7 +166,9 @@ internal fun AppState.phasePrescription(phase: Phase): String {
         Phase.INTRO_TWO, Phase.FIVE_TWO -> "2 working sets per exercise"
         Phase.BASELINE -> "baseline sets (${weeklyBaselineSets()} weekly)"
     }
-    return "${countLabel(days, "day")} a week · $sets · about ${phase.targetRir} reps in reserve"
+    // A split sets the days; only the original plan's days follow the phase, so only there are they named here.
+    val dayPart = if (activeSplitId == ORIGINAL_SPLIT) "${countLabel(days, "day")} a week · " else ""
+    return "$dayPart$sets · about ${phase.targetRir} reps in reserve"
 }
 
 /** The split's full weekly volume at Baseline, counting only the exercises its gear keeps. */

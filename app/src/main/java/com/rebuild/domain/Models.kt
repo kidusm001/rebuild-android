@@ -48,7 +48,11 @@ data class SlotGear(
     val dumbbell: String?,
     val bodyweight: String?,
     val bodyweightMinReps: Int? = null,
-    val bodyweightMaxReps: Int? = null
+    val bodyweightMaxReps: Int? = null,
+    /** Swaps offered for the dumbbell option: easier or harder versions that need no more than it does. */
+    val dumbbellAlternatives: List<String> = emptyList(),
+    /** Swaps offered for the bodyweight option, such as an easier row for a pull-up. */
+    val bodyweightAlternatives: List<String> = emptyList()
 )
 
 @Serializable
@@ -220,6 +224,13 @@ data class PlanSlot(
         Gear.BODYWEIGHT -> gear?.bodyweight
     }
 
+    /** The swaps this slot offers with [with]: only exercises that need no more than that gear. */
+    fun alternativesFor(with: Gear): List<String> = when (with) {
+        Gear.GYM -> alternatives
+        Gear.DUMBBELLS -> gear?.dumbbellAlternatives.orEmpty()
+        Gear.BODYWEIGHT -> gear?.bodyweightAlternatives.orEmpty()
+    }
+
     fun repsFor(with: Gear): IntRange =
         if (with == Gear.BODYWEIGHT && gear?.bodyweightMinReps != null && gear.bodyweightMaxReps != null)
             gear.bodyweightMinReps..gear.bodyweightMaxReps
@@ -311,8 +322,18 @@ data class PlanOverride(
     val slotId: String,
     val exerciseId: String,
     val sets: Int,
-    val restSeconds: Int
-)
+    val restSeconds: Int,
+    /**
+     * The gear the change was made with; null is a gym. A swap made for one kind of gear never follows the plan to
+     * another, so a dumbbell plan never asks for a barbell squat chosen at the gym.
+     */
+    val gear: Gear? = null
+) {
+    fun appliesTo(with: Gear): Boolean = (gear ?: Gear.GYM) == with
+}
+
+/** How a plan change records [gear]: null for a gym, so changes made before gear existed read the same. */
+fun storedGear(gear: Gear): Gear? = gear.takeIf { it != Gear.GYM }
 
 /**
  * The user's own exercise in one routine's future workouts of one [phase]: a customization with targets the user
@@ -926,7 +947,7 @@ internal fun AppState.loadUnitDefinition(workoutId: String, exerciseId: String):
  * out keeps its gym exercise here; [AppState.plannedExercises] leaves it out of workouts.
  */
 fun AppState.targetFor(slot: PlanSlot, phase: Phase): PlanOverride =
-    overrides.find { it.phase == phase && it.slotId == slot.id } ?: PlanOverride(
+    overrides.find { it.phase == phase && it.slotId == slot.id && it.appliesTo(gear) } ?: PlanOverride(
         phase, slot.id, slot.exerciseFor(gear) ?: slot.exerciseId,
         when (phase) {
             Phase.INTRO_ONE -> 1

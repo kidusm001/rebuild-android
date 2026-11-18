@@ -380,7 +380,8 @@ object SnapshotCodec {
                 targets(slot.baselineSets, slot.upperSets, slot.minReps, slot.maxReps, slot.restSeconds)
                 text(slot.muscle, 80, "Muscle group")
                 slot.gear?.let { gear ->
-                    listOfNotNull(gear.dumbbell, gear.bodyweight).forEach {
+                    (listOfNotNull(gear.dumbbell, gear.bodyweight) + gear.dumbbellAlternatives +
+                        gear.bodyweightAlternatives).forEach {
                         ensure(it in exerciseIds && measures[it] == Measure.REPS,
                             "A slot's dumbbell or bodyweight exercise must be in the library and counted in reps.")
                     }
@@ -412,7 +413,7 @@ object SnapshotCodec {
             calendarDate(split.since)
         }
         ensure(state.overrides.size <= 40000, "There are too many saved plan changes.")
-        ensure(state.overrides.map { it.phase to it.slotId }.distinct().size == state.overrides.size,
+        ensure(state.overrides.map { Triple(it.phase, it.slotId, it.gear) }.distinct().size == state.overrides.size,
             "The backup contains duplicate plan changes for a phase and slot.")
         state.overrides.forEach { override ->
             ensure(override.slotId in slotsById, "A saved plan change refers to a missing slot.")

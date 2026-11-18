@@ -89,11 +89,14 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
     val takenOff = state.removedTemplates(viewPhase)
 
     ScreenScaffold(title = "Plan") {
+        ScrollBody {
+            // The split first, then the phase preview right above the phase card it changes.
+            YourPlanCard(state, onChange = { onNavigate(Routes.SPLIT) })
+            Column {
         Text("Preview a phase", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp))
+            modifier = Modifier.padding(bottom = 4.dp))
         // Every phase stays whole and in sight: the chips wrap to a second line rather than scroll off the edge.
         FlowRow(
-            modifier = Modifier.padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Phase.entries.forEach { phase ->
@@ -113,8 +116,7 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
                 )
             }
         }
-        ScrollBody {
-            YourPlanCard(state, onChange = { onNavigate(Routes.SPLIT) })
+            }
             TonalCard { Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -127,7 +129,7 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
                         onClick = { onNavigate(Routes.PHASE) },
                         modifier = Modifier.heightIn(min = 48.dp).testTag("plan-change-phase")
                             .semantics { contentDescription = "Change current phase" }
-                    ) { Text("Change") }
+                    ) { Text("Change phase") }
                 }
                 Text(viewPhase.title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
                 Text(state.phasePrescription(viewPhase), style = MaterialTheme.typography.bodyMedium,
@@ -146,7 +148,9 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
                 state.plannedExercises(t, viewPhase).filter { state.measureOf(it.exerciseId) == Measure.REPS }
                     .sumOf { it.sets ?: 0 }
             }
+            // Only the exercises the plan's gear keeps, the same count the phase card gives.
             val establishedSlots = state.availableTemplates(Phase.BASELINE).flatMap { it.slots }
+                .filter { it.exerciseFor(state.gear) != null }
             val baselineTotal = establishedSlots.sumOf { it.baselineSets }
             val upperTotal = establishedSlots.sumOf { it.upperSets ?: it.baselineSets }
             WeeklyTotals(targetTotal, baselineTotal, upperTotal)
@@ -470,7 +474,8 @@ private fun PlanSlotDialog(env: AppEnv, phase: Phase, slot: PlanSlot, onDismiss:
     var error by rememberSaveable(key) { mutableStateOf<String?>(null) }
     var confirmingRemove by rememberSaveable(key) { mutableStateOf(false) }
     val aboveCap = slot.upperSets != null && sets > slot.upperSets
-    val options = (listOf(slot.exerciseId) + slot.alternatives + target.exerciseId +
+    // The slot's exercise and swaps for the plan's equipment.
+    val options = (listOfNotNull(slot.exerciseFor(env.state.gear)) + slot.alternativesFor(env.state.gear) + target.exerciseId +
         env.state.exercises.filter { it.custom }.map { it.id }).distinct().mapNotNull(env::exercise)
     val defaults = PlanDefaults(slot, phase)
 
@@ -552,8 +557,10 @@ private class PlanDefaults(slot: PlanSlot, phase: Phase) {
 @Composable
 private fun YourPlanCard(state: com.rebuild.domain.AppState, onChange: () -> Unit) {
     val split = com.rebuild.domain.Splits.all.find { it.id == state.activeSplitId }
+    // The days themselves, not a count the name already gives.
     val days = if (split?.rampsDays == true) "4 or 5 days a week, by phase"
-        else "${countLabel(state.availableTemplates(state.phase ?: Phase.BASELINE).size, "day")} a week"
+        else state.availableTemplates(state.phase ?: Phase.BASELINE).map { it.weekday }.sorted()
+            .joinToString(", ") { java.time.DayOfWeek.of(it).getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault()) }
     TonalCard { Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Your plan", style = MaterialTheme.typography.labelLarge,
@@ -562,7 +569,7 @@ private fun YourPlanCard(state: com.rebuild.domain.AppState, onChange: () -> Uni
                 onClick = onChange,
                 modifier = Modifier.heightIn(min = 48.dp).testTag("plan-change-split")
                     .semantics { contentDescription = "Change split" }
-            ) { Text("Change") }
+            ) { Text("Change split") }
         }
         Text(split?.name ?: "Your plan", style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.semantics { heading() }.testTag("plan-split-name"))

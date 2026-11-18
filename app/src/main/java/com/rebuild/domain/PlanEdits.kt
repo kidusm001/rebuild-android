@@ -38,7 +38,8 @@ fun AppState.plannedExercises(routine: ScheduledRoutine, phase: Phase): List<Pla
         // A slot the plan's gear leaves out (no dumbbell or bodyweight match) isn't asked for, unless a saved
         // change has already given it an exercise.
         is WorkoutTemplate -> routine.slots.filterNot { slotRemoved(phase, it.id) }
-            .filter { slot -> slot.exerciseFor(gear) != null || overrides.any { it.phase == phase && it.slotId == slot.id } }
+            .filter { slot -> slot.exerciseFor(gear) != null ||
+                overrides.any { it.phase == phase && it.slotId == slot.id && it.appliesTo(gear) } }
             .map { slot ->
                 val target = targetFor(slot, phase)
                 val reps = slot.repsFor(gear)

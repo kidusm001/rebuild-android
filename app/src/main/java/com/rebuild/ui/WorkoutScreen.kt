@@ -1128,7 +1128,9 @@ private fun AdjustTodayDialog(env: AppEnv, workout: Workout, we: WorkoutExercise
     val slot = env.state.templates.find { it.id == workout.templateId }?.slots?.find { it.id == we.slotId }
     // A removed slot or addition can't take saved changes; they stay with today's copy.
     val planSource = env.state.planSourceOf(workout, we)
-    val optionIds = (listOfNotNull(slot?.exerciseId) + slot?.alternatives.orEmpty() + we.exercise.id +
+    // The slot's exercise and swaps for the plan's equipment: a dumbbell plan never offers a hack squat.
+    val gear = env.state.gear
+    val optionIds = (listOfNotNull(slot?.exerciseFor(gear)) + slot?.alternativesFor(gear).orEmpty() + we.exercise.id +
         env.state.exercises.filter { it.custom }.map { it.id }).distinct()
     val measure = we.exercise.measure
     // A planned exercise is only ever swapped for one measured the same way.

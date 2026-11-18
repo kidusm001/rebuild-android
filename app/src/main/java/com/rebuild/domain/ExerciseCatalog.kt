@@ -198,7 +198,11 @@ object ExerciseCatalog {
         Exercise("rdl-db", "Dumbbell Romanian deadlift", perDumbbell = true, equipment = Equipment.DUMBBELL,
             primaryMuscle = MuscleGroup.HAMSTRINGS, aliases = listOf("DB RDL", "Dumbbell RDL")),
         Exercise("triceps-overhead-db", "Overhead dumbbell triceps extension", equipment = Equipment.DUMBBELL,
-            primaryMuscle = MuscleGroup.TRICEPS, aliases = listOf("DB overhead extension", "Two-hand dumbbell extension"))
+            primaryMuscle = MuscleGroup.TRICEPS, aliases = listOf("DB overhead extension", "Two-hand dumbbell extension")),
+        Exercise("row-db-chest-supported", "Chest-supported dumbbell row", perDumbbell = true, equipment = Equipment.DUMBBELL,
+            primaryMuscle = MuscleGroup.BACK, aliases = listOf("Incline bench dumbbell row", "Seal row")),
+        Exercise("pushup-incline", "Incline push-up", LoadingType.BODYWEIGHT, equipment = Equipment.BODYWEIGHT,
+            primaryMuscle = MuscleGroup.CHEST, aliases = listOf("Hands-elevated push-up", "Bench push-up"))
     )
 
     val exercises: List<Exercise> = revisionOne + revisionTwo + revisionThree

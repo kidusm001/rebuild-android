@@ -58,7 +58,7 @@ class SetupFlowDeviceTest {
         rule.onNodeWithTag("split-gear-note").performScrollTo().assertIsDisplayed()
         // A day opens to its exercises, swapped for dumbbells.
         rule.onNodeWithTag("split-day-full-body-3-a").performScrollTo().performClick()
-        rule.onNodeWithText("Goblet squat").assertExists()
+        rule.onNode(hasContentDescription("Goblet squat, 1 set of 10 to 15 reps", substring = true)).assertExists()
         assertTrue("nothing is saved before Start", repo.actions.isEmpty())
 
         next()
@@ -120,5 +120,42 @@ class SetupFlowDeviceTest {
         rule.onNodeWithTag("setup-rest-done").performClick()
         assertEquals(ORIGINAL_SPLIT, repo.state.value.activeSplitId)
         rule.onNodeWithTag("week-progress").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun aQuickSecondTapWhileTheNextPageSlidesInNeverSavesAPlanNobodySaw() {
+        val repo = launch()
+        next()
+        rule.onNodeWithTag("setup-experience-new").performClick(); next()
+        rule.onNodeWithTag("setup-days-3").performClick(); next()
+        rule.onNodeWithTag("setup-gear-gym").performClick()
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithTag("setup-action").performClick()
+        rule.mainClock.advanceTimeBy(100)
+        // Mid-slide, only the incoming page is in the tree, and its Start waits until it has settled.
+        rule.onNodeWithTag("setup-action").assertIsNotEnabled().performClick()
+        rule.mainClock.autoAdvance = true
+        rule.waitForIdle()
+        assertTrue(repo.actions.isEmpty())
+        rule.onNodeWithTag("split-name").assertTextEquals("Full body, 3 days")
+        rule.onNodeWithTag("setup-action").assertIsEnabled()
+    }
+
+    @Test fun planChangeSplitPreviewsTheNewSplitAndSwitchesAfterConfirming() {
+        val start = com.rebuild.data.StateChanges.apply(Seed.initialState(),
+            Action.CompleteSetup(Experience.NEW, "full-body-3", Gear.GYM, MassUnit.KG, localDateOf(FIXED_NOW).toString()))
+        val repo = FakeRepository(start)
+        rule.setContent { RebuildApp(repo, FakePlatform(), clock = { FIXED_NOW }) }
+        rule.onNodeWithText("Plan").performClick()
+        rule.onNodeWithTag("plan-split-name").assertTextEquals("Full body, 3 days")
+        rule.onNodeWithTag("plan-change-split").performClick()
+        rule.onNodeWithTag("split-switch").assertIsNotEnabled()
+        rule.onNodeWithTag("setup-days-4").performScrollTo().performClick()
+        rule.onNodeWithTag("split-name").performScrollTo().assertTextEquals("Upper and lower")
+        rule.onNodeWithTag("split-switch").assertIsEnabled().performClick()
+        rule.onNodeWithTag("confirm-button").performClick()
+        rule.waitForIdle()
+        assertEquals("upper-lower", repo.state.value.activeSplitId)
+        assertEquals("the phase stays", Phase.INTRO_ONE, repo.state.value.phase)
+        rule.onNodeWithTag("plan-split-name").assertTextEquals("Upper and lower")
     }
 }

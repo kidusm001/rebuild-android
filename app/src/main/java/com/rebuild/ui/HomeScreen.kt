@@ -56,6 +56,7 @@ import com.rebuild.R
 import com.rebuild.domain.Action
 import com.rebuild.domain.Measure
 import com.rebuild.domain.Phase
+import com.rebuild.domain.scheduledRoutines
 import com.rebuild.domain.RoutineStatus
 import com.rebuild.domain.RoutineWeek
 import com.rebuild.domain.TodayKind
@@ -482,6 +483,10 @@ private fun WeekChecklistSection(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            splitStartNote(env.state, checklist, today)?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp)
+                    .testTag("week-split-start"))
+            }
         }
         Column(Modifier.testTag("week-checklist"), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             checklist.routines.forEachIndexed { i, routine ->
@@ -676,4 +681,25 @@ private fun BodySection(env: AppEnv, onNavigate: (String) -> Unit) {
         SectionHeader("Body")
         TodayBodyRows(env, onWeight = { onNavigate(Routes.BODYWEIGHT) }, onMeasure = { onNavigate(Routes.MEASURE) })
     }
+}
+
+/**
+ * In the week a split started, the workouts it schedules before that day aren't asked for; this says so, so a
+ * short first week never reads as one already behind: "Your plan starts today. Full body A is on Mondays, from next
+ * week."
+ */
+internal fun splitStartNote(state: com.rebuild.domain.AppState, checklist: WeekChecklist, today: LocalDate): String? {
+    val since = state.split?.since?.let(LocalDate::parse) ?: return null
+    if (since < checklist.start || since > checklist.end) return null
+    val phase = state.phase ?: return null
+    val listed = checklist.routines.map { it.template.id }.toSet()
+    val later = state.scheduledRoutines(phase).filter { it.weekday < since.dayOfWeek.value && it.id !in listed }
+    if (later.isEmpty()) return null
+    val start = if (since == today) "Your plan starts today." else "Your plan started ${weekdayName(since.dayOfWeek.value)}."
+    val rest = if (later.size == 1) "${later.single().name} is on ${weekdayName(later.single().weekday)}s, from next week."
+        else later.joinToString(", ") { it.name }.let { names ->
+            val i = names.lastIndexOf(", "); (if (i < 0) names else names.substring(0, i) + " and " + names.substring(i + 2)) +
+                " start next week."
+        }
+    return "$start $rest"
 }

@@ -42,6 +42,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -57,6 +58,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -153,7 +155,7 @@ private fun daysText(weekdays: List<Int>): String {
  * plan"; then [onPlanSaved] shows the last, optional step (rest alerts). Steps slide in the direction you're going.
  */
 @Composable
-internal fun SetupFlow(env: AppEnv, onPlanSaved: () -> Unit) {
+internal fun SetupFlow(env: AppEnv, onPlanSaving: (Boolean) -> Unit) {
     var stepName by rememberSaveable { mutableStateOf(SetupStep.WELCOME.name) }
     var experienceName by rememberSaveable { mutableStateOf<String?>(null) }
     var days by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -189,6 +191,11 @@ internal fun SetupFlow(env: AppEnv, onPlanSaved: () -> Unit) {
         },
         label = "setup-step"
     ) { shown ->
+        // Only the settled page takes taps: while two pages overlap mid-slide, a quick second tap would otherwise land
+        // on the next page's action (and could save a plan nobody has looked at). The leaving page is hidden from
+        // screen readers so they never see two pages.
+        val settled = shown == step && transition.currentState == androidx.compose.animation.EnterExitState.Visible
+        Box(if (shown == step) Modifier else Modifier.clearAndSetSemantics {}) { CompositionLocalProvider(LocalSettled provides settled) {
         when (shown) {
             SetupStep.WELCOME -> Welcome(onStart = { go(SetupStep.EXPERIENCE) }, onRestore = { env.platform.chooseRestore() })
             SetupStep.EXPERIENCE -> SetupPage(1, "How much have you trained?",
@@ -211,7 +218,7 @@ internal fun SetupFlow(env: AppEnv, onPlanSaved: () -> Unit) {
                         "${daysText((1..7).filterNot { it in Splits.weekdays(count) })}.",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (experience != null && Splits.manyDaysForABeginner(experience, count)) Note(
-                        "3–4 days is plenty when you're starting. You can add days any time.",
+                        "3–4 days is plenty when you're starting. You can change this later in Plan.",
                         Modifier.testTag("setup-days-note"))
                 }
             }
@@ -234,8 +241,10 @@ internal fun SetupFlow(env: AppEnv, onPlanSaved: () -> Unit) {
                 val split = Splits.recommend(experience!!, days!!, gear!!)
                 SetupPage(4, null, null, onBack = ::back, action = "Start with this plan",
                     enabled = !env.runner.busy, onAction = {
+                        // The last step is marked before the save, so it still shows if the screen turns mid-save.
+                        onPlanSaving(true)
                         env.runner.run(Action.CompleteSetup(experience, split.id, gear, unit,
-                            localDateOf(env.clock()).toString()), onError = { error = it }, onSuccess = onPlanSaved)
+                            localDateOf(env.clock()).toString()), onError = { error = it; onPlanSaving(false) })
                     }) {
                     PlanReveal(previewState(env.state, split, gear, experience), split, gear,
                         note = if (Splits.manyDaysForABeginner(experience, days!!))
@@ -245,8 +254,20 @@ internal fun SetupFlow(env: AppEnv, onPlanSaved: () -> Unit) {
                 }
             }
         }
+        } }
     }
 }
+
+/**
+ * Actions sit pinned at the bottom on roomy screens; at large text or on a short (landscape) window they come inline
+ * at the end, so the choices keep the room.
+ */
+@Composable
+private fun actionsPinned(): Boolean = LocalDensity.current.fontScale <= 1.3f &&
+    androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp >= 480
+
+/** Whether this setup page has finished sliding in; until then its actions wait. */
+private val LocalSettled = androidx.compose.runtime.staticCompositionLocalOf { true }
 
 @Composable
 private fun Welcome(onStart: () -> Unit, onRestore: () -> Unit) {
@@ -292,7 +313,9 @@ private fun Promise(@DrawableRes icon: Int, title: String, detail: String) {
 @Composable
 private fun SetupProgress(step: Int, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
-    Row(modifier.testTag("setup-step").clearAndSetSemantics { contentDescription = "Step $step of 4" },
+    // The step is spoken with the page's heading; the bar itself is decoration to a screen reader.
+    Row(modifier.testTag("setup-step").semantics { contentDescription = "Step $step of 4" }.clearAndSetSemantics {
+        contentDescription = "Step $step of 4"; hideFromAccessibility() },
         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         (1..4).forEach { segment ->
             val fill by animateColorAsState(if (segment <= step) colors.primaryContainer else colors.surfaceContainerHigh,
@@ -318,10 +341,10 @@ private fun SetupPage(
     secondary: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val pinned = LocalDensity.current.fontScale <= 1.3f
+    val pinned = actionsPinned()
     val step = number?.let { "Step $it of 4" }
     val actions: @Composable ColumnScope.() -> Unit = {
-        Button(onClick = onAction, enabled = enabled,
+        Button(onClick = onAction, enabled = enabled && LocalSettled.current,
             modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("setup-action")) { Text(action) }
         secondary?.invoke()
     }
@@ -489,8 +512,9 @@ private fun WeekStrip(days: Map<Int, String?>, modifier: Modifier = Modifier) {
                         if (training) RebuildIcon(R.drawable.ic_dumbbell, contentDescription = null,
                             tint = colors.onPrimaryContainer, modifier = Modifier.size(14.dp))
                     }
-                    Text(days[weekday]?.let(::workoutInitials) ?: "", style = MaterialTheme.typography.labelSmall,
-                        color = colors.onSurfaceVariant, maxLines = 1, textAlign = TextAlign.Center)
+                    if (days.values.any { it != null }) Text(days[weekday]?.let(::workoutInitials) ?: "",
+                        style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant, maxLines = 1,
+                        textAlign = TextAlign.Center)
                 }
             }
         }
@@ -534,19 +558,20 @@ internal fun PlanReveal(state: AppState, split: Split, gear: Gear, note: String?
     note?.let { Note(it) }
     WeekStrip(week.associate { it.weekday to it.name })
     val sets = week.flatMap { state.plannedExercises(it, phase) }.mapNotNull { it.sets }
-    val setRange = if (sets.isEmpty()) "–" else if (sets.min() == sets.max()) "${sets.min()}" else "${sets.min()}–${sets.max()}"
-    // Three tiles side by side; stacked at large text so no caption is cut.
-    val tiles: @Composable (Modifier) -> Unit = { m ->
-        StatTile("${week.size}", "days a week", m)
-        StatTile(setRange, if (setRange == "1") "set per exercise" else "sets per exercise", m,
-            spoken = "$setRange working ${if (setRange == "1") "set" else "sets"} per exercise")
-        StatTile("${phase.targetRir}", "reps in reserve", m, spoken = "about ${phase.targetRir} reps in reserve")
+    val setRange = range(sets)
+    val perWorkout = range(week.map { state.plannedExercises(it, phase).size })
+    val setWord = if (setRange == "1") "set" else "sets"
+    // Three tiles side by side; at large text one line, so the reveal isn't a screen of grey slabs.
+    if (LocalDensity.current.fontScale > 1.3f) {
+        Text("$perWorkout exercises a workout · $setRange $setWord each · about ${phase.targetRir} reps in reserve",
+            style = MaterialTheme.typography.titleMedium)
+    } else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        StatTile(perWorkout, "exercises a workout", Modifier.weight(1f), spoken = "$perWorkout exercises a workout")
+        StatTile(setRange, "$setWord each", Modifier.weight(1f), spoken = "$setRange working $setWord per exercise")
+        StatTile("${phase.targetRir}", "in reserve", Modifier.weight(1f), spoken = "about ${phase.targetRir} reps in reserve")
     }
-    if (LocalDensity.current.fontScale > 1.3f) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        tiles(Modifier.fillMaxWidth())
-    } else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { tiles(Modifier.weight(1f)) }
-    Text("You start in ${phase.title}. Reps in reserve are the reps you could still have done when you stop a set: " +
-        "end each set with about ${phase.targetRir} left. You choose when to move up, in Plan.",
+    Text("You start in ${phase.title}: ${phaseInWords(phase)} Stop each set with about ${phase.targetRir} reps still " +
+        "in you. You choose when to move up, in Plan.",
         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     if (split.rampsDays) Text("This plan is 4 days now and 5 once you move to Two-set start.",
         style = MaterialTheme.typography.bodyMedium)
@@ -556,12 +581,24 @@ internal fun PlanReveal(state: AppState, split: Split, gear: Gear, note: String?
     val swapped = split.swappedFor(gear)
     val dropped = split.droppedFor(gear)
     if (swapped > 0 || dropped > 0) Text(
-        "Built for ${gear.short().lowercase()}: " + listOfNotNull(
-            swapped.takeIf { it > 0 }?.let { "gym exercises use ${gear.short().lowercase()} versions" },
+        "Built for ${gear.title().replaceFirstChar { it.lowercase() }}: " + listOfNotNull(
+            swapped.takeIf { it > 0 }?.let { "${countLabel(it, "gym exercise")} swapped for " +
+                if (gear == Gear.BODYWEIGHT) "bodyweight versions" else "dumbbell versions" },
             dropped.takeIf { it > 0 }?.let { "${countLabel(it, "machine exercise")} with no match left out" }
         ).joinToString(", ") + ".",
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.testTag("split-gear-note"))
+}
+
+/** "6" or "6–7". */
+private fun range(values: List<Int>): String =
+    if (values.isEmpty()) "–" else if (values.min() == values.max()) "${values.min()}" else "${values.min()}–${values.max()}"
+
+/** What a phase asks, in a beginner's words. */
+private fun phaseInWords(phase: Phase): String = when (phase) {
+    Phase.INTRO_ONE -> "one easy set of each exercise."
+    Phase.INTRO_TWO, Phase.FIVE_TWO -> "two working sets of each exercise."
+    Phase.BASELINE -> "each exercise's full number of sets."
 }
 
 /** One day of the plan: its weekday, workout and count, opening to each exercise's sets and reps. */
@@ -582,8 +619,8 @@ private fun DayCard(state: AppState, template: ScheduledRoutine, phase: Phase) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // A round badge that grows into a pill at large text, so the day is never clipped.
-            Box(Modifier.heightIn(min = 44.dp).widthIn(min = 44.dp).clip(CircleShape)
+            // One width for every day, growing only at large text, so the workout names line up.
+            Box(Modifier.heightIn(min = 44.dp).widthIn(min = 56.dp).clip(CircleShape)
                 .background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 8.dp),
                 contentAlignment = Alignment.Center) {
                 Text(dayShort(template.weekday), style = MaterialTheme.typography.labelLarge, maxLines = 1,
@@ -591,10 +628,12 @@ private fun DayCard(state: AppState, template: ScheduledRoutine, phase: Phase) {
             }
             Column(Modifier.weight(1f)) {
                 Text(template.name, style = MaterialTheme.typography.titleMedium)
-                Text(planned.take(3).joinToString(" · ") { state.exercises.find { e -> e.id == it.exerciseId }?.name ?: "" } +
-                    if (planned.size > 3) " · +${planned.size - 3}" else "",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = if (open) 1 else 2)
+                // Closed, a taste of the day; open, the list below says the rest.
+                val sets = range(planned.mapNotNull { it.sets })
+                Text(if (open) "${countLabel(planned.size, "exercise")} · $sets ${if (sets == "1") "set" else "sets"} each"
+                    else planned.take(2).joinToString(", ") { state.exercises.find { e -> e.id == it.exerciseId }?.name ?: "" } +
+                        if (planned.size > 2) " and ${planned.size - 2} more" else "",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             RebuildIcon(if (open) R.drawable.ic_chevron_up else R.drawable.ic_chevron_down,
                 contentDescription = null, modifier = Modifier.size(20.dp))
@@ -605,8 +644,10 @@ private fun DayCard(state: AppState, template: ScheduledRoutine, phase: Phase) {
                 verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 planned.forEachIndexed { i, exercise ->
                     val name = state.exercises.find { it.id == exercise.exerciseId }?.name ?: exercise.exerciseId
-                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
+                    val spoken = "$name, ${exercise.sets} ${if (exercise.sets == 1) "set" else "sets"} of " +
+                        "${exercise.minReps} to ${exercise.maxReps} reps" + if (exercise.perLeg) ", each leg" else ""
+                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp).clearAndSetSemantics { contentDescription = spoken },
+                        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         OrderBadge(i + 1)
                         Text(name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                         Text("${exercise.sets} × ${exercise.minReps}–${exercise.maxReps}" +
@@ -633,7 +674,7 @@ private fun AnswersCard(experience: Experience, days: Int, gear: Gear, unit: Mas
     )
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         rows.forEachIndexed { i, (label, value, step) ->
-            Row(Modifier.groupedRow(i, rows.lastIndex).heightIn(min = 56.dp).padding(start = 16.dp, end = 8.dp),
+            Row(Modifier.groupedRow(i, rows.lastIndex).heightIn(min = 56.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
                     Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -690,10 +731,18 @@ internal fun RestAlertSetup(env: AppEnv, onDone: () -> Unit) {
             SecondaryButton(onClick = { env.previewRestEnd() }, icon = R.drawable.ic_play,
                 modifier = Modifier.testTag("setup-rest-try")) { Text("Try it") }
             when {
-                allowed -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("setup-rest-on")) {
-                    RebuildIcon(R.drawable.ic_check, contentDescription = null, tint = accentText())
-                    Text("Rest alerts are on.", style = MaterialTheme.typography.bodyLarge)
+                allowed -> {
+                    val late = env.status.batteryRestricted || !env.status.exactAlarmsAllowed
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("setup-rest-on")) {
+                        RebuildIcon(R.drawable.ic_check, contentDescription = null, tint = accentText())
+                        Text(if (late) "Rest alerts are on, but battery saving may delay them." else "Rest alerts are on.",
+                            style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    }
+                    if (late) SecondaryButton(
+                        onClick = { if (!env.status.exactAlarmsAllowed) env.platform.requestExactAlarms()
+                            else env.platform.openBatterySettings() },
+                        modifier = Modifier.testTag("setup-rest-battery")) { Text("Allow on-time alerts") }
                 }
                 asked -> Note("Notifications are off, so rest alerts only show while Rebuild is open. You can turn " +
                     "them on later in More › Rest alert.", Modifier.testTag("setup-rest-denied"))
@@ -741,6 +790,22 @@ internal fun ChangeSplitScreen(env: AppEnv, onBack: () -> Unit) {
     val chosen = pickedId?.let(Splits::byId)?.takeIf { gear in it.gear } ?: recommended
     val active = state.activeWorkout
     val unchanged = chosen?.id == state.activeSplitId && gear == state.gear
+    val pinned = actionsPinned()
+    val switch: @Composable () -> Unit = {
+        Button(
+            onClick = { confirming = true },
+            enabled = active == null && chosen != null && experience != null && !env.runner.busy && !unchanged,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("split-switch")
+        ) {
+            Text(when {
+                experience == null -> "Choose how much you've trained"
+                chosen == null -> "Choose your days"
+                unchanged -> "This is your plan now"
+                chosen.id == state.activeSplitId -> "Switch to ${gear.title().replaceFirstChar { it.lowercase() }}"
+                else -> "Switch to ${chosen.name}"
+            })
+        }
+    }
     ScreenScaffold(title = "Change split", onBack = onBack) {
         ScrollBody {
             if (active != null) Note("${active.name} is in progress. Finish or discard it before changing your split.",
@@ -748,6 +813,8 @@ internal fun ChangeSplitScreen(env: AppEnv, onBack: () -> Unit) {
             Text("Answer again, or pick a split yourself. Your workouts so far, and the changes you made to this plan, " +
                 "are kept.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             SectionHeader("How much have you trained?")
+            Text("This helps pick a split. Your phase stays ${state.phase?.title}; change it on the Plan tab.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Experience.entries.forEach { option ->
                     ChoiceCard(option == experience, { experienceName = option.name; pickedId = null }, option.title(),
@@ -766,8 +833,10 @@ internal fun ChangeSplitScreen(env: AppEnv, onBack: () -> Unit) {
                 }
             }
             SectionHeader("Or pick a split yourself")
+            Text("Picking one here replaces the split your answers suggest.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Splits.forGear(gear).forEach { split ->
+                Splits.forGear(gear).sortedWith(compareBy({ it.days }, { it.name })).forEach { split ->
                     ChoiceCard(split == chosen, { pickedId = split.id }, split.name,
                         "${split.days} days a week" + if (split.id == state.activeSplitId) " · your split now" else "",
                         tag = "split-pick-${split.id}") {
@@ -783,25 +852,18 @@ internal fun ChangeSplitScreen(env: AppEnv, onBack: () -> Unit) {
                 PlanReveal(previewState(state, chosen, gear, experience), chosen, gear)
             }
             ErrorText(error)
-            Button(
-                onClick = { confirming = true },
-                enabled = active == null && chosen != null && experience != null && !env.runner.busy && !unchanged,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("split-switch")
-            ) {
-                Text(when {
-                    chosen == null || experience == null -> "Answer the questions above"
-                    unchanged -> "This is your plan now"
-                    chosen.id == state.activeSplitId -> "Switch to ${gear.short().lowercase()}"
-                    else -> "Switch to ${chosen.name}"
-                })
-            }
+            if (!pinned) switch()
         }
+        // On roomy screens the switch stays in reach, as setup's Continue does, however long the preview gets.
+        if (pinned) Column(Modifier.readableWidth().padding(horizontal = 20.dp, vertical = 12.dp)) { switch() }
     }
     if (confirming && chosen != null && experience != null) ConfirmDialog(
-        title = "Switch to ${chosen.name}?",
-        text = "From today, your week follows ${chosen.name}. Workouts you've already done stay done and keep " +
-            "this week's credit. Changes you made to ${current?.name ?: "your plan"} are kept and come back if you " +
-            "switch back. Your phase stays ${state.phase?.title}.",
+        title = if (chosen.id == state.activeSplitId) "Train ${chosen.name} with ${gear.title().replaceFirstChar { it.lowercase() }}?"
+            else "Switch to ${chosen.name}?",
+        text = (if (chosen.id == state.activeSplitId) "From today, each exercise uses its version for " +
+            "${gear.title().replaceFirstChar { it.lowercase() }}. " else "From today, your week follows ${chosen.name}. ") +
+            "Workouts you've already done stay done and keep this week's credit. Changes you made to " +
+            "${current?.name ?: "your plan"} are kept and come back if you switch back. Your phase stays ${state.phase?.title}.",
         confirmLabel = "Switch",
         busy = env.runner.busy,
         onDismiss = { confirming = false },

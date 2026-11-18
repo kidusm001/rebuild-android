@@ -11,7 +11,7 @@ class SeedTest {
         SnapshotCodec.validate(seed)
         assertNull(seed.phase)
         assertTrue(seed.workouts.isEmpty())
-        assertEquals(84, seed.exercises.size)
+        assertEquals(86, seed.exercises.size)
     }
 
     @Test fun everyEstablishedSlotMatchesSpecification() {

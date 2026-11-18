@@ -9,11 +9,11 @@ class ExerciseCatalogTest {
     private val state = Seed.initialState()
 
     @Test fun catalogIsBoundedUniqueDescribedAndDoesNotPrescribePullups() {
-        assertEquals(84, state.exercises.size)
+        assertEquals(86, state.exercises.size)
         assertEquals(31, ExerciseCatalog.legacyExercises.size)
-        assertEquals(84, state.exercises.map { it.id }.distinct().size)
+        assertEquals(86, state.exercises.map { it.id }.distinct().size)
         assertEquals("Revision two only adds timed, distance and cardio exercises; revision three only rep-based ones",
-            mapOf(Measure.REPS to 70, Measure.TIMED to 5, Measure.DISTANCE to 2, Measure.CARDIO to 7),
+            mapOf(Measure.REPS to 72, Measure.TIMED to 5, Measure.DISTANCE to 2, Measure.CARDIO to 7),
             state.exercises.groupingBy { it.measure }.eachCount())
         assertEquals(ExerciseCatalog.revisionOne + ExerciseCatalog.revisionTwo + ExerciseCatalog.revisionThree, state.exercises)
         assertEquals(3, state.catalogRevision)

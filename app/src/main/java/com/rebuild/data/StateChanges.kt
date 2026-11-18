@@ -422,7 +422,8 @@ internal object StateChanges {
                 state.plannedExercises(template, action.phase).none { it.exerciseId == definition.id },
                 "${definition.name} is already in ${template.name} for this phase.")
             checkTarget(action.sets, action.restSeconds, slot.upperSets, action.allowAboveCap)
-            override(state, PlanOverride(action.phase, action.slotId, action.exerciseId, action.sets, action.restSeconds))
+            override(state, PlanOverride(action.phase, action.slotId, action.exerciseId, action.sets, action.restSeconds,
+                storedGear(state.gear)))
         }
         is Action.EditToday -> editToday(state, action)
         is Action.AddExercise -> {
@@ -789,7 +790,7 @@ internal object StateChanges {
                     "${entry.exercise.name} was removed from this phase's plan. Restore it in Plan to change it.")
                 requireNotAdded(state, template, workout.phase, replacement)
                 changed = override(changed, PlanOverride(workout.phase, slot.id, replacement.id, action.sets!!,
-                    action.restSeconds))
+                    action.restSeconds, storedGear(state.gear)))
             } else {
                 // A removed addition is never brought back by a change made to today's copy of it.
                 val addition = state.planAdditions.find { it.id == entry.slotId && it.phase == workout.phase }
@@ -1144,7 +1145,9 @@ internal object StateChanges {
     }
 
     private fun override(state: AppState, target: PlanOverride) =
-        state.copy(overrides = state.overrides.filterNot { it.phase == target.phase && it.slotId == target.slotId } + target)
+        state.copy(overrides = state.overrides.filterNot {
+            it.phase == target.phase && it.slotId == target.slotId && it.gear == target.gear
+        } + target)
 
     private fun editWorkout(state: AppState, id: String, edit: (Workout) -> Workout): AppState {
         ensure(state.workouts.any { it.id == id }, "This workout no longer exists.")
