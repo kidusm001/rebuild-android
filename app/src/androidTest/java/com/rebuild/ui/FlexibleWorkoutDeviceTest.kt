@@ -370,6 +370,7 @@ class FlexibleWorkoutDeviceTest {
         rule.onNodeWithTag("confirm-button").performClick()
         rule.waitUntil(5_000) { repo.state.value.activeWorkoutId == null }
         rule.waitForIdle()
+        rule.closeReceiptIfShown()
         assertTrue("Nothing is kept from an empty extra workout", repo.state.value.workouts.isEmpty())
         rule.onNodeWithTag("start-empty").performScrollTo().assertIsDisplayed()
         assertSaved(repo)
@@ -469,6 +470,7 @@ class FlexibleWorkoutDeviceTest {
         rule.onNodeWithTag("confirm-button").performClick()
         rule.waitUntil(5_000) { repo.state.value.activeWorkoutId == null }
         rule.waitForIdle()
+        rule.closeReceiptIfShown()
         val finished = repo.state.value.workouts.single()
         fun status() = requireNotNull(repo.state.value.weekChecklist(localDateOf(FIXED_NOW))).statusOf("intro-upper")
         assertTrue(finished.countedForWeek)
@@ -580,6 +582,11 @@ class FlexibleWorkoutDeviceTest {
         rule.onNodeWithTag("confirm-button").performClick()
         rule.waitUntil(5_000) { repo.state.value.activeWorkoutId == null }
         rule.waitForIdle()
+        // The receipt is an in-app sheet: Today behind it is inert, absent for screen readers and tests.
+        rule.onNodeWithTag("workout-receipt").assertIsDisplayed()
+        rule.onNodeWithTag("week-progress").assertDoesNotExist()
+        rule.closeReceiptIfShown()
+        rule.onNodeWithTag("workout-receipt").assertDoesNotExist()
         val finished = repo.state.value.workouts.single()
         assertFalse("A complete workout counts by itself, never by a stored credit", finished.countedForWeek)
         assertEquals(RoutineStatus.DONE,
@@ -730,6 +737,7 @@ class FlexibleWorkoutDeviceTest {
         rule.onNodeWithTag("confirm-button").performClick()
         rule.waitUntil(5_000) { repo.state.value.activeWorkoutId == null }
         rule.waitForIdle()
+        rule.closeReceiptIfShown()
         val today = repo.state.value.workouts.single()
         assertTrue("The finished workout keeps it optional", today.exercises.last().optional)
         runBlocking { repo.execute(Action.StartWorkout("intro-upper", FIXED_NOW + 60_000)) }

@@ -641,6 +641,7 @@ class MeasuredDeviceTest {
         rule.onNodeWithTag("confirm-button").assertIsEnabled().performClick()
         rule.waitUntil(5_000) { repo.state.value.activeWorkoutId == null }
         rule.waitForIdle()
+        rule.closeReceiptIfShown()
         val finished = repo.state.value.workouts.single().exercises.single()
         assertEquals("Only the logged effort is saved", listOf(30), finished.efforts.map { it.durationSeconds })
         assertNull(watch(repo))

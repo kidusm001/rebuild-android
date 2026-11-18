@@ -369,6 +369,7 @@ class SetGroupsDeviceTest {
         rule.onNodeWithTag("confirm-button").performClick()
         rule.waitUntil(5_000) { repo.state.value.activeWorkoutId == null }
         rule.waitForIdle()
+        rule.closeReceiptIfShown()
         val finish = repo.actions.filterIsInstance<Action.FinishWorkout>().single()
         assertTrue(finish.closeOpenGroups)
         assertTrue(finish.countForWeek)

@@ -1369,6 +1369,8 @@ internal fun FinishWorkoutDialog(
                         Action.FinishWorkout(env.clock(), closeOpenGroups = openSets.isNotEmpty(),
                             countForWeek = countForWeek && offerCredit, discardStopwatch = watch != null && discardWatch),
                         onError = { error = it },
+                        // The receipt follows from the state that shows this workout finished.
+                        onSaved = { env.runner.receiptFor(workout.id) },
                         onSuccess = onFinished
                     )
                 },

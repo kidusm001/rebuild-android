@@ -6,7 +6,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.rebuild.domain.localDateOf
 import com.rebuild.domain.weighInsOn
-import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,21 +19,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.contentDescription
@@ -101,15 +94,16 @@ internal fun receiptLines(state: AppState, workout: Workout): List<ReceiptLine> 
 
 /**
  * What a just-finished workout saved, as a receipt rather than a score: when, how long, how many working sets, and
- * each exercise's best set with any real gain over last time. It ends the session with a confirming tick.
+ * each exercise's best set with any real gain over last time. It ends the session with a confirming tick, felt as the
+ * sheet lands.
+ *
+ * An in-app sheet drawn by the app itself (not a window), above the bars and the snackbar and below a rest ending.
+ * [onView] opens the workout as the sheet leaves; [onClosed] runs once it has gone.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun WorkoutReceipt(env: AppEnv, workout: Workout, onView: () -> Unit, onDismiss: () -> Unit) {
-    val haptics = LocalHapticFeedback.current
+internal fun WorkoutReceipt(env: AppEnv, workout: Workout, onView: () -> Unit, onClosed: () -> Unit) {
     var loggingWeight by rememberSaveable { mutableStateOf(false) }
     val large = LocalDensity.current.fontScale > 1.3f
-    LaunchedEffect(workout.id) { haptics.performHapticFeedback(HapticFeedbackType.Confirm) }
     val finished = workout.finishedAt ?: return
     val minutes = ((finished - workout.startedAt) / 60_000).coerceAtLeast(1)
     val lines = receiptLines(env.state, workout)
@@ -120,12 +114,12 @@ internal fun WorkoutReceipt(env: AppEnv, workout: Workout, onView: () -> Unit, o
         workout.countedForWeek -> "Counted for this week"
         else -> "Partial · you can count it in History"
     }
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = MaterialTheme.shapes.large.copy(bottomStart = CornerSize(0.dp), bottomEnd = CornerSize(0.dp)),
+    AppSheet(
+        key = workout.id,
+        paneTitle = "${workout.name} saved",
+        onClosed = onClosed,
         modifier = Modifier.testTag("workout-receipt")
-    ) {
+    ) { close ->
         Column(
             Modifier
                 .fillMaxWidth()
@@ -214,9 +208,9 @@ internal fun WorkoutReceipt(env: AppEnv, workout: Workout, onView: () -> Unit, o
                     { SecondaryButton(onClick = { loggingWeight = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Log") } }
                 }
             )
-            @Composable fun View(modifier: Modifier) = OutlinedButton(onClick = onView,
+            @Composable fun View(modifier: Modifier) = OutlinedButton(onClick = { onView(); close() },
                 modifier = modifier.heightIn(min = 48.dp).testTag("receipt-view")) { Text("View workout") }
-            @Composable fun Done(modifier: Modifier) = Button(onClick = onDismiss,
+            @Composable fun Done(modifier: Modifier) = Button(onClick = close,
                 modifier = modifier.heightIn(min = 48.dp).testTag("receipt-done")) { Text("Done") }
             if (large) {
                 Done(Modifier.fillMaxWidth())
