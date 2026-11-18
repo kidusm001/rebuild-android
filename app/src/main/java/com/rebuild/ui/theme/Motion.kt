@@ -2,6 +2,11 @@ package com.rebuild.ui.theme
 
 import android.provider.Settings
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.ui.graphics.isSpecified
+import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.background
+import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.EnterTransition
@@ -21,6 +26,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
@@ -158,9 +164,28 @@ object Motion {
     fun collapseBar(towards: Alignment.Vertical = Alignment.Top): ExitTransition =
         shrinkVertically(collapseSizeSpec(), shrinkTowards = towards)
 
+    /** The travel of a Rise: [Medium], [Travel]. */
+    fun <T> riseSpec(): FiniteAnimationSpec<T> = tween(Medium, easing = Travel)
+
     /** Rise: Fade in plus [Nudge] of upward travel over [Medium], [Travel]. */
     fun rise(nudgePx: Int): EnterTransition =
         fadeIn() + slideInVertically(tween(Medium, easing = Travel)) { nudgePx }
+
+    /** The travel of a Roll: [Short], [Travel], no alpha. */
+    fun <T> rollSpec(): FiniteAnimationSpec<T> = tween(Short, easing = Travel)
+
+    /**
+     * Roll: a count changes like an odometer, clipped to its line box. [up] (the count grew): the new value arrives
+     * from below as the old one leaves upward; down is the reverse.
+     */
+    fun roll(up: Boolean): ContentTransform {
+        val dir = if (up) 1 else -1
+        return ContentTransform(
+            slideInVertically(rollSpec()) { dir * it },
+            slideOutVertically(rollSpec()) { -dir * it },
+            sizeTransform = SizeTransform(clip = true)
+        )
+    }
 
     /** The size transform for a surface that grows by Expand's size spec and shrinks by Collapse's. */
     fun expandOrCollapse(clip: Boolean = false): SizeTransform = SizeTransform(clip) { initial, target ->
@@ -195,15 +220,20 @@ fun animationsOff(): Boolean {
  * out. Identical pixels therefore stay at 100 % at every frame, and pixels that differ truly crossfade.
  *
  * [contentKey] decides what counts as a new surface; the size follows by Expand (growing) or Collapse (shrinking), so
- * the content below moves instead of jumping.
+ * the content below moves instead of jumping. [contentAlignment] is where both copies sit while the size changes (a
+ * bottom-pinned dock keeps its foot still with [Alignment.BottomStart]); [clip] reveals and hides by the moving edge;
+ * [backing] is the container colour drawn behind each copy, for content that does not paint its own.
  */
 @Composable
 fun <S> FadeInOver(
     targetState: S,
     modifier: Modifier = Modifier,
     contentKey: (S) -> Any? = { it },
+    contentAlignment: Alignment = Alignment.TopStart,
+    clip: Boolean = false,
+    backing: Color = Color.Unspecified,
     label: String = "fade-in-over",
-    content: @Composable (S) -> Unit
+    content: @Composable AnimatedVisibilityScope.(S) -> Unit
 ) {
     val sizes = remember { mutableStateMapOf<Any?, IntSize>() }
     val targetKey = contentKey(targetState)
@@ -211,10 +241,10 @@ fun <S> FadeInOver(
         targetState = targetState,
         modifier = modifier,
         contentKey = contentKey,
-        contentAlignment = Alignment.TopStart,
+        contentAlignment = contentAlignment,
         transitionSpec = {
-            (Motion.fadeIn() togetherWith ExitTransition.KeepUntilTransitionsFinished)
-                .using(Motion.expandOrCollapse(clip = false))
+            ContentTransform(Motion.fadeIn(), ExitTransition.KeepUntilTransitionsFinished,
+                sizeTransform = Motion.expandOrCollapse(clip = clip))
         },
         label = label
     ) { shown ->
@@ -226,26 +256,38 @@ fun <S> FadeInOver(
         Box(
             Modifier
                 .onSizeChanged { sizes[key] = it }
-                .drawWithContent {
-                    val incoming = sizes[targetKey]
-                    if (key == targetKey || incoming == null) {
-                        drawContent()
-                    } else {
-                        val w = incoming.width.toFloat()
-                        val h = incoming.height.toFloat()
-                        clipRect(right = w, bottom = h) { this@drawWithContent.drawContent() }
-                        if (overhang > 0f && (size.width > w || size.height > h)) {
-                            val paint = Paint().apply { alpha = overhang }
-                            drawIntoCanvas { canvas ->
-                                canvas.saveLayer(Rect(0f, 0f, size.width, size.height), paint)
-                                // Everything below the incoming rect, then what is beside it.
-                                clipRect(top = h) { this@drawWithContent.drawContent() }
-                                clipRect(left = w, bottom = h) { this@drawWithContent.drawContent() }
-                                canvas.restore()
-                            }
-                        }
-                    }
-                }
+                .fadeOver(incoming = { sizes[targetKey].takeIf { key != targetKey } }, overhang = { overhang },
+                    alignment = contentAlignment)
+                .then(if (backing.isSpecified) Modifier.background(backing) else Modifier)
         ) { content(shown) }
     }
 }
+
+/**
+ * The outgoing side of [FadeInOver], for copies laid out by hand: drawn at alpha 1 inside the incoming copy's rect
+ * ([incoming] is its size, null when this copy is not leaving), and at [overhang] outside it. The two copies are aligned
+ * by [alignment] in the same space.
+ */
+fun Modifier.fadeOver(incoming: () -> IntSize?, overhang: () -> Float, alignment: Alignment = Alignment.TopStart): Modifier =
+    drawWithContent {
+        val size = incoming()
+        if (size == null) {
+            drawContent()
+            return@drawWithContent
+        }
+        val at = alignment.align(size, IntSize(this.size.width.toInt(), this.size.height.toInt()), layoutDirection)
+        val l = at.x.toFloat()
+        val t = at.y.toFloat()
+        val r = l + size.width
+        val b = t + size.height
+        clipRect(l, t, r, b) { this@drawWithContent.drawContent() }
+        val fade = overhang()
+        if (fade > 0f) {
+            val paint = Paint().apply { alpha = fade }
+            drawIntoCanvas { canvas ->
+                canvas.saveLayer(Rect(0f, 0f, this.size.width, this.size.height), paint)
+                clipRect(l, t, r, b, clipOp = ClipOp.Difference) { this@drawWithContent.drawContent() }
+                canvas.restore()
+            }
+        }
+    }

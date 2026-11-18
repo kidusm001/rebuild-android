@@ -1,5 +1,7 @@
 package com.rebuild.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import android.content.res.Configuration
 import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.OnBackPressedDispatcherOwner
@@ -7,6 +9,14 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
+import kotlin.math.roundToInt
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.animation.core.Animatable
+import com.rebuild.domain.RestTimer
+import com.rebuild.domain.Stopwatch
+import com.rebuild.ui.theme.FadeInOver
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Spacer
@@ -33,7 +43,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -42,7 +51,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -295,9 +303,43 @@ fun RebuildApp(
         val timer = state.restTimer.takeIf { !setupShown }
         val watch = state.stopwatch.takeIf { !setupShown }
         val ringing = ringingSince?.takeIf { timer == null && !setupShown }
+        // The shared bars come and go by Expand / Collapse (opaque bar): each is kept, with what it last showed, while
+        // it collapses away. A rest that ends into the Up next takeover goes at once: the sheet grows from its edge.
+        // One reveal value per bar is read both where the bar is drawn and where the layers pad themselves, so the
+        // dock rides the bar's edge in the very same frame.
+        val restFace: BarFace? = when {
+            timer != null -> BarFace.Rest(timer)
+            ringing != null -> BarFace.Alarm(ringing)
+            else -> null
+        }
+        val lastRestFace = remember { arrayOfNulls<BarFace>(1) }
+        if (restFace != null) lastRestFace[0] = restFace
+        val restReveal = remember { Animatable(if (restFace != null) 1f else 0f) }
+        LaunchedEffect(restFace != null) {
+            when {
+                restFace != null -> restReveal.animateTo(1f, Motion.expandSizeSpec())
+                restEnd.current != null -> restReveal.snapTo(0f)
+                else -> restReveal.animateTo(0f, Motion.collapseSizeSpec())
+            }
+        }
+        val restRevealing by remember { derivedStateOf { restReveal.value > 0f } }
+        val restPresent = restFace != null || restRevealing
+        val lastWatch = remember { arrayOfNulls<Stopwatch>(1) }
+        if (watch != null) lastWatch[0] = watch
+        val watchReveal = remember { Animatable(if (watch != null) 1f else 0f) }
+        LaunchedEffect(watch != null) {
+            watchReveal.animateTo(if (watch != null) 1f else 0f,
+                if (watch != null) Motion.expandSizeSpec() else Motion.collapseSizeSpec())
+        }
+        val watchRevealing by remember { derivedStateOf { watchReveal.value > 0f } }
+        val watchPresent = watch != null || watchRevealing
+        chrome.restReveal = { restReveal.value }
+        chrome.watchReveal = { watchReveal.value }
         SideEffect {
             chrome.wide = wide
-            chrome.watchShown = watch != null
+            chrome.watchShown = watchPresent
+            chrome.restTargetShown = restFace != null
+            chrome.watchTargetShown = watch != null
         }
         // The navigation overlay is composed while the target or the layer leaving shows it.
         var navWanted by remember { mutableStateOf(showsNav(route)) }
@@ -350,28 +392,38 @@ fun RebuildApp(
                     }
                 }) else null,
                 // On the workout screen the stopwatch is shown where it times; everywhere else it stays one tap away.
-                watchBar = watch?.let { w -> {
-                    Box(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))) {
+                watchBar = if (!watchPresent) null else ({
+                    val w = watch ?: lastWatch[0]
+                    if (w != null) Box(
+                        Modifier.revealed(watchReveal::value) { chrome.watchFull = it }
+                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                    ) {
                         // An editor's unsaved draft would be lost by leaving it, so the way back is through Back.
                         StopwatchBar(env, w, onOpen = if (Routes.isEditor(route) ||
                             state.activeWorkoutId != w.workoutId) null else ({ nav.push(Routes.WORKOUT) }))
                     }
-                } },
-                restBar = when {
-                    timer != null -> ({
-                        Box(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-                            .onGloballyPositioned { restBarTop = it.boundsInRoot().top }) {
-                            RestBar(env, timer)
+                }),
+                restBar = if (!restPresent) null else ({
+                    val face = restFace ?: lastRestFace[0]
+                    // The ringing alarm takes the rest bar's place, so Stop is where the eye already is. Two amber
+                    // bars in one place: the new one fades in over the old, which never dims.
+                    if (face != null) FadeInOver(
+                        face,
+                        modifier = Modifier.revealed(restReveal::value) { chrome.restFull = it },
+                        contentKey = { it is BarFace.Alarm },
+                        label = "rest-bar-face"
+                    ) { shown ->
+                        Box(Modifier.background(base)
+                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))) {
+                            when (shown) {
+                                is BarFace.Rest -> Box(Modifier.onGloballyPositioned {
+                                    restBarTop = it.boundsInRoot().top
+                                }) { RestBar(env, shown.timer) }
+                                is BarFace.Alarm -> RestAlarmBar(shown.since, clock, onStop = platform::stopRestAlarm)
+                            }
                         }
-                    })
-                    // The ringing alarm takes the rest bar's place, so Stop is where the eye already is.
-                    ringing != null -> ({
-                        Box(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))) {
-                            RestAlarmBar(ringing, clock, onStop = platform::stopRestAlarm)
-                        }
-                    })
-                    else -> null
-                },
+                    }
+                }),
                 snackbar = { SnackbarHost(snackbar) }
             ) {
                 if (state.phase == null) {
@@ -796,4 +848,20 @@ private fun dockPinned(): Boolean {
     val windowHeightDp = configuration.screenHeightDp * displayDensity / density.density
     return configuration.orientation != Configuration.ORIENTATION_LANDSCAPE &&
         density.fontScale <= 1.3f && windowHeightDp >= 600f
+}
+
+/** What the rest bar's place shows: the countdown, or the ringing alarm that takes its place. */
+private sealed interface BarFace {
+    data class Rest(val timer: RestTimer) : BarFace
+    data class Alarm(val since: Long) : BarFace
+}
+
+/**
+ * A bar revealed from its top edge: it reports [reveal] of its full height (written to [full]) and shows its top part,
+ * so a bottom-anchored bar rises with its edge. Read while measuring, in step with the layers' insets.
+ */
+private fun Modifier.revealed(reveal: () -> Float, full: (Int) -> Unit): Modifier = clipToBounds().layout { m, c ->
+    val p = m.measure(c.copy(minHeight = 0))
+    full(p.height)
+    layout(p.width, (p.height * reveal()).roundToInt()) { p.place(0, 0) }
 }

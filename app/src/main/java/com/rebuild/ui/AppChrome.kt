@@ -76,6 +76,20 @@ internal class Chrome(navShownAtStart: Boolean = true) {
     var restHeight by mutableIntStateOf(0)
     /** The rest bar's height once any change of it has finished; what hidden tabs lay out with. */
     var restSettled by mutableIntStateOf(0)
+    /** The rest (or alarm) bar's full height, and whether it is shown once its Expand or Collapse ends. */
+    var restFull by mutableIntStateOf(0)
+    var restTargetShown by mutableStateOf(false)
+    /** How much of the rest bar is revealed (0–1, animated): read by the bar and the live layers in the same frame. */
+    var restReveal: () -> Float = { 1f }
+    /** The same for the stopwatch bar. */
+    var watchFull by mutableIntStateOf(0)
+    var watchTargetShown by mutableStateOf(false)
+    var watchSettled by mutableIntStateOf(0)
+    var watchReveal: () -> Float = { 1f }
+
+    /** The bars' drawn heights this frame, computed exactly as the bars compute them. */
+    private fun restDrawn(): Int = (restFull * restReveal()).roundToInt()
+    private fun watchDrawn(): Int = (watchFull * watchReveal()).roundToInt()
 
     /** 1 while the bottom navigation bar is part of the target layer's chrome, 0 when not (Chrome shift). */
     val navShown = Animatable(if (navShownAtStart) 1f else 0f)
@@ -85,8 +99,8 @@ internal class Chrome(navShownAtStart: Boolean = true) {
     var navInteractive by mutableStateOf(true)
 
     private fun barsPx(route: String, live: Boolean): Int =
-        (if (watchShown && route != Routes.WORKOUT && route != SETUP_ROUTE) watchHeight else 0) +
-            (if (route == SETUP_ROUTE) 0 else if (live) restHeight else restSettled)
+        (if (watchShown && route != Routes.WORKOUT && route != SETUP_ROUTE) (if (live) watchDrawn() else watchSettled) else 0) +
+            (if (route == SETUP_ROUTE) 0 else if (live) restDrawn() else restSettled)
 
     fun bottomPx(route: String, live: Boolean): Int {
         val ime = ime.getBottom(density)
@@ -181,10 +195,15 @@ internal fun AppFrame(
         val barConstraints = Constraints(minWidth = barsWidth, maxWidth = barsWidth, maxHeight = height)
         val watch = part(Part.WATCH)?.measure(barConstraints)
         val rest = part(Part.REST)?.measure(barConstraints)
-        if (watch != null && chrome.watchHeight != watch.height) chrome.watchHeight = watch.height
+        val watchHeight = watch?.height ?: 0
+        if (chrome.watchHeight != watchHeight) chrome.watchHeight = watchHeight
         val restHeight = rest?.height ?: 0
         if (chrome.restHeight != restHeight) chrome.restHeight = restHeight
-        if (chrome.restSettled != restHeight) chrome.restSettled = restHeight
+        // Hidden tabs lay out with where the bars will end, so an Expand or Collapse re-measures them once, not per frame.
+        val restSettled = if (rest != null && chrome.restTargetShown) chrome.restFull else 0
+        if (chrome.restSettled != restSettled) chrome.restSettled = restSettled
+        val watchSettled = if (watch != null && chrome.watchTargetShown) chrome.watchFull else 0
+        if (chrome.watchSettled != watchSettled) chrome.watchSettled = watchSettled
 
         val ime = chrome.ime.getBottom(this)
         val sysNav = chrome.navigationBars.getBottom(this)
