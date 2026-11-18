@@ -264,7 +264,7 @@ internal fun SetupFlow(env: AppEnv, onPlanSaving: (Boolean) -> Unit) {
  */
 @Composable
 private fun actionsPinned(): Boolean = LocalDensity.current.fontScale <= 1.3f &&
-    androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp >= 480
+    with(LocalDensity.current) { androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.height.toDp() } >= 480.dp
 
 /** Whether this setup page has finished sliding in; until then its actions wait. */
 private val LocalSettled = androidx.compose.runtime.staticCompositionLocalOf { true }
