@@ -790,8 +790,9 @@ internal fun ChangeSplitScreen(env: AppEnv, onBack: () -> Unit) {
     var experienceName by rememberSaveable { mutableStateOf(state.split?.experience?.name) }
     var days by rememberSaveable { mutableStateOf(current?.days) }
     var gearName by rememberSaveable { mutableStateOf(state.gear.name) }
-    // A split picked from the list replaces the recommendation until an answer changes.
-    var pickedId by rememberSaveable { mutableStateOf<String?>(null) }
+    // A split picked from the list replaces the recommendation until an answer changes; the split in use starts picked,
+    // so one chosen by hand isn't swapped for the quiz's suggestion just by opening this screen.
+    var pickedId by rememberSaveable { mutableStateOf<String?>(state.activeSplitId) }
     var confirming by rememberSaveable { mutableStateOf(false) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     val experience = experienceName?.let(Experience::valueOf)

@@ -23,6 +23,9 @@ object SnapshotCodec {
     const val MAX_PLATES = 1000
     const val MAX_REST_SECONDS = 3600
     const val SCHEMA_VERSION = 8
+    /** Your own exercises stop at 1,000; built-in catalog revisions always fit above that. */
+    const val MAX_OWN_LIBRARY = 1000
+    const val MAX_LIBRARY = 1100
     const val MAX_BODY_RECORDS = 20000
     private val plateCountToken = Regex("[1-9][0-9]*")
     private val timestampToken = Regex("0|[1-9][0-9]*")
@@ -354,7 +357,7 @@ object SnapshotCodec {
                 "Older data cannot contain timed, distance or cardio exercises, efforts or goals, or a stopwatch.")
         }
         ensure(state.revision >= 0, "The data revision must not be negative.")
-        ensure(state.exercises.size in 1..1000, "The exercise library must contain 1–1,000 exercises.")
+        ensure(state.exercises.size in 1..MAX_LIBRARY, "The exercise library must contain 1–1,100 exercises.")
         ensure(state.templates.size in 1..100, "The plan must contain 1–100 workout templates.")
         ensure(state.workouts.size <= 10000, "A backup may contain at most 10,000 workouts.")
         unique(state.exercises.map { it.id }, "exercise")
@@ -855,6 +858,8 @@ object SnapshotCodec {
                 ensure(planned.filter { it.addition != null }.all { added ->
                     planned.count { it.exerciseId == added.exerciseId } == 1
                 }, "A routine cannot list an exercise you added twice in one phase.")
+                // An addition that a slot also asks for (with this gear, or after a swap) is set aside by
+                // plannedExercises rather than rejected here, so no save that once opened ever stops opening.
             }
         }
     }

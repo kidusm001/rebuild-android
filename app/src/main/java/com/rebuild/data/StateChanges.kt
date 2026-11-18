@@ -416,7 +416,7 @@ internal object StateChanges {
             val definition = library(state, action.exerciseId)
             ensure(definition.measure == Measure.REPS, "${slot.muscle} is planned in sets of reps, so swap it for " +
                 "another rep-based exercise. Add ${definition.name} to the routine on its own instead.")
-            requireNotAdded(state, template, action.phase, definition)
+            requireNotAdded(state, template, action.phase, definition, keeping = state.targetFor(slot, action.phase).exerciseId)
             // A swap never lists one exercise twice in a routine; keeping the current one is always fine.
             ensure(definition.id == state.targetFor(slot, action.phase).exerciseId ||
                 state.plannedExercises(template, action.phase).none { it.exerciseId == definition.id },
@@ -428,6 +428,8 @@ internal object StateChanges {
         is Action.EditToday -> editToday(state, action)
         is Action.AddExercise -> {
             SnapshotCodec.validateExercise(action.exercise)
+            ensure(state.exercises.any { it.id == action.exercise.id } || state.exercises.size < SnapshotCodec.MAX_OWN_LIBRARY,
+                "The exercise library is full (${SnapshotCodec.MAX_OWN_LIBRARY} exercises).")
             state.exercises.find { it.id == action.exercise.id }?.let {
                 ensure(it.measure == action.exercise.measure, "How ${it.name} is measured can't change, so its " +
                     "records keep their meaning. Create a new exercise instead.")
@@ -788,7 +790,8 @@ internal object StateChanges {
             if (slot != null) {
                 ensure(!state.slotRemoved(workout.phase, slot.id),
                     "${entry.exercise.name} was removed from this phase's plan. Restore it in Plan to change it.")
-                requireNotAdded(state, template, workout.phase, replacement)
+                requireNotAdded(state, template, workout.phase, replacement,
+                    keeping = state.targetFor(slot, workout.phase).exerciseId)
                 changed = override(changed, PlanOverride(workout.phase, slot.id, replacement.id, action.sets!!,
                     action.restSeconds, storedGear(state.gear)))
             } else {
@@ -814,8 +817,14 @@ internal object StateChanges {
     }
 
     /** A routine never lists one of the user's own exercises twice. */
-    private fun requireNotAdded(state: AppState, template: ScheduledRoutine, phase: Phase, exercise: Exercise) = ensure(
-        state.planAdditions.none { it.phase == phase && it.templateId == template.id && it.exerciseId == exercise.id },
+    /**
+     * A slot can't take an exercise you already added to the routine. Keeping the slot's own exercise is always fine,
+     * even when an addition of it is set aside because this gear makes the slot ask for it ([keeping]).
+     */
+    private fun requireNotAdded(state: AppState, template: ScheduledRoutine, phase: Phase, exercise: Exercise,
+                                keeping: String? = null) = ensure(
+        exercise.id == keeping ||
+            state.planAdditions.none { it.phase == phase && it.templateId == template.id && it.exerciseId == exercise.id },
         "${exercise.name} is already in ${template.name} as your own exercise.")
 
     /**
@@ -1129,10 +1138,22 @@ internal object StateChanges {
         return split
     }
 
+    /** A split's exercises must all be in the library; the catalog migration adds them, so this only guards. */
+    private fun ensureExercises(state: AppState, split: Split) {
+        val ids = state.exercises.map { it.id }.toSet()
+        val missing = split.templates.flatMap { it.slots }.flatMap { s ->
+            listOfNotNull(s.exerciseId, s.gear?.dumbbell, s.gear?.bodyweight) + s.alternatives +
+                s.gear?.dumbbellAlternatives.orEmpty() + s.gear?.bodyweightAlternatives.orEmpty()
+        }.filterNot { it in ids }
+        ensure(missing.isEmpty(), "This plan needs exercises your library doesn't have yet. Update Rebuild and try again.")
+    }
+
     /** The plan with [split]'s workouts in it. A split's workouts are added once and kept, so history stays whole. */
-    private fun withSplit(state: AppState, split: Split): AppState =
-        if (state.templates.any { it.splitId == split.id }) state
+    private fun withSplit(state: AppState, split: Split): AppState {
+        ensureExercises(state, split)
+        return if (state.templates.any { it.splitId == split.id }) state
         else state.copy(templates = state.templates + split.templates)
+    }
 
     private fun library(state: AppState, id: String): Exercise =
         state.exercises.find { it.id == id } ?: throw RepositoryException("The selected exercise no longer exists.")

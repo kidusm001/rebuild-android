@@ -156,7 +156,8 @@ class CatalogMigrationTest {
 
     @Test fun revisionAndLibraryCapacityLimitsLeaveLegacyDiskUntouched() = runTest {
         val old = legacyState()
-        val full = old.copy(exercises = old.exercises + List(1000 - old.exercises.size) {
+        // Built-in revisions have headroom above your own 1,000, so only a library already at the full cap is refused.
+        val full = old.copy(exercises = old.exercises + List(SnapshotCodec.MAX_LIBRARY - old.exercises.size) {
             Exercise("custom-$it", "Custom $it", custom = true)
         })
         listOf(old.copy(revision = Long.MAX_VALUE, unbackedUpSince = 100), full).forEach { state ->

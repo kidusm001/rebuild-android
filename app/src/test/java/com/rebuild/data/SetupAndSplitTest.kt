@@ -181,4 +181,79 @@ class SetupAndSplitTest {
         assertEquals("and the gym swap comes back with the gym", "squat-back", planned())
         SnapshotCodec.validate(repo.state.value)
     }
+
+    @Test fun anAddedExerciseASlotNowAsksForIsSetAsideNotListedTwice() = runTest {
+        val repo = setUp(Experience.REGULAR, days = 3, gear = Gear.GYM)
+        repo.execute(Action.SavePlanAddition("add-pushup", Phase.INTRO_TWO, "full-body-3-a", "pushup", 2, 6, 20, 90, false))
+        fun dayA() = repo.state.value.let { s ->
+            s.plannedExercises(s.scheduledRoutines().single { it.id == "full-body-3-a" }, Phase.INTRO_TWO).map { it.exerciseId }
+        }
+        assertTrue("pushup" in dayA())
+        // Bodyweight turns the bench slot into push-ups: the switch succeeds and lists push-ups once.
+        repo.execute(Action.ChangeSplit("full-body-3", Gear.BODYWEIGHT, Experience.REGULAR, "2026-11-17"))
+        assertEquals(1, dayA().count { it == "pushup" })
+        assertTrue("the addition stays saved", repo.state.value.planAdditions.any { it.id == "add-pushup" })
+        repo.execute(Action.ChangeSplit("full-body-3", Gear.GYM, Experience.REGULAR, "2026-11-18"))
+        assertTrue("and is listed again with the gym", "pushup" in dayA())
+    }
+
+    @Test fun aFullLibraryStillGetsTheExercisesEverySplitNeeds() = runTest {
+        val full = Seed.initialState().let { seed ->
+            val own = (1..(1000 - (seed.exercises.size - ExerciseCatalog.revisionThree.size))).map {
+                Exercise("own-$it", "My exercise $it", custom = true)
+            }
+            seed.copy(catalogRevision = 2, exercises = seed.exercises.filterNot { e ->
+                ExerciseCatalog.revisionThree.any { it.id == e.id } } + own)
+        }
+        assertEquals(1000, full.exercises.size)
+        val repo = repository(MemoryPersistence(SnapshotCodec.encode(full)))
+        assertTrue(ExerciseCatalog.revisionThree.all { r -> repo.state.value.exercises.any { it.id == r.id } })
+        repo.execute(Action.CompleteSetup(Experience.NEW, "full-body-3", Gear.BODYWEIGHT, MassUnit.KG, "2026-11-16"))
+        assertEquals("full-body-3", repo.state.value.activeSplitId)
+        failure("library is full") { repo.execute(Action.AddExercise(Exercise("one-more", "One more", custom = true))) }
+    }
+
+    @Test fun aLibraryMarkedRevisionThreeWithoutItsExercisesIsRepaired() = runTest {
+        val seed = Seed.initialState()
+        val own = (1..(1000 - (seed.exercises.size - ExerciseCatalog.revisionThree.size))).map {
+            Exercise("own-$it", "My exercise $it", custom = true)
+        }
+        // What an earlier build left behind: revision 3 recorded, its exercises never added for lack of room.
+        val stranded = seed.copy(exercises = seed.exercises.filterNot { e -> ExerciseCatalog.revisionThree.any { it.id == e.id } } + own)
+        assertEquals(3, stranded.catalogRevision)
+        val repo = repository(MemoryPersistence(SnapshotCodec.encode(stranded)))
+        assertTrue(ExerciseCatalog.revisionThree.all { r -> repo.state.value.exercises.any { it.id == r.id } })
+        repo.execute(Action.CompleteSetup(Experience.NEW, "full-body-3", Gear.BODYWEIGHT, MassUnit.KG, "2026-11-16"))
+        assertEquals("full-body-3", repo.state.value.activeSplitId)
+    }
+
+    @Test fun aSwappedSlotWithItsOldExerciseAddedBackStillOpens() = runTest {
+        val repo = setUp(Experience.REGULAR, days = 3, gear = Gear.GYM)
+        repo.execute(Action.EditPlan(Phase.INTRO_TWO, "full-body-3-a-press", "chest-machine", 2, 180))
+        repo.execute(Action.SavePlanAddition("add-bench", Phase.INTRO_TWO, "full-body-3-a", "bench-db", 2, 6, 10, 180, false))
+        val state = repo.state.value
+        assertEquals(state, SnapshotCodec.decode(SnapshotCodec.encode(state)))
+    }
+
+    @Test fun aSetAsideAdditionNeverBlocksEditingTheSlotThatAsksForIt() = runTest {
+        val repo = setUp(Experience.REGULAR, days = 3, gear = Gear.GYM)
+        repo.execute(Action.SavePlanAddition("add-pushup", Phase.INTRO_TWO, "full-body-3-a", "pushup", 2, 6, 20, 90, false))
+        repo.execute(Action.ChangeSplit("full-body-3", Gear.BODYWEIGHT, Experience.REGULAR, "2026-11-17"))
+        // The bench slot now asks for push-ups; changing its sets keeps that exercise and must save.
+        repo.execute(Action.EditPlan(Phase.INTRO_TWO, "full-body-3-a-press", "pushup", 3, 120))
+        val state = repo.state.value
+        assertEquals(3, state.plannedExercises(state.scheduledRoutines().first(), Phase.INTRO_TWO)
+            .single { it.slotId == "full-body-3-a-press" }.sets)
+    }
+
+    @Test fun anExerciseAddedWithDumbbellsThatTheGymSlotUsesStillSwitchesToTheGym() = runTest {
+        val repo = setUp(Experience.REGULAR, days = 3, gear = Gear.DUMBBELLS)
+        // With dumbbells, Full body A's legs slot is a goblet squat, so adding the leg press is allowed.
+        repo.execute(Action.SavePlanAddition("add-press", Phase.INTRO_TWO, "full-body-3-a", "leg-press", 2, 10, 15, 180, false))
+        repo.execute(Action.ChangeSplit("full-body-3", Gear.GYM, Experience.REGULAR, "2026-11-17"))
+        val state = repo.state.value
+        val dayA = state.plannedExercises(state.scheduledRoutines().first(), Phase.INTRO_TWO).map { it.exerciseId }
+        assertEquals("the gym slot asks for it, listed once", 1, dayA.count { it == "leg-press" })
+        assertEquals(state, SnapshotCodec.decode(SnapshotCodec.encode(state)))
+    }
 }
