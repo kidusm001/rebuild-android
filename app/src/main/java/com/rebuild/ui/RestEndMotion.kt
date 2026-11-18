@@ -1,24 +1,20 @@
 package com.rebuild.ui
 
+import androidx.compose.runtime.getValue
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -36,7 +32,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -47,7 +42,6 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
@@ -58,13 +52,17 @@ import androidx.compose.ui.unit.sp
 import com.rebuild.platform.RestContext
 import com.rebuild.ui.theme.Numerals
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.first
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.platform.LocalDensity
+import com.rebuild.ui.theme.Motion
+import com.rebuild.ui.theme.motionDelay
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** Material's emphasized accelerate: leaves gathering speed, never reversing. */
-private val Leave = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
-/** Material's emphasized decelerate: arrives fast and settles soft. */
-private val Arrive = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+private val Arrive = Motion.Arrive
 
 
 /**
@@ -194,13 +192,16 @@ internal fun RestEndTakeover(
     LaunchedEffect(key) {
         if (!still) coroutineScope {
             // A firm spring: it arrives with intent and settles without drifting; one tick as it lands.
+            launch { cover.animateTo(1f, spring(dampingRatio = 0.92f, stiffness = 420f)) }
+            // The tick lands with the sheet: the first frame it looks landed (98 %), not when the spring has
+            // crept to its threshold, which is visibly later.
             launch {
-                cover.animateTo(1f, spring(dampingRatio = 0.92f, stiffness = 420f))
+                snapshotFlow { cover.value }.first { it >= 0.98f }
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             }
             // Once the sheet is most of the way up: the small lines simply fade in, the numeral rolls.
-            launch { delay(180); words.animateTo(1f, tween(150, easing = LinearEasing)) }
-            launch { delay(170); roll.animateTo(1f, tween(420, easing = Arrive)) }
+            launch { motionDelay(180); words.animateTo(1f, tween(150, easing = LinearEasing)) }
+            launch { motionDelay(170); roll.animateTo(1f, tween(420, easing = Arrive)) }
         }
         // Hold long enough to read from arm's length, the ink line draining as it goes, unless a tap asks it to go.
         if (still) kotlinx.coroutines.withTimeoutOrNull(1_500) { early.await() }
@@ -214,9 +215,15 @@ internal fun RestEndTakeover(
         if (!still) {
             // The words leave first, so they don't ride the sheet down like a sticker; then the sheet drops.
             wordsOut.animateTo(1f, tween(120, easing = LinearEasing))
-            leave.animateTo(1f, tween(280, easing = Leave))
+            leave.animateTo(1f, Motion.sheetOutSpec())
         }
         finished()
+    }
+    val density = LocalDensity.current
+    /** The sheet's top edge: from the rest bar's top (or near the foot) up to the screen's top as it covers. */
+    fun sheetTop(height: Float): Float {
+        val from = (startTop ?: (height - with(density) { 120.dp.toPx() })).coerceIn(0f, height)
+        return from * (1f - cover.value.coerceIn(0f, 1f))
     }
     val numeral = MaterialTheme.typography.displayLarge.copy(fontFamily = Numerals, fontWeight = FontWeight.Bold,
         fontSize = 240.sp, lineHeight = 200.sp, letterSpacing = (-6).sp)
@@ -240,10 +247,12 @@ internal fun RestEndTakeover(
                 }
             }
             .graphicsLayer { translationY = size.height * leave.value }
+            // Nothing of the takeover is drawn outside its sheet: the old numeral, at full ink from the start, would
+            // otherwise sit over the uncovered workout while the sheet rises.
+            .drawWithContent { clipRect(top = sheetTop(size.height)) { this@drawWithContent.drawContent() } }
             .drawBehind {
-                val from = (startTop ?: (size.height - 120.dp.toPx())).coerceIn(0f, size.height)
                 val c = cover.value.coerceIn(0f, 1f)
-                val top = from * (1f - c)
+                val top = sheetTop(size.height)
                 val radius = 24.dp.toPx() * (1f - c)
                 drawRoundRect(amber, topLeft = Offset(0f, top), size = Size(size.width, size.height - top + radius),
                     cornerRadius = CornerRadius(radius))
