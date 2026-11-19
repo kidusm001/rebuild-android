@@ -221,7 +221,7 @@ fun <S> MotionCrossfade(
     modifier: Modifier = Modifier,
     contentKey: (S) -> Any? = { it },
     label: String = "crossfade",
-    content: @Composable (S) -> Unit
+    content: @Composable AnimatedVisibilityScope.(S) -> Unit
 ) = AnimatedContent(
     targetState = targetState,
     modifier = modifier,

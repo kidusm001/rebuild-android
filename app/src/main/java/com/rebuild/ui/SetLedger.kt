@@ -63,7 +63,11 @@ import com.rebuild.domain.openGroup
 import com.rebuild.domain.workEntries
 import com.rebuild.domain.workingCount
 
-private enum class LedgerState { LOGGED, NEXT, PLANNED, PREVIOUS_ONLY }
+private enum class LedgerState {
+    LOGGED, NEXT, PLANNED, PREVIOUS_ONLY,
+    /** The next set's empty slot on its way out (the set was just logged): its outline only, no label. */
+    LEAVING
+}
 
 /**
  * One working-set ordinal. [previous] is only ever a same-unit working entry from the last comparable
@@ -304,7 +308,10 @@ private class LedgerBand {
 private fun LoggedOrSlot(row: LedgerRow, modifier: Modifier, content: @Composable (LedgerRow, Modifier) -> Unit) {
     val latest by androidx.compose.runtime.rememberUpdatedState(content)
     com.rebuild.ui.theme.MotionCrossfade(row, modifier, contentKey = { it.today != null }, label = "ledger-cell") { shown ->
-        latest(shown, Modifier)
+        // A slot giving way to its logged value is no longer next: its "Up next" goes at once (the next row says it
+        // now), only its outline fades.
+        val leaving = transition.targetState == androidx.compose.animation.EnterExitState.PostExit
+        latest(if (leaving && shown.state == LedgerState.NEXT) shown.copy(state = LedgerState.LEAVING) else shown, Modifier)
     }
 }
 
@@ -428,9 +435,9 @@ private fun RowToday(row: LedgerRow, exercise: Exercise, extra: Boolean, stacked
         is WorkEntry.Single -> TodayCell(entry.set, "Set ${row.ordinal}", extra, exercise, stacked, onEdit, modifier)
         is WorkEntry.Group -> GroupRow(entry, "Set ${row.ordinal}", exercise, extra, onOpen = { onGroup(entry.group.id) },
             modifier = modifier.then(if (stacked) Modifier.fillMaxWidth() else Modifier))
-        null -> if (row.state == LedgerState.NEXT || row.state == LedgerState.PLANNED) {
+        null -> if (row.state == LedgerState.NEXT || row.state == LedgerState.PLANNED || row.state == LedgerState.LEAVING) {
             val accent = accentText()
-            val next = row.state == LedgerState.NEXT
+            val next = row.state == LedgerState.NEXT || row.state == LedgerState.LEAVING
             Box(
                 modifier.heightIn(min = 44.dp).then(if (stacked) Modifier.fillMaxWidth() else Modifier)
                     // A filled slot, not a dashed wireframe: amber-tinted for the next set, neutral for later ones.
@@ -443,7 +450,9 @@ private fun RowToday(row: LedgerRow, exercise: Exercise, extra: Boolean, stacked
                 contentAlignment = Alignment.CenterStart
             ) {
                 // The dashed outline already says nothing is logged; the label only says which row is next.
-                if (next) Text("Up next", style = MaterialTheme.typography.labelLarge, color = accent)
+                // The leaving slot keeps its line height, so nothing moves while its outline fades.
+                if (row.state == LedgerState.LEAVING) Text("", style = MaterialTheme.typography.labelLarge)
+                else if (next) Text("Up next", style = MaterialTheme.typography.labelLarge, color = accent)
                 else Text("Not logged", style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
