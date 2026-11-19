@@ -47,8 +47,11 @@ Everything visual comes from `ui/theme/Theme.kt` and the shared components in
   roll in the direction they change. Motion that follows a finger is instant.
   Every value comes from `ui/theme/Motion.kt`. Android's animation scale,
   including Remove animations, applies to animation; thresholds that carry
-  information (a slow save, a slow load) are real time. No frame is ever blank.
-- **Haptics.** A confirm tick the moment a set is saved and as a workout's
+  information (a slow save, a slow load) are real time. No frame is ever blank,
+  and no change is shown half made: a transition starts from its first drawn
+  frame, and the kinds of drawing transitions need are drawn once, unseen, while
+  the app is idle after launch.
+- **Haptics.** A confirm tick as a saved set first shows and as a workout's
   receipt lands; a long-press tick as Up next covers the screen and as a held
   exercise pill lifts, and a light tick each time it passes another. Motion never
   delays a tick.
@@ -56,8 +59,8 @@ Everything visual comes from `ui/theme/Theme.kt` and the shared components in
   wider. Predictive Back is enabled. Bars paint behind the gesture area in their
   own color and ride above the keyboard. The four tabs are built once, warmed
   in the background after launch, and kept: switching tabs shows an
-  already-built screen with its scroll position and sub-tab, crossfading over
-  the one it replaces. Pushed screens come in from the right and leave the way
+  already-built screen with its scroll position and sub-tab, fading in over
+  the one it replaces (which stays whole beneath it until covered). Pushed screens come in from the right and leave the way
   they came; Back's gesture previews the screen beneath, except where Back asks
   first. Hidden tabs are absent from the semantics tree and Back, and
   don't recompose while another screen changes the data. Pushed screens
