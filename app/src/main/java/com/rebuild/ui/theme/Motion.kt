@@ -22,6 +22,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -279,6 +280,8 @@ fun <S> FadeInOver(
     contentAlignment: Alignment = Alignment.TopStart,
     clip: Boolean = false,
     backing: Color = Color.Unspecified,
+    /** Swap at once, with no fade and no size change (a screen coming back with what changed while it was hidden). */
+    instant: Boolean = false,
     label: String = "fade-in-over",
     content: @Composable AnimatedVisibilityScope.(S) -> Unit
 ) {
@@ -292,14 +295,16 @@ fun <S> FadeInOver(
         contentKey = contentKey,
         contentAlignment = contentAlignment,
         transitionSpec = {
-            ContentTransform(Motion.fadeIn(), ExitTransition.KeepUntilTransitionsFinished,
+            if (instant) ContentTransform(EnterTransition.None, ExitTransition.None, sizeTransform = null)
+            else ContentTransform(Motion.fadeIn(), ExitTransition.KeepUntilTransitionsFinished,
                 sizeTransform = Motion.expandOrCollapse(clip = clip))
         },
         label = label
     ) { shown ->
         val key = contentKey(shown)
         // The outgoing copy's overhang (outside the incoming rect) fades by Fade out; inside it stays at 1.
-        val overhang by transition.animateFloat(transitionSpec = { Motion.fadeOutSpec() }, label = "overhang") {
+        val overhang by transition.animateFloat(transitionSpec = { if (instant) snap() else Motion.fadeOutSpec() },
+            label = "overhang") {
             if (it == EnterExitState.PostExit) 0f else 1f
         }
         Box(

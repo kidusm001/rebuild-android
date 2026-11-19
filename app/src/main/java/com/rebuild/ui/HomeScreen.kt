@@ -8,6 +8,9 @@ import androidx.compose.ui.platform.LocalContext
 import android.content.Context
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterExitState
 import com.rebuild.ui.theme.Motion
@@ -109,6 +112,11 @@ internal fun HomeScreen(
     val busyNow = env.runner.looksBusy()
     if (starting && busyNow && !holdBusy) SideEffect { holdBusy = true }
     val layerActive = LocalLayerActive.current
+    // The composition Today comes back on screen in (a pop, a tab switch, under a receipt): what changed while it was
+    // hidden is simply there, as it would be on any screen opened fresh, not replayed as a change.
+    val wasActive = remember { booleanArrayOf(layerActive) }
+    val returning = layerActive && !wasActive[0]
+    SideEffect { wasActive[0] = layerActive }
     // Back on screen (the workout left, or the start failed), Today is itself again.
     LaunchedEffect(layerActive) { if (layerActive) { starting = false; holdBusy = false } }
     fun failed(message: String) {
@@ -207,11 +215,14 @@ internal fun HomeScreen(
                     }
                 }
                 SideEffect { heroes.keys.retainAll(setOf(heroKey, shownHero)); shownHero = heroKey }
-                FadeInOver(heroKey, label = "today-hero") { key -> heroes[key]?.invoke() }
+                FadeInOver(heroKey, instant = returning, label = "today-hero") { key -> heroes[key]?.invoke() }
                 // The sections below come in another order with a workout in progress. Changing between the two (a
                 // finish or a discard here) crossfades them while their height follows the hero's, by Expand or
                 // Collapse, instead of jumping; the copy leaving is inert.
-                AnimatedContent(active != null, transitionSpec = { Motion.crossfade() using Motion.expandOrCollapse() },
+                AnimatedContent(active != null, transitionSpec = {
+                    if (returning) EnterTransition.None togetherWith ExitTransition.None using null
+                    else Motion.crossfade() using Motion.expandOrCollapse()
+                },
                     label = "today-sections") { activeLayout ->
                 Column(
                     Modifier.then(if (transition.targetState == EnterExitState.PostExit) INERT else Modifier),
