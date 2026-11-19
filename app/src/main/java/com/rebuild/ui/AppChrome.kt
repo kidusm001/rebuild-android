@@ -265,8 +265,9 @@ internal class LayerMotion(alpha: Float, dx: Float = 0f) {
     /** A back preview is showing this layer over another: it draws the canvas behind itself until it is put away. */
     var previewing by mutableStateOf(false)
     /**
-     * Coming in over a peer that stays whole beneath it (Fade in over, for tab switches): this layer draws the canvas
-     * behind itself while it fades in, so it replaces the one beneath rather than showing through it.
+     * The layer on top while a move runs (the one fading in on a tab switch or a push, the one leaving on a pop): it
+     * draws the canvas behind itself, an opaque card, so the layer beneath shows only as much as it is faded, never at
+     * full strength through it.
      */
     var backed by mutableStateOf(false)
 }

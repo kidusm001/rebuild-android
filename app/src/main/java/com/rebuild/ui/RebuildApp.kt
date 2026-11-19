@@ -517,6 +517,37 @@ private fun SetLoggedTick(runner: ActionRunner, state: AppState) {
     }
 }
 
+/** The push or pop itself: the incoming layer's Lateral enter, the outgoing one's Lateral exit, the Chrome shift. */
+private suspend fun kotlinx.coroutines.CoroutineScope.move(
+    plan: Plan,
+    incoming: LayerMotion,
+    outgoing: LayerMotion,
+    navIn: Boolean,
+    navOut: Boolean?,
+    density: Density,
+    chrome: Chrome
+) {
+    launch { incoming.alpha.animateTo(1f, Motion.fadeInSpec()) }
+    launch { incoming.dx.animateTo(0f, Motion.lateralEnterTravelSpec(navigation = true)) }
+    launch { outgoing.alpha.animateTo(0f, Motion.lateralExitSpec()) }
+    val away = with(density) {
+        when (plan.move) {
+            Move.PUSH -> -Motion.Parallax.toPx()
+            Move.POP -> Motion.Shift.toPx()
+            else -> 0f
+        }
+    }
+    if (away != 0f) launch { outgoing.dx.animateTo(away, Motion.lateralExitSpec()) }
+    // Chrome shift: the shared bars leave the navigation bar's top at once on a push, and reach it only once the layer
+    // leaving is half gone on a pop, so they never cover a layer drawn above 0.5.
+    if (navOut != null && navIn != navOut) launch {
+        if (navIn) snapshotFlow { outgoing.alpha.value }.first { it <= 0.5f }
+        chrome.navShown.animateTo(if (navIn) 1f else 0f, Motion.chromeShiftSpec())
+    } else {
+        chrome.navShown.snapTo(if (navIn) 1f else 0f)
+    }
+}
+
 /** Everything a screen needs; a new instance only when the state or one of its services changes. */
 internal class AppEnv(
     val state: AppState,
@@ -737,25 +768,15 @@ private fun AppDestination(
                     incoming.backed = false
                 }
                 outgoing.alpha.snapTo(0f)
-            } else coroutineScope {
-                launch { incoming.alpha.animateTo(1f, Motion.fadeInSpec()) }
-                launch { incoming.dx.animateTo(0f, Motion.lateralEnterTravelSpec(navigation = true)) }
-                launch { outgoing.alpha.animateTo(0f, Motion.lateralExitSpec()) }
-                val away = with(density) {
-                    when (plan.move) {
-                        Move.PUSH -> -Motion.Parallax.toPx()
-                        Move.POP -> Motion.Shift.toPx()
-                        else -> 0f
-                    }
-                }
-                if (away != 0f) launch { outgoing.dx.animateTo(away, Motion.lateralExitSpec()) }
-                // Chrome shift: the shared bars leave the navigation bar's top at once on a push, and reach it only
-                // once the layer leaving is half gone on a pop, so they never cover a layer drawn above 0.5.
-                if (navOut != null && navIn != navOut) launch {
-                    if (navIn) snapshotFlow { outgoing.alpha.value }.first { it <= 0.5f }
-                    chrome.navShown.animateTo(if (navIn) 1f else 0f, Motion.chromeShiftSpec())
-                } else {
-                    chrome.navShown.snapTo(if (navIn) 1f else 0f)
+            } else {
+                // The layer on top (the one coming in on a push, the one leaving on a pop) is an opaque card for the
+                // whole move: what it covers shows only as much as it is faded, never at full strength through it.
+                val top = if (plan.move == Move.POP) outgoing else incoming
+                top.backed = true
+                try {
+                    coroutineScope { move(plan, incoming, outgoing, navIn, navOut, density, chrome) }
+                } finally {
+                    top.backed = false
                 }
             }
         }
@@ -788,8 +809,9 @@ private fun AppDestination(
                 under.alpha.snapTo(0.6f + 0.4f * p)
                 under.dx.snapTo(-parallax * (1f - p))
             }
-            // Committed: the pop goes on from where the preview is, the screen leaving fading as any pop's does.
-            top.previewing = false
+            // Committed: the pop goes on from where the preview is. The card stays an opaque card (its canvas backing
+            // kept) while it fades, so the screen beneath never shows through it at full strength; it is put away
+            // with its motion once the pop is done.
             book.previewed = underKey
             peek = null
             nav.pop()
