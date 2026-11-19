@@ -62,8 +62,6 @@ import kotlinx.coroutines.launch
 
 /** A flick down faster than this closes the sheet wherever it is. */
 private val DISMISS_VELOCITY = 1000.dp
-/** The share of its height still hidden when the sheet counts as on its way in. */
-private const val SHOWN_AT = 0.85f
 /** Dragged further than this share of its height, the sheet closes when let go. */
 private const val DISMISS_FRACTION = 0.5f
 
@@ -83,8 +81,10 @@ internal fun AppSheet(
     paneTitle: String,
     onClosed: () -> Unit,
     modifier: Modifier = Modifier,
-    /** Runs once the sheet has been drawn on its way in (or at rest, after recreation). */
+    /** Runs once the sheet has been drawn (below the screen, or at rest after recreation), as its travel starts. */
     onShown: () -> Unit = {},
+    /** The dim already over the app as the sheet arrives (a window it replaces), where its scrim starts. */
+    scrimFrom: Float = 0f,
     content: @Composable (close: () -> Unit) -> Unit
 ) {
     val haptics = LocalHapticFeedback.current
@@ -110,13 +110,10 @@ internal fun AppSheet(
             shown()
             return@LaunchedEffect
         }
-        // Shown once it is visibly on its way (a sixth of its travel, drawn): whatever covered the wait (the finish
-        // dialog) leaves only when the sheet and the scrim are already coming in beneath it, even after a slow frame.
-        launch {
-            snapshotFlow { hidden.value }.first { it <= SHOWN_AT }
-            withFrameNanos { }
-            shown()
-        }
+        // Drawn once, below the screen: whatever covered the wait (the finish dialog) now goes, at once, and its dim
+        // carries over into this scrim, which settles to its own strength as the sheet comes in.
+        scrim.snapTo(scrimFrom)
+        shown()
         launch { scrim.animateTo(Motion.ScrimAlpha, Motion.scrimInSpec()) }
         launch {
             snapshotFlow { hidden.value }.first { it <= 0.02f }

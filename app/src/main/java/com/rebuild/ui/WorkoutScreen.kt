@@ -22,6 +22,7 @@ import kotlinx.coroutines.coroutineScope
 
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.DisposableEffect
 import kotlinx.coroutines.launch
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -1443,11 +1444,20 @@ internal fun FinishWorkoutDialog(
     onFinished: () -> Unit,
     onDiscard: (() -> Unit)? = null
 ) {
-    // A finish that lands keeps this dialog (and its scrim) up until the receipt is drawn on its way in, then it goes
-    // over the rising sheet: never a frame of the finished workout, bare, in between.
+    // A finish that lands keeps this dialog (and its dim) up, busy, until the receipt has been drawn below the screen.
+    // Then it goes at once, with no window exit, while the receipt's own scrim takes over its dim: the sheet never
+    // passes under the dialog, and there is never a frame of the finished workout, bare, in between.
+    val saved = env.runner.receiptPending == workout.id
     val receiptUp = env.runner.receiptOnScreen == workout.id
     LaunchedEffect(receiptUp) { if (receiptUp) onFinished() }
     if (receiptUp) return
+    val busy = env.runner.looksBusy() || saved
+    // The dialog's dim is the app's own scrim (see DialogDimmedByApp), asked for in the frame the dialog is.
+    val dim = dialogDim()
+    DisposableEffect(Unit) {
+        env.runner.cover(dim)
+        onDispose { if (env.runner.receiptOnScreen == null) env.runner.cover(0f) }
+    }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var countForWeek by rememberSaveable(workout.id) { mutableStateOf(false) }
     var discardWatch by rememberSaveable(workout.id) { mutableStateOf(false) }
@@ -1549,7 +1559,7 @@ internal fun FinishWorkoutDialog(
                 )
                 CheckRow(
                     "Discard the stopwatch's effort", discardWatch, { discardWatch = it },
-                    enabled = !env.runner.looksBusy(),
+                    enabled = !busy,
                     supporting = "Its time isn't saved anywhere.",
                     modifier = Modifier.testTag("finish-discard-stopwatch")
                 )
@@ -1558,7 +1568,7 @@ internal fun FinishWorkoutDialog(
                 CheckRow(
                     "Count ${workout.name} as done for its ${weekOf(workout.weekStart())}",
                     countForWeek, { countForWeek = it },
-                    enabled = !env.runner.looksBusy(),
+                    enabled = !busy,
                     supporting = "You can change this later in History",
                     modifier = Modifier.testTag("count-for-week")
                 )
@@ -1567,7 +1577,7 @@ internal fun FinishWorkoutDialog(
             if (workout.extra && logged == 0 && onDiscard != null) {
                 TextButton(
                     onClick = onDiscard,
-                    enabled = !env.runner.looksBusy(),
+                    enabled = !busy,
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                     modifier = Modifier.heightIn(min = 48.dp).testTag("finish-discard")
                 ) { Text("Discard workout") }
@@ -1587,12 +1597,15 @@ internal fun FinishWorkoutDialog(
                         onSaved = { env.runner.receiptFor(workout.id) }
                     )
                 },
-                enabled = !env.runner.looksBusy() && canFinish,
+                enabled = !busy && canFinish,
                 modifier = Modifier.testTag("confirm-button")
             ) { Text(if (openSets.isNotEmpty()) "Finish set and workout" else "Finish") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.testTag("dialog-cancel")) { Text("Cancel") }
+            TextButton(onClick = onDismiss, enabled = !saved, modifier = Modifier.testTag("dialog-cancel")) { Text("Cancel") }
+            // Its dim is the app's own scrim, and once saved it leaves with no window exit: the receipt's scrim takes
+            // that dim over in the frame the receipt arrives, and the dialog's card is simply gone.
+            DialogDimmedByApp(leavesAtOnce = saved)
         }
     )
 }
@@ -1653,3 +1666,40 @@ internal class FocusMotion(
     /** The incoming dock's size while this copy is leaving, else null. */
     val incomingDock: () -> IntSize? = { null }
 )
+
+/**
+ * A dialog whose dim is drawn by the app ([ActionRunner.coverDim], asked for by the dialog's caller) instead of by its
+ * window, so whatever the app draws next (the receipt's scrim) can take that dim over in one frame. With [leavesAtOnce]
+ * the window also loses its exit animation, so it is gone in one frame when it leaves.
+ */
+@Composable
+private fun DialogDimmedByApp(leavesAtOnce: Boolean) {
+    val view = androidx.compose.ui.platform.LocalView.current
+    val window = remember(view) {
+        var node: Any? = view
+        var found: android.view.Window? = null
+        while (node != null && found == null) {
+            found = (node as? androidx.compose.ui.window.DialogWindowProvider)?.window
+            node = (node as? android.view.View)?.parent
+        }
+        found
+    }
+    SideEffect {
+        window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        if (leavesAtOnce) window?.setWindowAnimations(0)
+    }
+}
+
+/** How strongly the platform dims the app behind a dialog. */
+@Composable
+private fun dialogDim(): Float {
+    val context = LocalContext.current
+    return remember(context) {
+        context.obtainStyledAttributes(intArrayOf(android.R.attr.backgroundDimAmount)).run {
+            getFloat(0, DEFAULT_DIALOG_DIM).also { recycle() }
+        }
+    }
+}
+
+/** The platform's dim behind a dialog, when its theme doesn't say. */
+private const val DEFAULT_DIALOG_DIM = 0.6f

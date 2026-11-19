@@ -482,6 +482,8 @@ fun RebuildApp(
                     onArriving = { stageScope.launch { stepOut.animateTo(0f, Motion.lateralExitSpec()) } },
                     onArrived = { arrived = true }, onNavWanted = { navWanted = it })
             }
+            // The finish dialog's dim, drawn by the app so the receipt's scrim can take it over in the frame it arrives.
+            CoverScrim(runner)
             receiptFor?.let { id ->
                 state.workouts.find { it.id == id }?.let { finished ->
                     WorkoutReceipt(env, finished,
@@ -498,6 +500,21 @@ fun RebuildApp(
             }
         }
     }
+}
+
+/** The in-app scrim standing in for a dialog's dim ([ActionRunner.coverDim]); gone the frame a receipt takes it over. */
+@Composable
+private fun CoverScrim(runner: ActionRunner) {
+    val target = runner.coverDim
+    val alpha = remember { Animatable(0f) }
+    LaunchedEffect(target) {
+        alpha.animateTo(target, if (target > 0f) Motion.fadeInSpec() else Motion.fadeOutSpec())
+    }
+    val color = MaterialTheme.colorScheme.scrim
+    Box(Modifier.fillMaxSize().drawBehind {
+        val a = if (runner.receiptOnScreen != null) 0f else alpha.value
+        if (a > 0f) drawRect(color, alpha = a)
+    })
 }
 
 /**

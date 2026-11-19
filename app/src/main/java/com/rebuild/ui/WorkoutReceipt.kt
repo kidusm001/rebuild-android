@@ -120,6 +120,7 @@ internal fun WorkoutReceipt(env: AppEnv, workout: Workout, onView: () -> Unit, o
         paneTitle = "${workout.name} saved",
         onClosed = onClosed,
         onShown = onShown,
+        scrimFrom = env.runner.coverDim,
         modifier = Modifier.testTag("workout-receipt")
     ) { close ->
         Column(

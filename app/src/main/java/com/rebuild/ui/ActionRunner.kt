@@ -62,14 +62,27 @@ class ActionRunner(
     }
 
     /**
-     * The workout whose receipt has been drawn on its way in. The finish dialog stays up until then, so its scrim covers
-     * the wait for the finished state and the receipt's first frames.
+     * The workout whose receipt has been drawn (still below the screen). The finish dialog stays up until then, so its
+     * dim covers the wait for the finished state and the receipt's first frame.
      */
     var receiptOnScreen by mutableStateOf<String?>(null)
         private set
 
     fun receiptDrawn(workoutId: String) {
         receiptOnScreen = workoutId
+        // The receipt's own scrim has taken the dialog's dim over.
+        coverDim = 0f
+    }
+
+    /**
+     * The in-app scrim standing in for the finish dialog's own dim (0 when none): the dialog's window dims nothing, so
+     * the app draws this beneath it, and the receipt's scrim takes it over in the very frame the receipt arrives.
+     */
+    var coverDim by mutableStateOf(0f)
+        private set
+
+    fun cover(dim: Float) {
+        coverDim = dim
     }
 
     fun receiptShown() {
