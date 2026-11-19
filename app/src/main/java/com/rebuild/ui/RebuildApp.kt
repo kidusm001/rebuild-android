@@ -721,7 +721,23 @@ private fun AppDestination(
         } else {
             // t = 0 is the first frame the incoming layer has been drawn.
             withFrameNanos { }
-            coroutineScope {
+            if (plan.move == Move.FADE) {
+                // Peers (a tab switch, or Today under a finished workout's receipt): the incoming screen, opaque on
+                // the canvas, fades in over the one leaving, which stays whole beneath it until it is covered. Every
+                // frame is one screen or a true mix of the two, never both faded toward the empty canvas.
+                incoming.backed = true
+                try {
+                    coroutineScope {
+                        launch { incoming.alpha.animateTo(1f, Motion.fadeInSpec()) }
+                        if (navOut != null && navIn != navOut) launch {
+                            chrome.navShown.animateTo(if (navIn) 1f else 0f, Motion.chromeShiftSpec())
+                        } else chrome.navShown.snapTo(if (navIn) 1f else 0f)
+                    }
+                } finally {
+                    incoming.backed = false
+                }
+                outgoing.alpha.snapTo(0f)
+            } else coroutineScope {
                 launch { incoming.alpha.animateTo(1f, Motion.fadeInSpec()) }
                 launch { incoming.dx.animateTo(0f, Motion.lateralEnterTravelSpec(navigation = true)) }
                 launch { outgoing.alpha.animateTo(0f, Motion.lateralExitSpec()) }
@@ -905,7 +921,7 @@ private fun LayerBox(
                 }
             }
             // A previewed screen is a card over the one beneath: opaque, not see-through where it draws nothing.
-            .drawBehind { if (motion?.previewing == true) drawRect(canvas) }
+            .drawBehind { if (motion?.previewing == true || motion?.backed == true) drawRect(canvas) }
             // Input and screen readers reach only the target, from the transition's first frame.
             .then(if (isTarget) Modifier else INERT)
             .layerInsets(chrome, layerRoute, live = isTarget || leaving)
