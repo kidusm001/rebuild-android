@@ -15,3 +15,12 @@ Each tool reads a screen recording, made with `.claude/skills/verify-rebuild/scr
 - `tools/presence.py` measures how much of the screen is present in each frame of a transition, against the settled screens on either side. A transition passes at 0.40 or more.
 - `tools/regiondiff.py` finds the first frame where a region changes.
 - `tools/hrec.sh` and `tools/hapt.py` record with haptic timestamps from `dumpsys vibrator_manager`, and place each tick against the frames it should land with.
+- `tools/framestats.py` and `tools/framestats_cmp.py` read `dumpsys gfxinfo framestats` dumps: the worst frame per
+  dump, and a side-by-side table per moment and build.
+- `tools/perfrun.sh` drives the first push, log, Target done and Next (and repeats) in a fresh process and dumps
+  framestats per moment; `tools/prep-fresh.sh` gets a fresh process on Today with nothing active.
+- `tools/tracetap.sh`, `tools/tracemoments.sh` and `tools/shadercompiles.py` trace those moments with `atrace` and
+  count the GPU programs compiled in each.
+- `tools/xy.sh` finds a control's centre on screen; `tools/drive-*.sh` drive the recorded moments with device-time
+  marks.
+
