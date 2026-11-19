@@ -33,6 +33,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateMapOf
 import com.rebuild.ui.theme.FadeInOver
 import androidx.compose.runtime.getValue
@@ -100,20 +102,40 @@ internal fun HomeScreen(
     val checklist = state.weekChecklist(date) ?: return
     val active = state.activeWorkout
     var startError by rememberSaveable { mutableStateOf<String?>(null) }
+    // A start in flight: if it shows the busy look, Today keeps it while it is the layer leaving under the workout
+    // (inert, frozen), so it never looks idle with an enabled Start while the workout comes in.
+    var starting by remember { mutableStateOf(false) }
+    var holdBusy by remember { mutableStateOf(false) }
+    val busyNow = env.runner.looksBusy()
+    if (starting && busyNow && !holdBusy) SideEffect { holdBusy = true }
+    val layerActive = LocalLayerActive.current
+    // Back on screen (the workout left, or the start failed), Today is itself again.
+    LaunchedEffect(layerActive) { if (layerActive) { starting = false; holdBusy = false } }
+    fun failed(message: String) {
+        startError = message
+        starting = false
+        holdBusy = false
+        onStarting(false)
+    }
     fun start(template: ScheduledRoutine) {
         startError = null
-        if (env.runner.run(Action.StartWorkout(template.id, env.clock()),
-                onError = { startError = it; onStarting(false) })) onStarting(true)
+        if (env.runner.run(Action.StartWorkout(template.id, env.clock()), onError = ::failed)) {
+            starting = true
+            onStarting(true)
+        }
     }
 
     fun startExtra() {
         startError = null
-        if (env.runner.run(Action.StartExtraWorkout(env.clock()),
-                onError = { startError = it; onStarting(false) })) onStarting(true)
+        if (env.runner.run(Action.StartExtraWorkout(env.clock()), onError = ::failed)) {
+            starting = true
+            onStarting(true)
+        }
     }
 
     val heroes = remember { mutableStateMapOf<String, @Composable () -> Unit>() }
     var shownHero by remember { mutableStateOf("") }
+    CompositionLocalProvider(LocalBusyHeld provides holdBusy) {
     ScreenScaffold(title = weekdayName(today), subtitle = "${dayMonthFormat.format(date)} · ${phaseShort(phase)}") {
         ScrollBody {
             // Sections sit 24dp apart: 16 here plus the section header's own 8 above its title.
@@ -234,6 +256,7 @@ internal fun HomeScreen(
                 }
             }
         }
+    }
     }
 }
 

@@ -171,4 +171,10 @@ class ActionRunner(
  */
 @Composable
 internal fun ActionRunner.looksBusy(tag: String? = null): Boolean =
-    LocalLayerActive.current && (if (tag == null) showsBusy else showsBusy(tag))
+    LocalBusyHeld.current || (LocalLayerActive.current && (if (tag == null) showsBusy else showsBusy(tag)))
+
+/**
+ * A screen leaving because of its own save (Today under a workout just started) keeps the busy look it had, frozen,
+ * instead of dropping it the moment it stops being the target.
+ */
+internal val LocalBusyHeld = androidx.compose.runtime.compositionLocalOf { false }
