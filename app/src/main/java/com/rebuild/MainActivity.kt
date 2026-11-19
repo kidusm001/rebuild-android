@@ -21,10 +21,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +35,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -93,17 +94,21 @@ class MainActivity : ComponentActivity(), PlatformActions {
             val backup by model.ui.collectAsStateWithLifecycle()
             val alarmError by app.alarms.failure.collectAsStateWithLifecycle()
             RebuildTheme {
-                // The loading screen and the app are whole screens over the canvas: they crossfade, once.
-                AnimatedContent(
-                    targetState = repository,
-                    contentKey = { it != null },
-                    // Data that opens under the splash is shown at once: the splash fading away is the only motion.
-                    transitionSpec = {
-                        if (splashHeld) EnterTransition.None togetherWith ExitTransition.None else Motion.crossfade()
-                    },
-                    label = "launch"
-                ) { loaded ->
-                    if (loaded == null) {
+                // The loading screen and the app are whole screens over the canvas. Data that opens under the splash is
+                // shown at once (the splash fading away is the only motion); after a slow load the app, opaque, fades
+                // in over the loading screen from the app's first drawn frame, so a long first composition shows the
+                // spinner, never a cut, and nothing dims in between.
+                val loaded = repository
+                // Decided in the composition the data arrives in: still under the splash, or after it.
+                val instant = remember(loaded != null) { splashHeld }
+                val appIn = remember { Animatable(0f) }
+                if (loaded != null && !instant) LaunchedEffect(Unit) {
+                    withFrameNanos { }
+                    appIn.animateTo(1f, Motion.fadeInSpec())
+                }
+                val appShown by remember(instant) { derivedStateOf { instant || appIn.value >= 1f } }
+                Box(Modifier.fillMaxSize()) {
+                    if (loaded == null || !appShown) {
                         Surface(Modifier.fillMaxSize()) {
                             Column(
                                 Modifier.safeDrawingPadding().padding(24.dp),
@@ -119,13 +124,14 @@ class MainActivity : ComponentActivity(), PlatformActions {
                                 }
                             }
                         }
-                    } else {
+                    }
+                    if (loaded != null) {
                         val appState by loaded.state.collectAsStateWithLifecycle()
                         val timer = appState.restTimer?.takeIf { it.workoutId == appState.activeWorkoutId }
                         val pip by inPictureInPicture.collectAsStateWithLifecycle()
                         LaunchedEffect(timer?.id) { updateRestPip(timer != null) }
                         // The app stays composed underneath, so returning from the small window keeps every screen's state.
-                        Box(Modifier.fillMaxSize()) {
+                        Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (instant) 1f else appIn.value }) {
                             RebuildApp(loaded, this@MainActivity)
                             if (pip) RestPip(timer, System::currentTimeMillis)
                         }
