@@ -62,8 +62,8 @@ class ActionRunner(
     }
 
     /**
-     * The workout whose receipt has been drawn (still below the screen, its travel about to start). The finish dialog
-     * stays up until this frame, so its scrim covers the wait for the finished state and the receipt.
+     * The workout whose receipt has been drawn on its way in. The finish dialog stays up until then, so its scrim covers
+     * the wait for the finished state and the receipt's first frames.
      */
     var receiptOnScreen by mutableStateOf<String?>(null)
         private set

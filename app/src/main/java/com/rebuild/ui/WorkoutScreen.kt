@@ -1443,8 +1443,8 @@ internal fun FinishWorkoutDialog(
     onFinished: () -> Unit,
     onDiscard: (() -> Unit)? = null
 ) {
-    // A finish that lands keeps this dialog (and its scrim) up until the receipt has been drawn, then it goes in that
-    // very frame, as the sheet starts to rise: never a frame of the finished workout, bare, in between.
+    // A finish that lands keeps this dialog (and its scrim) up until the receipt is drawn on its way in, then it goes
+    // over the rising sheet: never a frame of the finished workout, bare, in between.
     val receiptUp = env.runner.receiptOnScreen == workout.id
     LaunchedEffect(receiptUp) { if (receiptUp) onFinished() }
     if (receiptUp) return

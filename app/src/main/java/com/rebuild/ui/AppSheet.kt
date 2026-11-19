@@ -62,6 +62,8 @@ import kotlinx.coroutines.launch
 
 /** A flick down faster than this closes the sheet wherever it is. */
 private val DISMISS_VELOCITY = 1000.dp
+/** The share of its height still hidden when the sheet counts as on its way in. */
+private const val SHOWN_AT = 0.85f
 /** Dragged further than this share of its height, the sheet closes when let go. */
 private const val DISMISS_FRACTION = 0.5f
 
@@ -81,7 +83,7 @@ internal fun AppSheet(
     paneTitle: String,
     onClosed: () -> Unit,
     modifier: Modifier = Modifier,
-    /** Runs once the sheet has been drawn (still below the screen), the frame its travel starts from. */
+    /** Runs once the sheet has been drawn on its way in (or at rest, after recreation). */
     onShown: () -> Unit = {},
     content: @Composable (close: () -> Unit) -> Unit
 ) {
@@ -104,8 +106,17 @@ internal fun AppSheet(
         // The travel's clock starts from the sheet's first drawn frame: a slow first composition then delays the
         // sheet, it never eats its travel.
         withFrameNanos { }
-        shown()
-        if (entered) return@LaunchedEffect
+        if (entered) {
+            shown()
+            return@LaunchedEffect
+        }
+        // Shown once it is visibly on its way (a sixth of its travel, drawn): whatever covered the wait (the finish
+        // dialog) leaves only when the sheet and the scrim are already coming in beneath it, even after a slow frame.
+        launch {
+            snapshotFlow { hidden.value }.first { it <= SHOWN_AT }
+            withFrameNanos { }
+            shown()
+        }
         launch { scrim.animateTo(Motion.ScrimAlpha, Motion.scrimInSpec()) }
         launch {
             snapshotFlow { hidden.value }.first { it <= 0.02f }
