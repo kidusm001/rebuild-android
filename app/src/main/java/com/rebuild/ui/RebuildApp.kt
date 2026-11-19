@@ -815,6 +815,9 @@ private fun AppDestination(
         val lShows = leavingRoute?.let(::showsNav)
         chrome.navAlpha = navAlpha
         chrome.navInteractive = tShows && (lShows == null || lShows) && peek == null
+        // (A peer fading in over another keeps it above: it comes and goes with the screen that shows it.)
+        chrome.navBeneath = (plan.move != Move.FADE && lShows != null && lShows != tShows) ||
+            (peek != null && peek!!.showsNav != tShows)
         onNavWanted(tShows || lShows == true || peek?.showsNav == true)
     }
 

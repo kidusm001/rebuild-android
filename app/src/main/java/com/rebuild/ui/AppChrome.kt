@@ -104,6 +104,12 @@ internal class Chrome(navShownAtStart: Boolean = true) {
     var navAlpha: () -> Float by mutableStateOf({ 1f })
     /** The navigation overlay takes input only when it is opaque and its route is the target. */
     var navInteractive by mutableStateOf(true)
+    /**
+     * The navigation overlay is drawn beneath the layers: while a screen without it is pushed, popped or previewed by
+     * a back gesture over one with it, so it is seen only through the screen that has it, never across the other.
+     * (The screen that shows it leaves its own area for it empty.)
+     */
+    var navBeneath by mutableStateOf(false)
 
     private fun barsPx(route: String, live: Boolean): Int =
         (if (watchShown && route != Routes.WORKOUT && route != SETUP_ROUTE) (if (live) watchDrawn() else watchSettled) else 0) +
@@ -228,9 +234,12 @@ internal fun AppFrame(
         val contentBottom = chrome.bottomPx(targetRoute, live = true)
 
         layout(width, height) {
-            layers.place(0, 0)
+            // Placement order is drawing order.
+            val beneath = chrome.navBeneath
+            if (!beneath) layers.place(0, 0)
             nav?.placeWithLayer(0, height - nav.height - navLift) { alpha = chrome.navAlpha() }
             rail?.placeWithLayer(0, 0) { alpha = chrome.navAlpha() }
+            if (beneath) layers.place(0, 0)
             var y = height - barsBottom
             foot?.placeWithLayer(railOffset, y) { alpha = if (chrome.wide) 1f else 1f - chrome.navShown.value }
             if (rest != null) {
