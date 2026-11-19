@@ -101,7 +101,8 @@ internal fun receiptLines(state: AppState, workout: Workout): List<ReceiptLine> 
  * [onView] opens the workout as the sheet leaves; [onClosed] runs once it has gone.
  */
 @Composable
-internal fun WorkoutReceipt(env: AppEnv, workout: Workout, onView: () -> Unit, onClosed: () -> Unit) {
+internal fun WorkoutReceipt(env: AppEnv, workout: Workout, onView: () -> Unit, onClosed: () -> Unit,
+    onShown: () -> Unit = {}) {
     var loggingWeight by rememberSaveable { mutableStateOf(false) }
     val large = LocalDensity.current.fontScale > 1.3f
     val finished = workout.finishedAt ?: return
@@ -118,6 +119,7 @@ internal fun WorkoutReceipt(env: AppEnv, workout: Workout, onView: () -> Unit, o
         key = workout.id,
         paneTitle = "${workout.name} saved",
         onClosed = onClosed,
+        onShown = onShown,
         modifier = Modifier.testTag("workout-receipt")
     ) { close ->
         Column(

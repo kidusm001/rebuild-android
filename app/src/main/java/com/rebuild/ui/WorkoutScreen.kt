@@ -1443,6 +1443,11 @@ internal fun FinishWorkoutDialog(
     onFinished: () -> Unit,
     onDiscard: (() -> Unit)? = null
 ) {
+    // A finish that lands keeps this dialog (and its scrim) up until the receipt has been drawn, then it goes in that
+    // very frame, as the sheet starts to rise: never a frame of the finished workout, bare, in between.
+    val receiptUp = env.runner.receiptOnScreen == workout.id
+    LaunchedEffect(receiptUp) { if (receiptUp) onFinished() }
+    if (receiptUp) return
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var countForWeek by rememberSaveable(workout.id) { mutableStateOf(false) }
     var discardWatch by rememberSaveable(workout.id) { mutableStateOf(false) }
@@ -1571,14 +1576,15 @@ internal fun FinishWorkoutDialog(
         confirmButton = {
             TextButton(
                 onClick = {
+                    // Saved, waiting a frame or two for the receipt: a second tap has nothing left to finish.
+                    if (env.runner.receiptPending == workout.id) return@TextButton
                     error = null
                     env.runner.run(
                         Action.FinishWorkout(env.clock(), closeOpenGroups = openSets.isNotEmpty(),
                             countForWeek = countForWeek && offerCredit, discardStopwatch = watch != null && discardWatch),
                         onError = { error = it },
                         // The receipt follows from the state that shows this workout finished.
-                        onSaved = { env.runner.receiptFor(workout.id) },
-                        onSuccess = onFinished
+                        onSaved = { env.runner.receiptFor(workout.id) }
                     )
                 },
                 enabled = !env.runner.looksBusy() && canFinish,

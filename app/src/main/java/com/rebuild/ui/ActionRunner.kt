@@ -61,9 +61,37 @@ class ActionRunner(
         saved[RECEIPT_KEY] = workoutId
     }
 
+    /**
+     * The workout whose receipt has been drawn (still below the screen, its travel about to start). The finish dialog
+     * stays up until this frame, so its scrim covers the wait for the finished state and the receipt.
+     */
+    var receiptOnScreen by mutableStateOf<String?>(null)
+        private set
+
+    fun receiptDrawn(workoutId: String) {
+        receiptOnScreen = workoutId
+    }
+
     fun receiptShown() {
         receiptPending = null
+        receiptOnScreen = null
         saved.remove<String>(RECEIPT_KEY)
+    }
+
+    /**
+     * A set being logged whose confirming tick is due: it fires on the frame after the first one that draws the set
+     * (see SetLoggedTick), so the tick and the change on screen arrive together however long the write or that frame
+     * takes. A failed save clears it.
+     */
+    var tickFor by mutableStateOf<String?>(null)
+        private set
+
+    fun tickWhenShown(setId: String) {
+        tickFor = setId
+    }
+
+    fun ticked(setId: String) {
+        if (tickFor == setId) tickFor = null
     }
 
     private val errorChannel = Channel<String>(Channel.BUFFERED)
@@ -76,7 +104,7 @@ class ActionRunner(
      * Returns false (and does nothing) when another action is still saving.
      * [cooldownMs] keeps the guard closed briefly after a success, so a physical double tap
      * landing after the first commit can't repeat the action on the refreshed screen.
-     * [onSaved] runs the moment the write lands, before the cooldown (the set-logged tick); [onSuccess] after it.
+     * [onSaved] runs the moment the write lands, before the cooldown (a finish marks its receipt); [onSuccess] after it.
      */
     fun run(
         action: Action,

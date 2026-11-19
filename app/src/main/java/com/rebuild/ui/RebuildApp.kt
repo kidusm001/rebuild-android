@@ -486,15 +486,34 @@ fun RebuildApp(
                 state.workouts.find { it.id == id }?.let { finished ->
                     WorkoutReceipt(env, finished,
                         onView = { nav.push(Routes.workoutDetail(finished.id)) },
-                        onClosed = { runner.receiptShown() })
+                        onClosed = { runner.receiptShown() },
+                        onShown = { runner.receiptDrawn(finished.id) })
                 }
             }
+            SetLoggedTick(runner, state)
             // Topmost: a rest ending over the receipt covers it.
             restEnd.current?.let { end ->
                 RestEndOverlay(end, restAlert, onDone = { restEnd.current = null },
                     restBarTop = restBarTop.takeIf { !end.preview })
             }
         }
+    }
+}
+
+/**
+ * The set-logged tick: once the state being composed holds the set just saved, the tick fires at the start of the next
+ * frame, i.e. right after the frame that first draws the set was handed off, however long that frame took. Its own
+ * scope, so the pending id never recomposes the app.
+ */
+@Composable
+private fun SetLoggedTick(runner: ActionRunner, state: AppState) {
+    val id = runner.tickFor ?: return
+    val shown = state.activeWorkout?.exercises?.any { e -> e.sets.any { it.id == id } } == true
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    if (shown) LaunchedEffect(id) {
+        withFrameNanos { }
+        haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
+        runner.ticked(id)
     }
 }
 

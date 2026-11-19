@@ -32,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -80,6 +81,8 @@ internal fun AppSheet(
     paneTitle: String,
     onClosed: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Runs once the sheet has been drawn (still below the screen), the frame its travel starts from. */
+    onShown: () -> Unit = {},
     content: @Composable (close: () -> Unit) -> Unit
 ) {
     val haptics = LocalHapticFeedback.current
@@ -95,8 +98,13 @@ internal fun AppSheet(
     val focus = remember { FocusRequester() }
     val velocityThreshold = with(LocalDensity.current) { DISMISS_VELOCITY.toPx() }
 
+    val shown by rememberUpdatedState(onShown)
     LaunchedEffect(key) {
         runCatching { focus.requestFocus() }
+        // The travel's clock starts from the sheet's first drawn frame: a slow first composition then delays the
+        // sheet, it never eats its travel.
+        withFrameNanos { }
+        shown()
         if (entered) return@LaunchedEffect
         launch { scrim.animateTo(Motion.ScrimAlpha, Motion.scrimInSpec()) }
         launch {

@@ -47,8 +47,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
@@ -246,7 +244,6 @@ internal fun EntryPanel(
     var entryFocused by remember { mutableStateOf(false) }
     var confirmingFinish by rememberSaveable { mutableStateOf(false) }
     var unlikelyReason by rememberSaveable { mutableStateOf<String?>(null) }
-    val haptics = LocalHapticFeedback.current
     val entryBounds = remember { BringIntoViewRequester() }
     // Relocate after the hosting viewport is measured; IME insets read in composition can precede the resize.
     LaunchedEffect(entryFocused, viewportHeight) {
@@ -305,11 +302,15 @@ internal fun EntryPanel(
         }
         // Decided before the save: the save itself replaces this draft with a fresh one.
         onCarry(if (!dropping) DropCarry.NONE else if (draft.extra) DropCarry.DROP_PAST_TARGET else DropCarry.DROP)
-        env.runner.run(action, onError = { draft.error = it }, cooldownMs = ActionRunner.NEW_SET_COOLDOWN_MS,
-            tag = LOG_SET_TAG,
-            // A short tick confirms the set is saved without looking at the screen: the moment it lands, not after
-            // the double-tap cooldown.
-            onSaved = { haptics.performHapticFeedback(HapticFeedbackType.Confirm) })
+        val savedId = draft.pendingSetId
+        val started = env.runner.run(action, onError = {
+            env.runner.ticked(savedId)
+            draft.error = it
+        }, cooldownMs = ActionRunner.NEW_SET_COOLDOWN_MS, tag = LOG_SET_TAG)
+        // A short tick confirms the set is saved without looking at the screen: felt as the set first shows (the
+        // frame after the first one that draws it), not when the write returns, which can be before or after that
+        // frame, nor after the double-tap cooldown.
+        if (started) env.runner.tickWhenShown(savedId)
     }
 
     fun finishGroup() {

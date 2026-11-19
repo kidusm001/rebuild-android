@@ -150,6 +150,27 @@ class ActionRunnerTest {
         assertEquals(null, ActionRunner(repository, handle).receiptPending)
     }
 
+    @Test fun theReceiptIsDrawnUntilItIsClosed() {
+        val runner = ActionRunner(repository)
+        runner.receiptFor("w1")
+        assertEquals(null, runner.receiptOnScreen)
+        runner.receiptDrawn("w1")
+        assertEquals("w1", runner.receiptOnScreen)
+        runner.receiptShown()
+        assertEquals(null, runner.receiptOnScreen)
+    }
+
+    @Test fun aSetsTickWaitsForThatSetAndFiresOnce() {
+        val runner = ActionRunner(repository)
+        runner.tickWhenShown("s1")
+        assertEquals("s1", runner.tickFor)
+        // A tick for an older set never clears a newer one.
+        runner.ticked("s0")
+        assertEquals("s1", runner.tickFor)
+        runner.ticked("s1")
+        assertEquals(null, runner.tickFor)
+    }
+
     private class RecordingRepository : AppRepository {
         override val state = MutableStateFlow(AppState(exercises = emptyList(), templates = emptyList()))
         val actions = mutableListOf<Action>()
