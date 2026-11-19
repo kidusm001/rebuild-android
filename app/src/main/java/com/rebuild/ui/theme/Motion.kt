@@ -329,6 +329,12 @@ fun Modifier.fadeOver(incoming: () -> IntSize?, overhang: () -> Float, alignment
         val t = at.y.toFloat()
         val r = l + size.width
         val b = t + size.height
+        // Covered whole by the incoming copy: nothing overhangs, so no clip and no extra layer.
+        val covered = l <= 0f && t <= 0f && r >= this.size.width && b >= this.size.height
+        if (covered) {
+            drawContent()
+            return@drawWithContent
+        }
         clipRect(l, t, r, b) { this@drawWithContent.drawContent() }
         val fade = overhang()
         if (fade > 0f) {

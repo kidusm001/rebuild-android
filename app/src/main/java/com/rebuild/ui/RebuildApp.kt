@@ -370,6 +370,8 @@ fun RebuildApp(
             testTagsAsResourceId = true
             this[ActionGuard] = runner.busy
         }.background(MaterialTheme.colorScheme.surface)) {
+            // Beneath everything: the transitions' kinds of drawing, once, unseen, while the app is idle after launch.
+            MotionWarmUp(state)
             AppFrame(
                 chrome = chrome,
                 targetRoute = route,
