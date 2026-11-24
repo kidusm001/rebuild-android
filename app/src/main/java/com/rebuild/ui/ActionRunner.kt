@@ -24,6 +24,9 @@ import kotlinx.coroutines.launch
  */
 internal val ActionGuard = SemanticsPropertyKey<Boolean>("ActionGuard")
 
+/** Holds a [SavedStateHandle] under a stable key, for a ViewModel whose own key changes between process lives. */
+class SavedHandle(val handle: SavedStateHandle) : ViewModel()
+
 /**
  * Runs repository actions one at a time. Lives in a ViewModel so an in-flight save survives rotation and the single
  * guard blocks duplicate taps.

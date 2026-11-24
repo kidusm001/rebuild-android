@@ -218,8 +218,11 @@ fun RebuildApp(
         val restEnd = remember { RestEndState() }
         // Where the rest bar's top edge was, so a sweep at its end starts from the bar itself.
         var restBarTop by remember { mutableStateOf<Float?>(null) }
+        // The runner is per repository (a new one gets a fresh runner), but what it saves (an open receipt) lives under
+        // a stable key, so it is found again after the process is killed and the repository rebuilt.
+        val runnerSaved = viewModel(key = "rebuild-runner-saved") { SavedHandle(createSavedStateHandle()) }.handle
         val runner: ActionRunner = viewModel(key = "rebuild-runner-${System.identityHashCode(repository)}") {
-            ActionRunner(repository, createSavedStateHandle())
+            ActionRunner(repository, runnerSaved)
         }
         val snackbar = remember { SnackbarHostState() }
         LaunchedEffect(runner) { runner.errors.collect { snackbar.showSnackbar(it) } }
