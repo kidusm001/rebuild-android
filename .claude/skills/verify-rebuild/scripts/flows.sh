@@ -68,6 +68,8 @@ print(" ".join(f"{n} {u}{chr(115) if n != 1 else str()}" for n, u in parts if n)
     # The picker reopens in the last folder it showed. Already in Downloads: pick the file. Otherwise open the drawer
     # and choose its Downloads item ("title=Downloads": the toolbar can say "Downloads" too).
     "$ui" wait "Show roots" 10; sleep 1
+    # In grid view the file has no "title" node; switch to the list ("List view" is the button that does so).
+    if "$ui" has "List view"; then "$ui" tap "List view"; sleep 1; fi
     if ! "$ui" has "title=rebuild-seed.json"; then
       "$ui" tap "Show roots"
       "$ui" wait "title=Downloads" 5; sleep 0.8; "$ui" tap "title=Downloads"
