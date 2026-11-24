@@ -1054,7 +1054,7 @@ private fun TextStyle.scaled(scale: Float): TextStyle =
  */
 @Composable
 internal fun LoggedRowEditMark() {
-    Box(Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh),
+    Box(Modifier.testTag("edit-mark").size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh),
         contentAlignment = Alignment.Center) {
         RebuildIcon(R.drawable.ic_pencil, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(16.dp))

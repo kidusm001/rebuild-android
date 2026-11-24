@@ -190,7 +190,9 @@ internal fun GroupRow(
             }
             .testTag("group-row")
             .padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        // A gap before the pencil: the value fits (or shrinks) beside it, never under it.
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         SetWithFollowUps(group, exercise, muted = false, modifier = Modifier.weight(1f), note = if (extra) " · extra" else "")
         LoggedRowEditMark()
