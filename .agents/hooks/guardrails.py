@@ -602,6 +602,29 @@ def parse_git_invocation(tokens: list[str], cwd: str) -> tuple[str | None, list[
     return None, [], repo_cwd
 
 
+_REPO_ROOT_CACHE: dict[str, str] = {}
+
+
+def git_repo_root(cwd: str) -> str:
+    """Canonicalize any directory inside a Git repo to its top-level root path."""
+    norm = os.path.realpath(cwd)
+    if norm in _REPO_ROOT_CACHE:
+        return _REPO_ROOT_CACHE[norm]
+    try:
+        res = subprocess.run(
+            ["git", "-C", norm, "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+        root = os.path.realpath(res.stdout.strip()) if res.returncode == 0 and res.stdout.strip() else norm
+    except Exception:
+        root = norm
+    _REPO_ROOT_CACHE[norm] = root
+    return root
+
+
 def current_git_branch(cwd: str) -> str:
     try:
         res = subprocess.run(
@@ -949,11 +972,12 @@ def inspect_command(
         # 1. Check git commands (attribution + no commit on main) in execution order.
         git_subcmd, git_args, repo_cwd = parse_git_invocation(tokens, effective_cwd)
         if git_subcmd is not None:
+            repo_key = git_repo_root(repo_cwd)
             if git_subcmd in {"switch", "checkout"}:
                 switched = branch_switched_to(git_subcmd, git_args, repo_cwd)
                 if switched is not None:
                     if switched == "main" or can_propagate_safe_state:
-                        branches[repo_cwd] = switched
+                        branches[repo_key] = switched
             elif git_subcmd == "commit" and "--help" not in git_args and "-h" not in git_args:
                 seg_joined = " ".join(tokens)
                 if has_ai_attribution(seg_joined) or (("<<" in cmd) and has_ai_attribution(cmd)):
@@ -967,9 +991,9 @@ def inspect_command(
                             f"Blocked by rebuild-guardrails: commit message file `{msg_file}` "
                             f"contains forbidden AI attribution (see AGENTS.md)."
                         )
-                if repo_cwd not in branches:
-                    branches[repo_cwd] = current_git_branch(repo_cwd)
-                if branches[repo_cwd] == "main":
+                if repo_key not in branches:
+                    branches[repo_key] = current_git_branch(repo_cwd)
+                if branches[repo_key] == "main":
                     deny(
                         "Blocked by rebuild-guardrails: never commit directly to `main`. "
                         "Create a topic branch first (`git switch -c <branch>`)."
