@@ -32,3 +32,6 @@ captures/
 **/*-ime.txt
 **/*.db
 **/*.log
+
+# Third-party Android CLI skills installed locally via `android skills add`
+/.agents/skills/
