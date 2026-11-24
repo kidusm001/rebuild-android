@@ -238,17 +238,18 @@ internal fun AppFrame(
             val beneath = chrome.navBeneath
             if (!beneath) layers.place(0, 0)
             nav?.placeWithLayer(0, height - nav.height - navLift) { alpha = chrome.navAlpha() }
-            rail?.placeWithLayer(0, 0) { alpha = chrome.navAlpha() }
+            // Relative placement: the rail and the bars beside it sit on the start side, where LayerPadding leaves room.
+            rail?.placeRelativeWithLayer(0, 0) { alpha = chrome.navAlpha() }
             if (beneath) layers.place(0, 0)
             var y = height - barsBottom
-            foot?.placeWithLayer(railOffset, y) { alpha = if (chrome.wide) 1f else 1f - chrome.navShown.value }
+            foot?.placeRelativeWithLayer(railOffset, y) { alpha = if (chrome.wide) 1f else 1f - chrome.navShown.value }
             if (rest != null) {
                 y -= rest.height
-                rest.place(railOffset, y)
+                rest.placeRelative(railOffset, y)
             }
             if (watch != null && targetRoute != Routes.WORKOUT) {
                 y -= watch.height
-                watch.place(railOffset, y)
+                watch.placeRelative(railOffset, y)
             }
             snack?.place((width - snack.width) / 2, height - contentBottom - snack.height)
         }
