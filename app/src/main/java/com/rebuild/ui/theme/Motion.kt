@@ -2,6 +2,7 @@ package com.rebuild.ui.theme
 
 import android.provider.Settings
 import androidx.compose.animation.AnimatedContent
+import com.rebuild.ui.INERT
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.CompositingStrategy
@@ -307,8 +308,10 @@ fun <S> FadeInOver(
             label = "overhang") {
             if (it == EnterExitState.PostExit) 0f else 1f
         }
+        // Only the incoming copy takes input and is read aloud; the one leaving is inert while it is still drawn.
         Box(
             Modifier
+                .then(if (transition.targetState == EnterExitState.PostExit) INERT else Modifier)
                 .onSizeChanged { sizes[key] = it }
                 .fadeOver(incoming = { sizes[targetKey].takeIf { key != targetKey } }, overhang = { overhang },
                     alignment = contentAlignment)
