@@ -66,5 +66,10 @@ Read `PRODUCT.md` for product principles and `DESIGN.md` for visual, motion, hap
 ## Project Skills & Subagents
 
 - Project workflow skills (loaded from `.claude/skills/` via `.agents/skills.json`): `pull-requests`, `verify-rebuild`, `blast-radius`, `maintain-verification-skill`.
-- Android domain skills (in `.agents/skills/`): `android-cli`, `jetpack-compose-performance`, `android-profiler`, `edge-to-edge`, `adaptive`, `r8-analyzer`, `anr-audit-and-fix`, `testing-setup`.
 - Motion subagents (in `.agents/plugins/rebuild-agents/agents/`): `motion-designer` and `motion-critic`.
+- Optional official Android skills (gitignored under `.agents/skills/`; install locally with `android` CLI):
+  ```bash
+  for s in android-cli jetpack-compose-performance android-profiler edge-to-edge adaptive r8-analyzer anr-audit-and-fix testing-setup; do
+    android skills add "$s" --agent=antigravity --project=.
+  done
+  ```
