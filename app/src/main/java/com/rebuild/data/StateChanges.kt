@@ -1134,7 +1134,12 @@ internal object StateChanges {
 
     private fun chosenSplit(splitId: String, gear: Gear): Split {
         val split = Splits.all.find { it.id == splitId } ?: throw RepositoryException("This split isn't available.")
-        ensure(gear in split.gear, "${split.name} needs a gym.")
+        val needed = when (split.gear) {
+            setOf(Gear.GYM) -> "a gym"
+            setOf(Gear.GYM, Gear.DUMBBELLS) -> "a gym or dumbbells"
+            else -> split.gear.joinToString(" or ") { it.name.lowercase() }
+        }
+        ensure(gear in split.gear, "${split.name} needs $needed.")
         return split
     }
 

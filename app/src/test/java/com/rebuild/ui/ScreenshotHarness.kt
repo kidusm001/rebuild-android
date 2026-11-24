@@ -71,6 +71,10 @@ class ScreenshotHarness {
         override fun chooseRestore() = Unit
         override val restAlert = MutableStateFlow(RestAlert())
         override fun setRestAlert(alert: RestAlert) { restAlert.value = alert }
+        override val tips = MutableStateFlow(TipsState(enabled = false))
+        override fun dismissTip(tip: Tip) { tips.value = tips.value.dismiss(tip) }
+        override fun setTipsEnabled(enabled: Boolean) { tips.value = tips.value.setEnabled(enabled) }
+        override fun resetTips() { tips.value = tips.value.reset() }
         override fun previewRestAlert() {
             if (restAlert.value.sound == RestSound.ALARM) alarmRingingSince.value = now
         }

@@ -6,6 +6,7 @@ import com.rebuild.data.RebuildRepository
 import com.rebuild.domain.AppRepository
 import com.rebuild.platform.RestAlarmScheduler
 import com.rebuild.platform.RestAlertPrefs
+import com.rebuild.platform.TipsPrefs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -18,6 +19,7 @@ import kotlinx.coroutines.sync.withLock
 class RebuildApplication : Application() {
     val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     val restAlerts by lazy { RestAlertPrefs(this) }
+    val tips by lazy { TipsPrefs(this) }
     val alarms by lazy { RestAlarmScheduler(this) { restAlerts.alert.value.sound } }
     private val openMutex = Mutex()
     private var opened: AppRepository? = null

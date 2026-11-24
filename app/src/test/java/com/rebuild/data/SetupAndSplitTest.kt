@@ -62,8 +62,29 @@ class SetupAndSplitTest {
         failure("needs a gym") {
             repository().execute(Action.CompleteSetup(Experience.NEW, ORIGINAL_SPLIT, Gear.BODYWEIGHT, MassUnit.KG, "2026-11-16"))
         }
+        for (id in listOf(Splits.PHUL, Splits.TORSO_LIMBS, Splits.BRO_SPLIT, Splits.ARNOLD_SPLIT)) {
+            failure("needs a gym or dumbbells") {
+                repository().execute(Action.CompleteSetup(Experience.EXPERIENCED, id, Gear.BODYWEIGHT, MassUnit.KG, "2026-11-16"))
+            }
+        }
         failure("isn't available") {
-            repository().execute(Action.CompleteSetup(Experience.NEW, "arnold", Gear.GYM, MassUnit.KG, "2026-11-16"))
+            repository().execute(Action.CompleteSetup(Experience.NEW, "unknown-split", Gear.GYM, MassUnit.KG, "2026-11-16"))
+        }
+    }
+
+    @Test fun manualLibrarySplitsSwitchCleanlyAndRoundTrip() = runTest {
+        val repo = setUp(Experience.EXPERIENCED, days = 4)
+        for ((splitId, gear, expectedDays) in listOf(
+            Triple(Splits.PHUL, Gear.GYM, 4),
+            Triple(Splits.TORSO_LIMBS, Gear.DUMBBELLS, 4),
+            Triple(Splits.BRO_SPLIT, Gear.DUMBBELLS, 5),
+            Triple(Splits.ARNOLD_SPLIT, Gear.GYM, 6)
+        )) {
+            repo.execute(Action.ChangeSplit(splitId, gear, Experience.EXPERIENCED, "2026-11-16"))
+            val state = repo.state.value
+            assertEquals(splitId, state.activeSplitId)
+            assertEquals(expectedDays, state.scheduledRoutines().size)
+            assertEquals(state, SnapshotCodec.decode(SnapshotCodec.encode(state)))
         }
     }
 

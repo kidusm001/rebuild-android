@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import android.content.res.Configuration
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -227,7 +228,15 @@ internal fun EntryPanel(
     pinned: Boolean = true
 ) {
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val compactLandscape = compactLandscapeInput()
     val large = LocalDensity.current.fontScale > 1.3f
+    val restTipActive = !compactLandscape && !large && env.state.restTimer?.let {
+        it.workoutId == workout.id && shouldShowRestBarTip(env.state, env.tips, it.shortPause)
+    } == true
+    val showSetTip = !compactLandscape && !restTipActive && shouldShowSetEntryTip(env.state, env.tips)
+    var setTipSeen by rememberSaveable { mutableStateOf(false) }
+    if (showSetTip && !setTipSeen) setTipSeen = true
+    else if (Tip.SET_ENTRY in env.tips.dismissed && setTipSeen) setTipSeen = false
     val open = we.openGroup()
     val stagesLogged = open?.let { we.stages(it.id).size } ?: 0
     val entries = we.workEntries()
@@ -306,7 +315,11 @@ internal fun EntryPanel(
         val started = env.runner.run(action, onError = {
             env.runner.ticked(savedId)
             draft.error = it
-        }, cooldownMs = ActionRunner.NEW_SET_COOLDOWN_MS, tag = LOG_SET_TAG)
+        }, cooldownMs = ActionRunner.NEW_SET_COOLDOWN_MS, tag = LOG_SET_TAG, onSaved = {
+            // Once a set is saved after the tip was shown, retire any active set-entry tip (including a re-enabled
+            // one) immediately so it never lingers or stacks with the rest-bar tip that follows.
+            if (setTipSeen && shouldShowSetEntryTip(env.state, env.tips)) env.platform.dismissTip(Tip.SET_ENTRY)
+        })
         // A short tick confirms the set is saved without looking at the screen: felt as the set first shows (the
         // frame after the first one that draws it), not when the write returns, which can be before or after that
         // frame, nor after the double-tap cooldown.
@@ -400,8 +413,22 @@ internal fun EntryPanel(
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (!landscape) EntryContext(we, ordinal, extra, draft, open?.method ?: method, open != null, stagesLogged,
-            offered, dropping, onCancel = { onCarry(DropCarry.NONE) }, typeButton = typeButton)
+        if (!landscape) {
+            EntryContext(we, ordinal, extra, draft, open?.method ?: method, open != null, stagesLogged,
+                offered, dropping, onCancel = { onCarry(DropCarry.NONE) }, typeButton = typeButton)
+        }
+        TipCard(
+            tip = Tip.SET_ENTRY,
+            visible = showSetTip,
+            text = setEntryTipText(we.exercise, we.entryLoadUnit),
+            onDismiss = { env.platform.dismissTip(Tip.SET_ENTRY) },
+            // Rise above the dock in both themes: white on light stone, elevated charcoal on dark dock.
+            containerColor = when {
+                !pinned -> MaterialTheme.colorScheme.surfaceContainer
+                MaterialTheme.colorScheme.surface.luminance() < 0.5f -> MaterialTheme.colorScheme.surfaceContainerHigh
+                else -> MaterialTheme.colorScheme.surfaceContainerLowest
+            }
+        )
         if (large && !landscape && showWarmup) warmupChip(Modifier)
         // Kept in view while typing: the fields and Log only. Everything after it is a scroll away on a short window.
         Column(

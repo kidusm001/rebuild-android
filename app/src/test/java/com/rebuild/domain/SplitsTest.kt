@@ -155,11 +155,66 @@ class SplitsTest {
 
     @Test fun aSwapNeverRepeatsAnExerciseTheDayAlreadyHas() {
         Splits.all.filterNot { it.rampsDays }.flatMap { it.templates }.forEach { template ->
-            for (gear in listOf(Gear.DUMBBELLS, Gear.BODYWEIGHT)) {
+            for (gear in Gear.entries) {
                 val day = template.slots.mapNotNull { it.exerciseFor(gear) }.toSet()
                 template.slots.forEach { slot ->
                     assertTrue("${slot.id} with $gear", slot.alternativesFor(gear).none { it in day })
                 }
+            }
+        }
+    }
+
+    @Test fun theFullLibraryIncludesAllElevenSplitsWithExpectedGear() {
+        assertEquals(
+            setOf(
+                Splits.FULL_BODY_2, Splits.FULL_BODY_3, Splits.UPPER_LOWER, Splits.PHUL, Splits.TORSO_LIMBS,
+                Splits.PUSH_PULL_LEGS, Splits.UPPER_LOWER_PPL, Splits.BRO_SPLIT, Splits.PUSH_PULL_LEGS_2,
+                Splits.ARNOLD_SPLIT, ORIGINAL_SPLIT
+            ),
+            Splits.all.map { it.id }.toSet()
+        )
+        val weighted = setOf(Gear.GYM, Gear.DUMBBELLS)
+        for (id in listOf(Splits.PHUL, Splits.TORSO_LIMBS, Splits.BRO_SPLIT, Splits.ARNOLD_SPLIT)) {
+            assertEquals(id, weighted, Splits.byId(id).gear)
+        }
+    }
+
+    @Test fun aWeightedOnlySplitStillGivesUnloadedDumbbellSubstitutesTheirWiderRepRange() {
+        val bro = Splits.byId(Splits.BRO_SPLIT)
+        val state = Seed.initialState().let {
+            it.copy(phase = Phase.BASELINE, templates = it.templates + bro.templates,
+                split = SplitChoice(bro.id, Gear.DUMBBELLS, Experience.EXPERIENCED, "2026-11-16"))
+        }
+        fun repsOf(templateId: String, exerciseId: String): IntRange {
+            val t = bro.templates.single { it.id == templateId }
+            val p = state.plannedExercises(t, Phase.BASELINE).single { it.exerciseId == exerciseId }
+            return p.minReps!!..p.maxReps!!
+        }
+        assertEquals(6..20, repsOf("bro-split-chest", "pushup"))
+        assertEquals(12..20, repsOf("bro-split-chest", "crunch"))
+        assertEquals(8..15, repsOf("bro-split-legs", "leg-curl-slider"))
+        assertEquals(15..25, repsOf("bro-split-legs", "calf-raise-bodyweight"))
+        assertEquals(6..15, repsOf("bro-split-arms", "pushup-close"))
+        assertEquals("a loaded dumbbell lift keeps its weighted range", 6..10, repsOf("bro-split-chest", "bench-db"))
+    }
+
+    @Test fun weekStripInitialsStayShortAndDistinctForEverySplit() {
+        Splits.all.forEach { split ->
+            for (phase in Phase.entries) {
+                val base = Seed.initialState()
+                val state = base.copy(
+                    phase = phase,
+                    templates = if (split.rampsDays) base.templates else base.templates + split.templates,
+                    split = SplitChoice(split.id, split.gear.first(), Experience.REGULAR, "2026-11-16")
+                )
+                val names = state.availableTemplates(phase).map { it.name }
+                val labels = names.map { com.rebuild.ui.workoutInitials(it) }
+                labels.forEach { label ->
+                    assertTrue("${split.id} ($phase): '$label' fits in a strip cell", label.length in 1..5)
+                    assertFalse("${split.id} ($phase): '$label' never cuts 'Shoulders' mid-word", label == "Shoul")
+                }
+                assertEquals("${split.id} ($phase): distinct workout names stay distinct in the strip",
+                    names.distinct().size, labels.distinct().size)
             }
         }
     }
