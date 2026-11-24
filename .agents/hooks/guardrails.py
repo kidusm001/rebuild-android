@@ -27,7 +27,6 @@ AI_ATTRIBUTION_PATTERNS = (
     ),
 )
 
-SEGMENT_SEPARATORS = {";", "&&", "||", "|", "&", "\n"}
 ENV_ASSIGN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=(.*)$")
 SHELL_NAMES = {"sh", "bash", "zsh", "dash", "ash", "ksh"}
 MAX_RECURSION_DEPTH = 5
@@ -47,61 +46,287 @@ def has_ai_attribution(text: str) -> bool:
     return any(p.search(text) for p in AI_ATTRIBUTION_PATTERNS)
 
 
-def split_segments(cmd: str) -> list[list[str]]:
-    """Split a shell command string into token lists per command segment.
+def find_quoted_heredoc_delims(line: str) -> list[tuple[str, bool]]:
+    """Find quoted heredoc openers (`<<'EOF'`, `<<"EOF"`, `<<\\EOF`, or `<<-...`) outside quotes and comments."""
+    delims: list[tuple[str, bool]] = []
+    i = 0
+    n = len(line)
+    in_single = False
+    in_double = False
 
-    Uses whitespace_split=True with punctuation_chars=";&|\\n" so unquoted arguments
-    containing colons, slashes, or dots (such as wireless adb addresses like
-    `192.168.1.2:5555`) remain single tokens while shell operators still split cleanly.
+    while i < n:
+        ch = line[i]
+        if in_single:
+            if ch == "'":
+                in_single = False
+            i += 1
+            continue
+        if in_double:
+            if ch == "\\" and i + 1 < n:
+                i += 2
+                continue
+            if ch == '"':
+                in_double = False
+            i += 1
+            continue
+
+        if ch == "\\" and i + 1 < n:
+            i += 2
+            continue
+        if ch == "'":
+            in_single = True
+            i += 1
+            continue
+        if ch == '"':
+            in_double = True
+            i += 1
+            continue
+        if ch == "#" and (i == 0 or line[i - 1] in " \t;|&("):
+            break
+
+        if ch == "<" and i + 1 < n and line[i + 1] == "<":
+            # Skip `<<<` (here-string).
+            if i + 2 < n and line[i + 2] == "<":
+                i += 3
+                continue
+            j = i + 2
+            strip_tabs = False
+            if j < n and line[j] == "-":
+                strip_tabs = True
+                j += 1
+            while j < n and line[j] in " \t":
+                j += 1
+            if j < n and line[j] in ("'", '"'):
+                quote = line[j]
+                k = j + 1
+                while k < n and line[k] != quote:
+                    k += 1
+                if k < n and k > j + 1:
+                    delims.append((line[j + 1 : k], strip_tabs))
+                    i = k + 1
+                    continue
+            elif j < n and line[j] == "\\":
+                k = j + 1
+                while k < n and line[k] not in " \t\r\n;|&()<>":
+                    k += 1
+                if k > j + 1:
+                    delims.append((line[j + 1 : k], strip_tabs))
+                    i = k
+                    continue
+            i = j
+            continue
+
+        i += 1
+
+    return delims
+
+
+def strip_quoted_heredocs(cmd: str) -> str:
+    """Remove bodies of real quoted heredocs (`<<'EOF' ... EOF`) only when properly closed.
+
+    Openers inside quotes or comments are ignored, and an unclosed heredoc never drops
+    subsequent lines (fail-closed).
     """
-    try:
-        lexer = shlex.shlex(cmd, posix=True, punctuation_chars=";&|\n")
-        lexer.whitespace = " \t\r"
-        lexer.whitespace_split = True
-        tokens = list(lexer)
-    except ValueError:
-        raw_parts = re.split(r"(?:&&|\|\||[;\n|])", cmd)
-        segments = []
-        for part in raw_parts:
-            part = part.strip()
-            if part:
-                segments.append(part.split())
-        return segments
+    lines = cmd.splitlines(keepends=True)
+    out: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        out.append(line)
+        delims = find_quoted_heredoc_delims(line)
+        i += 1
+        for delim, strip_tabs in delims:
+            close_idx: int | None = None
+            for k in range(i, len(lines)):
+                candidate = lines[k].rstrip("\r\n")
+                if strip_tabs:
+                    candidate = candidate.lstrip("\t")
+                if candidate == delim:
+                    close_idx = k
+                    break
+            if close_idx is not None:
+                i = close_idx + 1
+    return "".join(out)
 
-    segments: list[list[str]] = []
-    current: list[str] = []
-    for tok in tokens:
-        if tok in SEGMENT_SEPARATORS or set(tok) <= set(";&|\n"):
-            if current:
-                segments.append(current)
-                current = []
-        else:
-            current.append(tok)
-    if current:
-        segments.append(current)
+
+def split_top_level_commands(cmd: str) -> list[tuple[str, str, str]]:
+    """Split a shell command string into `(preceding_op, raw_segment, following_op)` tuples.
+
+    Respects quotes, escapes, comments, `$(...)`, and parenthesized subshells `(...)` so
+    operators inside subshells are not flattened into the parent shell.
+    """
+    segments: list[tuple[str, str, str]] = []
+    buf: list[str] = []
+    prev_op = ""
+    i = 0
+    n = len(cmd)
+    in_single = False
+    in_double = False
+    paren_depth = 0
+    brace_depth = 0
+
+    def flush(next_op: str) -> None:
+        nonlocal prev_op
+        text = "".join(buf).strip()
+        buf.clear()
+        if text:
+            segments.append((prev_op, text, next_op))
+        prev_op = next_op
+
+    while i < n:
+        ch = cmd[i]
+        if in_single:
+            buf.append(ch)
+            if ch == "'":
+                in_single = False
+            i += 1
+            continue
+        if in_double:
+            if ch == "\\" and i + 1 < n:
+                buf.append(ch)
+                buf.append(cmd[i + 1])
+                i += 2
+                continue
+            buf.append(ch)
+            if ch == '"':
+                in_double = False
+            i += 1
+            continue
+
+        if ch == "\\" and i + 1 < n:
+            buf.append(ch)
+            buf.append(cmd[i + 1])
+            i += 2
+            continue
+        if ch == "'":
+            in_single = True
+            buf.append(ch)
+            i += 1
+            continue
+        if ch == '"':
+            in_double = True
+            buf.append(ch)
+            i += 1
+            continue
+        if ch == "#" and paren_depth == 0 and (not buf or buf[-1] in " \t\n;|&("):
+            # Skip shell comment until newline.
+            while i < n and cmd[i] != "\n":
+                i += 1
+            continue
+
+        if ch == "(":
+            paren_depth += 1
+            buf.append(ch)
+            i += 1
+            continue
+        if ch == ")" and paren_depth > 0:
+            paren_depth -= 1
+            buf.append(ch)
+            i += 1
+            continue
+
+        if ch == "{" and paren_depth == 0 and (not buf or buf[-1] in " \t\n;|&"):
+            if i + 1 == n or cmd[i + 1] in " \t\n":
+                brace_depth += 1
+                buf.append(ch)
+                i += 1
+                continue
+        if ch == "}" and paren_depth == 0 and brace_depth > 0 and (not buf or buf[-1] in " \t\n;"):
+            brace_depth -= 1
+            buf.append(ch)
+            i += 1
+            continue
+
+        if paren_depth == 0 and brace_depth == 0:
+            if ch == "\n":
+                flush("\n")
+                i += 1
+                continue
+            if ch == ";":
+                flush(";")
+                i += 1
+                continue
+            if ch == "&":
+                if i + 1 < n and cmd[i + 1] == "&":
+                    flush("&&")
+                    i += 2
+                    continue
+                flush("&")
+                i += 1
+                continue
+            if ch == "|":
+                if i + 1 < n and cmd[i + 1] == "|":
+                    flush("||")
+                    i += 2
+                    continue
+                flush("|")
+                i += 1
+                continue
+
+        buf.append(ch)
+        i += 1
+
+    flush("")
     return segments
 
 
-def strip_grouping_tokens(tokens: list[str]) -> list[str]:
-    """Strip outer shell subshell/brace grouping tokens like `( ... )` or `{ ... }`."""
-    out = list(tokens)
-    while out and out[0] in {"(", "{"}:
-        out.pop(0)
-    if out and out[0].startswith("(") and not out[0].startswith("$("):
-        stripped = out[0].lstrip("(")
-        if stripped:
-            out[0] = stripped
-        else:
-            out.pop(0)
-    while out and out[-1] in {")", "}"}:
-        out.pop()
-    if out and out[-1].endswith(")") and "(" not in out[-1]:
-        stripped = out[-1].rstrip(")")
-        if stripped:
-            out[-1] = stripped
-        else:
-            out.pop()
-    return out
+def tokenize_segment(seg_text: str) -> list[str]:
+    """Tokenize one command segment while keeping unquoted colons/dots/slashes intact."""
+    try:
+        lexer = shlex.shlex(seg_text, posix=True)
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        return list(lexer)
+    except ValueError:
+        return seg_text.split()
+
+
+def is_wrapped_group(seg_text: str, open_ch: str, close_ch: str) -> str | None:
+    """If seg_text is a single balanced `( ... )` or `{ ... }` group, return its inner body."""
+    s = seg_text.strip()
+    if len(s) < 2 or s[0] != open_ch or s[-1] != close_ch:
+        return None
+    depth = 0
+    in_single = False
+    in_double = False
+    i = 0
+    n = len(s)
+    while i < n:
+        ch = s[i]
+        if in_single:
+            if ch == "'":
+                in_single = False
+            i += 1
+            continue
+        if in_double:
+            if ch == "\\" and i + 1 < n:
+                i += 2
+                continue
+            if ch == '"':
+                in_double = False
+            i += 1
+            continue
+        if ch == "\\" and i + 1 < n:
+            i += 2
+            continue
+        if ch == "'":
+            in_single = True
+            i += 1
+            continue
+        if ch == '"':
+            in_double = True
+            i += 1
+            continue
+        if ch == open_ch:
+            depth += 1
+        elif ch == close_ch:
+            depth -= 1
+            if depth == 0 and i != n - 1:
+                return None
+        i += 1
+    if depth != 0:
+        return None
+    return s[1:-1].strip()
 
 
 def strip_leading_env(tokens: list[str]) -> tuple[dict[str, str], list[str]]:
@@ -199,7 +424,6 @@ def unwrap_command_prefixes(
                 if tok.startswith("-"):
                     i += 1
                     continue
-                # Skip the duration positional argument.
                 i += 1
                 break
             cur = rest[i:]
@@ -264,7 +488,10 @@ def extract_nested_shell_command(tokens: list[str]) -> str | None:
         tok = args[i]
         if tok == "--":
             break
-        if (tok in {"-o", "+o"} or (tok.startswith(("-", "+")) and not tok.startswith("--") and tok.endswith("o"))) and i + 1 < len(args):
+        if (
+            tok in {"-o", "+o"}
+            or (tok.startswith(("-", "+")) and not tok.startswith("--") and tok.endswith("o"))
+        ) and i + 1 < len(args):
             i += 2
             continue
         if tok == "-c" or (tok.startswith("-") and not tok.startswith("--") and "c" in tok[1:]):
@@ -278,31 +505,10 @@ def extract_nested_shell_command(tokens: list[str]) -> str | None:
     return None
 
 
-def strip_quoted_heredocs(cmd: str) -> str:
-    """Remove bodies of single/double-quoted heredocs (`<<'EOF' ... EOF`), which bash never expands."""
-    lines = cmd.splitlines(keepends=True)
-    out: list[str] = []
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        out.append(line)
-        m = re.search(r"<<-?\s*(['\"])([A-Za-z_][A-Za-z0-9_]*)\1", line)
-        if m:
-            delim = m.group(2)
-            i += 1
-            while i < len(lines):
-                if lines[i].strip() == delim:
-                    break
-                i += 1
-        i += 1
-    return "".join(out)
-
-
 def extract_command_substitutions(cmd: str) -> list[str]:
-    """Extract inner commands from simple `$(...)` and backtick substitutions."""
+    """Extract inner commands from `$(...)` and backtick substitutions (outside single quotes and quoted heredocs)."""
     cmd = strip_quoted_heredocs(cmd)
     results: list[str] = []
-    # Find `$(...)` with balanced parentheses (outside single quotes).
     i = 0
     in_single = False
     n = len(cmd)
@@ -589,46 +795,76 @@ def inspect_command(
     inherited_env: dict[str, str],
     branch_by_repo: dict[str, str],
     depth: int = 0,
-) -> None:
+) -> tuple[str, dict[str, str], dict[str, str]]:
     if depth > MAX_RECURSION_DEPTH:
         if re.search(r"\b(uninstall|pm\s+clear)\b[^\n]*\bcom\.rebuild\b", cmd):
             deny(
                 "Blocked by rebuild-guardrails: deeply nested destructive com.rebuild command "
                 "could not be safely verified."
             )
-        return
+        return cwd, inherited_env, branch_by_repo
 
-    # Inspect any command substitutions (`$(...)` or backticks) first.
+    # Inspect any command substitutions (`$(...)` or backticks) in isolated copies.
     for sub in extract_command_substitutions(cmd):
         inspect_command(sub, cwd, dict(inherited_env), dict(branch_by_repo), depth + 1)
 
     current_cwd = cwd
     session_env = dict(inherited_env)
-    segments = split_segments(strip_quoted_heredocs(cmd))
+    branches = dict(branch_by_repo)
+    cleaned = strip_quoted_heredocs(cmd)
+    segments = split_top_level_commands(cleaned)
 
-    for raw_seg in segments:
-        seg = strip_grouping_tokens(raw_seg)
-        if not seg:
+    for prev_op, seg_text, next_op in segments:
+        # Subshells `( ... )` run in an isolated child process: env, cwd, and branch
+        # exemptions inside them must never leak into the parent shell.
+        subshell_inner = is_wrapped_group(seg_text, "(", ")")
+        if subshell_inner is not None:
+            inspect_command(subshell_inner, current_cwd, dict(session_env), dict(branches), depth + 1)
             continue
 
-        seg_env, tokens = strip_leading_env(seg)
+        # Brace groups `{ ...; }` run in the current shell unless part of a pipeline/background/||.
+        brace_inner = is_wrapped_group(seg_text, "{", "}")
+        if brace_inner is not None:
+            if prev_op in {"|", "&", "||"} or next_op in {"|", "&"}:
+                inspect_command(brace_inner, current_cwd, dict(session_env), dict(branches), depth + 1)
+            else:
+                current_cwd, session_env, branches = inspect_command(
+                    brace_inner, current_cwd, session_env, branches, depth + 1
+                )
+            continue
+
+        tokens = tokenize_segment(seg_text)
         if not tokens:
-            # Bare assignment like `ANDROID_SERIAL=PHONE` persists across subsequent segments.
-            session_env.update(seg_env)
             continue
 
-        # Track `export VAR=VAL` and `unset VAR` across segments.
+        # Commands in pipelines (`|`), backgrounded (`&`), or on the RHS of `||` run in a
+        # subshell or conditionally; never let them grant safe state (`ANDROID_SERIAL=emulator-...`
+        # or branch switch) to subsequent parent commands.
+        can_propagate_safe_state = prev_op not in {"|", "&", "||"} and next_op not in {"|", "&"}
+
+        seg_env, tokens = strip_leading_env(tokens)
+        if not tokens:
+            for k, v in seg_env.items():
+                if k == "ANDROID_SERIAL" and v.startswith("emulator-") and not can_propagate_safe_state:
+                    continue
+                session_env[k] = v
+            continue
+
         first_exe = os.path.basename(tokens[0])
         if first_exe == "export":
             for arg in tokens[1:]:
                 m = ENV_ASSIGN_RE.match(arg)
                 if m:
-                    session_env[arg.split("=", 1)[0]] = m.group(1)
+                    k, v = arg.split("=", 1)[0], m.group(1)
+                    if k == "ANDROID_SERIAL" and v.startswith("emulator-") and not can_propagate_safe_state:
+                        continue
+                    session_env[k] = v
             continue
         if first_exe == "unset":
-            for arg in tokens[1:]:
-                if not arg.startswith("-"):
-                    session_env.pop(arg, None)
+            if can_propagate_safe_state:
+                for arg in tokens[1:]:
+                    if not arg.startswith("-"):
+                        session_env.pop(arg, None)
             continue
 
         combined_env = dict(session_env)
@@ -642,16 +878,17 @@ def inspect_command(
 
         exe = os.path.basename(tokens[0])
 
-        # Track `cd <dir>` so relative paths and branch checks use the right working directory.
+        # Track `cd <dir>` only when unconditional in the current shell.
         if exe == "cd" and len(tokens) >= 2 and not tokens[1].startswith("-"):
-            target = os.path.expanduser(tokens[1])
-            current_cwd = target if os.path.isabs(target) else os.path.normpath(os.path.join(current_cwd, target))
+            if can_propagate_safe_state:
+                target = os.path.expanduser(tokens[1])
+                current_cwd = target if os.path.isabs(target) else os.path.normpath(os.path.join(current_cwd, target))
             continue
 
         # Recursively inspect nested shell invocations (`sh -c`, `bash -lc`, `eval`, ...).
         nested = extract_nested_shell_command(tokens)
         if nested is not None:
-            inspect_command(nested, effective_cwd, effective_env, branch_by_repo, depth + 1)
+            inspect_command(nested, effective_cwd, dict(effective_env), dict(branches), depth + 1)
             continue
 
         # 1. Check git commands (attribution + no commit on main) in execution order.
@@ -660,10 +897,11 @@ def inspect_command(
             if git_subcmd in {"switch", "checkout"}:
                 switched = branch_switched_to(git_subcmd, git_args, repo_cwd)
                 if switched is not None:
-                    branch_by_repo[repo_cwd] = switched
+                    if switched == "main" or can_propagate_safe_state:
+                        branches[repo_cwd] = switched
             elif git_subcmd == "commit" and "--help" not in git_args and "-h" not in git_args:
-                seg_text = " ".join(tokens)
-                if has_ai_attribution(seg_text) or (("<<" in cmd) and has_ai_attribution(cmd)):
+                seg_joined = " ".join(tokens)
+                if has_ai_attribution(seg_joined) or (("<<" in cmd) and has_ai_attribution(cmd)):
                     deny(
                         "Blocked by rebuild-guardrails: never add AI co-author trailers or "
                         "'Generated with ...' attribution to commits (see AGENTS.md)."
@@ -674,9 +912,9 @@ def inspect_command(
                             f"Blocked by rebuild-guardrails: commit message file `{msg_file}` "
                             f"contains forbidden AI attribution (see AGENTS.md)."
                         )
-                if repo_cwd not in branch_by_repo:
-                    branch_by_repo[repo_cwd] = current_git_branch(repo_cwd)
-                if branch_by_repo[repo_cwd] == "main":
+                if repo_cwd not in branches:
+                    branches[repo_cwd] = current_git_branch(repo_cwd)
+                if branches[repo_cwd] == "main":
                     deny(
                         "Blocked by rebuild-guardrails: never commit directly to `main`. "
                         "Create a topic branch first (`git switch -c <branch>`)."
@@ -704,6 +942,8 @@ def inspect_command(
         # 3. Check each `adb` call independently for physical-device data wipes.
         if exe == "adb":
             check_adb_segment(effective_env, tokens)
+
+    return current_cwd, session_env, branches
 
 
 def main() -> None:
