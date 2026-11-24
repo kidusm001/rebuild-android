@@ -282,15 +282,16 @@ def tokenize_segment(seg_text: str) -> list[str]:
 
 
 def is_wrapped_group(seg_text: str, open_ch: str, close_ch: str) -> str | None:
-    """If seg_text is a single balanced `( ... )` or `{ ... }` group, return its inner body."""
+    """If seg_text starts with a balanced `( ... )` or `{ ... }` group (optionally followed by redirections), return its inner body."""
     s = seg_text.strip()
-    if len(s) < 2 or s[0] != open_ch or s[-1] != close_ch:
+    if len(s) < 2 or s[0] != open_ch:
         return None
     depth = 0
     in_single = False
     in_double = False
     i = 0
     n = len(s)
+    end_idx: int | None = None
     while i < n:
         ch = s[i]
         if in_single:
@@ -321,12 +322,35 @@ def is_wrapped_group(seg_text: str, open_ch: str, close_ch: str) -> str | None:
             depth += 1
         elif ch == close_ch:
             depth -= 1
-            if depth == 0 and i != n - 1:
-                return None
+            if depth == 0:
+                end_idx = i
+                break
         i += 1
-    if depth != 0:
+    if end_idx is None or depth != 0:
         return None
-    return s[1:-1].strip()
+    tail = s[end_idx + 1 :].strip()
+    if tail and not re.match(r"^(?:\d*[<>]|&>)", tail):
+        return None
+    return s[1:end_idx].strip()
+
+
+REDIR_OP_ONLY_RE = re.compile(r"^(?:\d*(?:>>?|<<-?|<>|<&|>&)|&>>?)$")
+REDIR_WITH_TARGET_RE = re.compile(r"^(?:\d*(?:>>?|<<-?|<>|<&|>&)|&>>?).+$")
+
+
+def strip_leading_redirections(tokens: list[str]) -> list[str]:
+    """Strip leading shell redirections like `>/dev/null` or `2> /dev/null` before a command."""
+    i = 0
+    while i < len(tokens):
+        tok = tokens[i]
+        if REDIR_OP_ONLY_RE.match(tok):
+            i += 2
+            continue
+        if REDIR_WITH_TARGET_RE.match(tok):
+            i += 1
+            continue
+        break
+    return tokens[i:]
 
 
 def strip_leading_env(tokens: list[str]) -> tuple[dict[str, str], list[str]]:
@@ -352,8 +376,10 @@ def unwrap_command_prefixes(
     cur_cwd = cwd
 
     for _ in range(8):
+        cur = strip_leading_redirections(cur)
         more_env, cur = strip_leading_env(cur)
         merged_env.update(more_env)
+        cur = strip_leading_redirections(cur)
         if not cur:
             break
 
@@ -789,6 +815,22 @@ def check_adb_segment(env: dict[str, str], tokens: list[str]) -> None:
         )
 
 
+def merge_child_branches(
+    parent: dict[str, str], child: dict[str, str], *, allow_safe: bool
+) -> None:
+    """Propagate Git branch changes from a completed child shell/subshell.
+
+    Git's checked-out branch lives on disk and is shared with the parent shell.
+    Always propagate switches to `main` (fail-closed); only propagate switches away
+    from `main` when `allow_safe` is True.
+    """
+    for repo, branch in child.items():
+        if branch == "main":
+            parent[repo] = "main"
+        elif allow_safe:
+            parent[repo] = branch
+
+
 def inspect_command(
     cmd: str,
     cwd: str,
@@ -804,36 +846,45 @@ def inspect_command(
             )
         return cwd, inherited_env, branch_by_repo
 
-    # Inspect any command substitutions (`$(...)` or backticks) in isolated copies.
-    for sub in extract_command_substitutions(cmd):
-        inspect_command(sub, cwd, dict(inherited_env), dict(branch_by_repo), depth + 1)
-
     current_cwd = cwd
     session_env = dict(inherited_env)
     branches = dict(branch_by_repo)
+
+    # Inspect any command substitutions (`$(...)` or backticks) in isolated env/cwd,
+    # carrying back any switch to `main` because Git's HEAD is shared on disk.
+    for sub in extract_command_substitutions(cmd):
+        _, _, sub_branches = inspect_command(sub, current_cwd, dict(session_env), dict(branches), depth + 1)
+        merge_child_branches(branches, sub_branches, allow_safe=False)
+
     cleaned = strip_quoted_heredocs(cmd)
     segments = split_top_level_commands(cleaned)
 
     for prev_op, seg_text, next_op in segments:
-        # Subshells `( ... )` run in an isolated child process: env, cwd, and branch
-        # exemptions inside them must never leak into the parent shell.
+        # Subshells `( ... )` run in an isolated child process: env and cwd never leak,
+        # but switches to `main` modify `.git/HEAD` on disk and must carry back.
         subshell_inner = is_wrapped_group(seg_text, "(", ")")
         if subshell_inner is not None:
-            inspect_command(subshell_inner, current_cwd, dict(session_env), dict(branches), depth + 1)
+            _, _, child_branches = inspect_command(
+                subshell_inner, current_cwd, dict(session_env), dict(branches), depth + 1
+            )
+            merge_child_branches(branches, child_branches, allow_safe=False)
             continue
 
         # Brace groups `{ ...; }` run in the current shell unless part of a pipeline/background/||.
         brace_inner = is_wrapped_group(seg_text, "{", "}")
         if brace_inner is not None:
             if prev_op in {"|", "&", "||"} or next_op in {"|", "&"}:
-                inspect_command(brace_inner, current_cwd, dict(session_env), dict(branches), depth + 1)
+                _, _, child_branches = inspect_command(
+                    brace_inner, current_cwd, dict(session_env), dict(branches), depth + 1
+                )
+                merge_child_branches(branches, child_branches, allow_safe=False)
             else:
                 current_cwd, session_env, branches = inspect_command(
                     brace_inner, current_cwd, session_env, branches, depth + 1
                 )
             continue
 
-        tokens = tokenize_segment(seg_text)
+        tokens = strip_leading_redirections(tokenize_segment(seg_text))
         if not tokens:
             continue
 
@@ -885,10 +936,14 @@ def inspect_command(
                 current_cwd = target if os.path.isabs(target) else os.path.normpath(os.path.join(current_cwd, target))
             continue
 
-        # Recursively inspect nested shell invocations (`sh -c`, `bash -lc`, `eval`, ...).
+        # Recursively inspect nested shell invocations (`sh -c`, `bash -lc`, `eval`, ...),
+        # carrying back any switch to `main`.
         nested = extract_nested_shell_command(tokens)
         if nested is not None:
-            inspect_command(nested, effective_cwd, dict(effective_env), dict(branches), depth + 1)
+            _, _, child_branches = inspect_command(
+                nested, effective_cwd, dict(effective_env), dict(branches), depth + 1
+            )
+            merge_child_branches(branches, child_branches, allow_safe=False)
             continue
 
         # 1. Check git commands (attribution + no commit on main) in execution order.
