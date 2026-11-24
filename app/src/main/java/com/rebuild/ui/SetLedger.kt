@@ -464,7 +464,7 @@ private fun RowToday(row: LedgerRow, exercise: Exercise, extra: Boolean, stacked
 }
 
 @Composable
-private fun TodayCell(set: LoggedSet, label: String, extra: Boolean, exercise: Exercise, stacked: Boolean,
+internal fun TodayCell(set: LoggedSet, label: String, extra: Boolean, exercise: Exercise, stacked: Boolean,
     onEdit: (LoggedSet) -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier.heightIn(min = 56.dp).then(if (stacked) Modifier.fillMaxWidth() else Modifier)
@@ -474,7 +474,9 @@ private fun TodayCell(set: LoggedSet, label: String, extra: Boolean, exercise: E
             .semantics(mergeDescendants = true) { contentDescription = "$label: ${setText(set, exercise).spokenUnits()}" }
             .testTag("set-row")
             .padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        // A gap before the pencil: the value fits (or shrinks) beside it, never under it.
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Column(Modifier.weight(1f)) {
             FitText(
