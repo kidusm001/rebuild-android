@@ -1,10 +1,14 @@
 package com.rebuild.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
+
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Box
+import com.rebuild.ui.theme.Motion
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
-import androidx.compose.ui.unit.sp
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -25,8 +29,6 @@ import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -35,7 +37,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -43,12 +44,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
@@ -224,7 +222,9 @@ internal fun EntryPanel(
     viewportHeight: Int,
     onFocusChange: (Boolean) -> Unit,
     /** What the next fresh draft starts as, set just before each save (see [DropCarry]). */
-    onCarry: (DropCarry) -> Unit = {}
+    onCarry: (DropCarry) -> Unit = {},
+    /** In the bottom-pinned dock, where growth above the Log row moves the fields, never Log set. */
+    pinned: Boolean = true
 ) {
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val large = LocalDensity.current.fontScale > 1.3f
@@ -244,7 +244,6 @@ internal fun EntryPanel(
     var entryFocused by remember { mutableStateOf(false) }
     var confirmingFinish by rememberSaveable { mutableStateOf(false) }
     var unlikelyReason by rememberSaveable { mutableStateOf<String?>(null) }
-    val haptics = LocalHapticFeedback.current
     val entryBounds = remember { BringIntoViewRequester() }
     // Relocate after the hosting viewport is measured; IME insets read in composition can precede the resize.
     LaunchedEffect(entryFocused, viewportHeight) {
@@ -303,10 +302,15 @@ internal fun EntryPanel(
         }
         // Decided before the save: the save itself replaces this draft with a fresh one.
         onCarry(if (!dropping) DropCarry.NONE else if (draft.extra) DropCarry.DROP_PAST_TARGET else DropCarry.DROP)
-        env.runner.run(action, onError = { draft.error = it }, cooldownMs = ActionRunner.NEW_SET_COOLDOWN_MS) {
-            // A short tick confirms the set is saved without looking at the screen.
-            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-        }
+        val savedId = draft.pendingSetId
+        val started = env.runner.run(action, onError = {
+            env.runner.ticked(savedId)
+            draft.error = it
+        }, cooldownMs = ActionRunner.NEW_SET_COOLDOWN_MS, tag = LOG_SET_TAG)
+        // A short tick confirms the set is saved without looking at the screen: felt as the set first shows (the
+        // frame after the first one that draws it), not when the write returns, which can be before or after that
+        // frame, nor after the double-tap cooldown.
+        if (started) env.runner.tickWhenShown(savedId)
     }
 
     fun finishGroup() {
@@ -332,7 +336,7 @@ internal fun EntryPanel(
     @Composable fun LogButton(modifier: Modifier) {
         val logModifier = modifier.heightIn(min = 56.dp).testTag("log-set")
         val label = when {
-            env.runner.saving -> "Saving…"
+            env.runner.looksBusy(LOG_SET_TAG) -> "Saving…"
             open != null -> "Add ${open.method.stageNoun}"
             dropping -> "Log drop"
             method != null -> "Log stage 1"
@@ -341,9 +345,9 @@ internal fun EntryPanel(
         }
         // Extra sets stay available but are never styled as the expected next step; an open set's next stage is.
         if (extra && open == null) {
-            OutlinedButton(onClick = { log() }, enabled = !env.runner.busy, modifier = logModifier) { Text(label, maxLines = 1) }
+            OutlinedButton(onClick = { log() }, enabled = !env.runner.looksBusy(), modifier = logModifier) { Text(label, maxLines = 1) }
         } else {
-            Button(onClick = { log() }, enabled = !env.runner.busy, modifier = logModifier) { Text(label, maxLines = 1) }
+            Button(onClick = { log() }, enabled = !env.runner.looksBusy(), modifier = logModifier) { Text(label, maxLines = 1) }
         }
     }
 
@@ -353,7 +357,7 @@ internal fun EntryPanel(
                 // Typed values that were never added as a stage are not silently dropped.
                 if (draft.reps.isNotBlank() && !draft.shows(offered)) confirmingFinish = true else finishGroup()
             },
-            enabled = !env.runner.busy,
+            enabled = !env.runner.looksBusy(),
             modifier = modifier.heightIn(min = 56.dp).testTag("finish-group")
         ) { Text("Finish set", maxLines = 1) }
     }
@@ -362,7 +366,7 @@ internal fun EntryPanel(
         SecondaryButton(
             onClick = { env.runner.run(Action.StartShortPause(workout.id, we.id, SHORT_PAUSE_SECONDS, env.clock()),
                 onError = { draft.error = it }) },
-            enabled = !env.runner.busy,
+            enabled = !env.runner.looksBusy(),
             icon = R.drawable.ic_rest,
             modifier = Modifier.testTag("short-pause")
         ) { Text("Start ${SHORT_PAUSE_SECONDS} s pause") }
@@ -381,7 +385,7 @@ internal fun EntryPanel(
     val showWarmup = open == null && method == null
     val typeButton = @Composable {
         if (open == null) SetTypeButton(
-            method, enabled = !env.runner.busy, onSelect = ::chooseMethod, named = landscape,
+            method, enabled = !env.runner.looksBusy(), onSelect = ::chooseMethod, named = landscape,
             dropOnto = dropTarget?.let { entries.indexOf(it) + 1 },
             dropping = dropping,
             onDrop = {
@@ -429,7 +433,12 @@ internal fun EntryPanel(
                     LogButton(Modifier.weight(1f))
                 }
             } else {
-                Fields(Modifier.fillMaxWidth())
+                // A message about the fields sits right under them. Pinned at the foot of the dock, it opens above the
+                // Log row, so the fields rise with it and Log set stays put.
+                Column {
+                    Fields(Modifier.fillMaxWidth())
+                    if (pinned) EntryError(draft.error)
+                }
                 when {
                     large -> LogButton(Modifier.fillMaxWidth())
                     open != null -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -443,7 +452,9 @@ internal fun EntryPanel(
                     }
                 }
             }
-            ErrorText(draft.error)
+            // Inline (landscape, large text), the entry flows down from the top: below the Log row the line moves
+            // nothing above it.
+            if (!pinned || landscape) EntryError(draft.error)
         }
         if (landscape) {
             FlowRow(
@@ -471,7 +482,7 @@ internal fun EntryPanel(
             title = "Check this set",
             text = "$reason Save it as typed, or go back and fix it.",
             confirmLabel = "Save as typed",
-            busy = env.runner.busy,
+            busy = env.runner.looksBusy(),
             onDismiss = { unlikelyReason = null },
             onConfirm = { log(confirmed = true) }
         )
@@ -483,10 +494,20 @@ internal fun EntryPanel(
             text = "The values in the fields aren't logged. Finish the ${open.method.title.lowercase()} with its " +
                 "${countLabel(stagesLogged, "logged stage")}, or cancel and tap Add ${open.method.stageNoun} first.",
             confirmLabel = "Finish set",
-            busy = env.runner.busy,
+            busy = env.runner.looksBusy(),
             onDismiss = { confirmingFinish = false },
             onConfirm = ::finishGroup
         )
+    }
+}
+
+/** The entry's error line, opening by Expand and closing by Collapse (with the message it last showed). */
+@Composable
+private fun EntryError(message: String?) {
+    val last = remember { arrayOfNulls<String>(1) }
+    if (message != null) last[0] = message
+    AnimatedVisibility(message != null, enter = Motion.expand(), exit = Motion.collapse()) {
+        Box(Modifier.padding(top = 8.dp)) { ErrorText(message ?: last[0]) }
     }
 }
 
@@ -603,10 +624,11 @@ internal fun TargetMetPanel(
     onExtra: () -> Unit
 ) {
     val large = LocalDensity.current.fontScale > 1.3f
-    EnterOnce { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // A green status pill: a done target reads as a fact, not a celebration.
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // A green status pill: a done target reads as a fact, not a celebration. It rises as the panel arrives; the
+        // buttons below never move.
         Row(
-            Modifier.padding(vertical = 2.dp),
+            LocalDockRise.current.padding(vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -657,8 +679,14 @@ internal fun TargetMetPanel(
                 Extra(Modifier.weight(1f))
             }
         }
-    } }
+    }
 }
+
+/**
+ * The Rise of content arriving in the dock as its kind changes (Target done, Skipped, back to the entry): applied to
+ * the line above the buttons, never to the buttons, so Next and Log set sit where they end from the first frame.
+ */
+internal val LocalDockRise = staticCompositionLocalOf<Modifier> { Modifier }
 
 /**
  * Stacks [body] over [dock]. The dock is measured first, capped at [dockShare] of the height, and the body gets
@@ -717,3 +745,6 @@ internal fun LogDock(
         }
     }
 }
+
+/** The tag Log set runs its save with, so only Log set says "Saving…" when a save is slow. */
+internal const val LOG_SET_TAG = "log-set"

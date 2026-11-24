@@ -100,7 +100,7 @@ class PreviousSetsTest {
         rule.onNodeWithTag("log-set").performScrollTo().performClick()
         rule.waitUntil { repo.state.value.activeWorkout?.exercises?.first()?.sets?.size == 1 }
         rule.onNodeWithTag("entry-kg").assertTextContains("41")
-        rule.waitUntil { SemanticsProperties.Disabled !in rule.onNodeWithTag("log-set").fetchSemanticsNode().config }
+        rule.waitUntil { rule.actionGuardOpen() && SemanticsProperties.Disabled !in rule.onNodeWithTag("log-set").fetchSemanticsNode().config }
         rule.onNodeWithTag("log-set").performScrollTo().performClick()
         rule.waitUntil { repo.state.value.activeWorkout?.exercises?.first()?.sets?.size == 2 }
         rule.onNodeWithTag("entry-kg").assertTextContains("42")

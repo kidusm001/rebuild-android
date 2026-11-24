@@ -364,7 +364,7 @@ class AdaptiveUiTest {
         rule.onNodeWithTag("entry-reps").performTextInput("8")
         rule.onNodeWithTag("log-set").performScrollTo().performClick()
         rule.waitUntil { repo.state.value.workouts.single().exercises.first().sets.size == 1 }
-        rule.waitUntil { SemanticsProperties.Disabled !in rule.onNodeWithTag("log-set").fetchSemanticsNode().config }
+        rule.waitUntil { rule.actionGuardOpen() && SemanticsProperties.Disabled !in rule.onNodeWithTag("log-set").fetchSemanticsNode().config }
         rule.onNodeWithTag("log-set").performScrollTo().performClick()
         rule.waitUntil { repo.state.value.workouts.single().exercises.first().sets.size == 2 }
         rule.onNodeWithTag("next-exercise").performScrollTo().assertIsDisplayed()

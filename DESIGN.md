@@ -41,16 +41,28 @@ Everything visual comes from `ui/theme/Theme.kt` and the shared components in
 - **Spacing.** A 4/8/12/16/20/24 dp grid; a 20 dp gutter; 16 dp between sections.
   Content is a centered column capped at 640 dp on wide windows. Scrolling pages
   fade at an edge only when there is content beyond it.
-- **Motion.** Only state changes move, in 150–220 ms with ease-out: the ledger grows
-  as sets are logged, options expand, a panel that replaces another (Target done)
-  rises in once. Android's animation scale, including Remove animations, applies.
-- **Haptics.** A confirm tick when a set is logged and when a workout is saved.
+- **Motion.** Only state changes move. State changes take 150–220 ms; navigation
+  and sheets up to 300 ms, readable by 150 ms; exits are faster than entrances.
+  Travel that comes with a fade stays visible; sideways means sequence, counts
+  roll in the direction they change. Motion that follows a finger is instant.
+  Every value comes from `ui/theme/Motion.kt`. Android's animation scale,
+  including Remove animations, applies to animation; thresholds that carry
+  information (a slow save, a slow load) are real time. No frame is ever blank,
+  and no change is shown half made: a transition starts from its first drawn
+  frame, and the kinds of drawing transitions need are drawn once, unseen, while
+  the app is idle after launch.
+- **Haptics.** A confirm tick as a saved set first shows and as a workout's
+  receipt lands; a long-press tick as Up next covers the screen and as a held
+  exercise pill lifts, and a light tick each time it passes another. Motion never
+  delays a tick.
 - **Navigation.** Bottom navigation bar on phones; a navigation rail at 600 dp and
   wider. Predictive Back is enabled. Bars paint behind the gesture area in their
   own color and ride above the keyboard. The four tabs are built once, warmed
   in the background after launch, and kept: switching tabs shows an
-  already-built screen with its scroll position and sub-tab, fading in through
-  its layer alone. Hidden tabs are absent from the semantics tree and Back, and
+  already-built screen with its scroll position and sub-tab, fading in over
+  the one it replaces (which stays whole beneath it until covered). Pushed screens come in from the right and leave the way
+  they came; Back's gesture previews the screen beneath, except where Back asks
+  first. Hidden tabs are absent from the semantics tree and Back, and
   don't recompose while another screen changes the data. Pushed screens
   (workout, details, editors) still start fresh each time they're opened. See
   `docs/performance.md`.

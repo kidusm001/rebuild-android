@@ -146,7 +146,7 @@ private fun CustomMetadataDialog(env: AppEnv, exercise: Exercise, onDismiss: () 
             }
         },
         confirmButton = {
-            TextButton(enabled = !env.runner.busy, onClick = {
+            TextButton(enabled = !env.runner.looksBusy(), onClick = {
                 var updated = exercise.copy(equipment = equipment, primaryMuscle = muscle)
                 if (updated.preferredLoadUnit !in updated.loadUnitOptions()) updated = updated.copy(preferredLoadUnit = LoadUnit.KG)
                 env.runner.run(Action.AddExercise(updated), onError = { error = it }, onSuccess = onDismiss)

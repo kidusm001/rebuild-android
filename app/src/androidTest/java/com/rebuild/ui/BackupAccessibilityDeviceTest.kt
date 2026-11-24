@@ -35,7 +35,7 @@ class BackupAccessibilityDeviceTest {
                 .setThrowExceptionFor(AccessibilityCheckResultType.ERROR)
         )
         val model = ViewModelProvider(rule.activity)[BackupViewModel::class.java]
-        rule.waitUntil(30_000) { model.repository.value != null }
+        rule.waitUntil(BACKUP_IO_MS) { model.repository.value != null }
         val repository = requireNotNull(model.repository.value)
         val before = repository.state.value.workouts
         val input = File(rule.activity.cacheDir, "a11y-restore-input.json")
@@ -43,14 +43,14 @@ class BackupAccessibilityDeviceTest {
         try {
             input.writeText(runBlocking { repository.exportBackup().json })
             rule.runOnIdle { model.readRestore(Uri.fromFile(input)) }
-            rule.waitUntil { model.ui.value.preview != null && !model.ui.value.busy }
+            rule.waitUntil(BACKUP_IO_MS) { model.ui.value.preview != null && !model.ui.value.busy }
             rule.onNodeWithTag("restore-confirm").assertIsDisplayed().assertTextContains("Save current backup")
             rule.onNodeWithTag("restore-confirm").tryPerformAccessibilityChecks()
             var pickerRequested = false
             rule.runOnIdle { model.beginExport(true) { pickerRequested = true } }
-            rule.waitUntil { pickerRequested && !model.ui.value.busy }
+            rule.waitUntil(BACKUP_IO_MS) { pickerRequested && !model.ui.value.busy }
             rule.runOnIdle { model.completeExport(Uri.fromFile(safety)) }
-            rule.waitUntil { model.ui.value.safetyRevision != null && !model.ui.value.busy }
+            rule.waitUntil(BACKUP_IO_MS) { model.ui.value.safetyRevision != null && !model.ui.value.busy }
             rule.onNodeWithTag("restore-confirm").assertTextContains("Replace all data")
             rule.onNodeWithTag("restore-confirm").tryPerformAccessibilityChecks()
             assertTrue("Production safety copy must really be written", safety.length() > 0)
@@ -62,3 +62,9 @@ class BackupAccessibilityDeviceTest {
         }
     }
 }
+
+/**
+ * Reading, previewing and writing a real backup of whatever the phone holds: with months of history on a slow emulator
+ * this is seconds of real I/O, not the second waitUntil allows by default.
+ */
+private const val BACKUP_IO_MS = 30_000L

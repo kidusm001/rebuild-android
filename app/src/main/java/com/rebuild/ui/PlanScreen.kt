@@ -221,7 +221,7 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
                                         env.runner.run(Action.SetPlanSlotRemoved(viewPhase, slot.id, false),
                                             onError = { restoreError = occurrence.id to it })
                                     },
-                                    enabled = !env.runner.busy,
+                                    enabled = !env.runner.looksBusy(),
                                     modifier = Modifier.heightIn(min = 48.dp).testTag("plan-restore-${slot.id}")
                                         .semantics { contentDescription = "Restore $name" }
                                 ) { Text("Restore") }
@@ -370,12 +370,12 @@ private fun PlanReorderDialog(env: AppEnv, phase: Phase, routine: ScheduledRouti
                                 style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        IconButton(onClick = { move(p.slotId, index - 1) }, enabled = index > 0 && !env.runner.busy,
+                        IconButton(onClick = { move(p.slotId, index - 1) }, enabled = index > 0 && !env.runner.looksBusy(),
                             modifier = Modifier.testTag("plan-move-up-$index")) {
                             RebuildIcon(R.drawable.ic_arrow_up, contentDescription = "Move $name up")
                         }
                         IconButton(onClick = { move(p.slotId, index + 1) },
-                            enabled = index < planned.lastIndex && !env.runner.busy,
+                            enabled = index < planned.lastIndex && !env.runner.looksBusy(),
                             modifier = Modifier.testTag("plan-move-down-$index")) {
                             RebuildIcon(R.drawable.ic_arrow_down, contentDescription = "Move $name down")
                         }
@@ -507,7 +507,7 @@ private fun PlanSlotDialog(env: AppEnv, phase: Phase, slot: PlanSlot, onDismiss:
             }
         },
         confirmButton = {
-            TextButton(onClick = ::save, enabled = !env.runner.busy && (!aboveCap || allowAboveCap)) { Text("Save to plan") }
+            TextButton(onClick = ::save, enabled = !env.runner.looksBusy() && (!aboveCap || allowAboveCap)) { Text("Save to plan") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
@@ -519,7 +519,7 @@ private fun PlanSlotDialog(env: AppEnv, phase: Phase, slot: PlanSlot, onDismiss:
             text = "Future ${phaseShort(phase)} workouts won't include it. Started and finished workouts keep it with " +
                 "everything logged, and you can restore it here.",
             confirmLabel = "Remove",
-            busy = env.runner.busy,
+            busy = env.runner.looksBusy(),
             error = removeError,
             onDismiss = { confirmingRemove = false },
             onConfirm = {

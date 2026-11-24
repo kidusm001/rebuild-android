@@ -309,7 +309,7 @@ internal fun OpenGroupElsewhere(env: AppEnv, workout: Workout, other: WorkoutExe
                 error = null
                 env.runner.run(Action.FinishGroup(workout.id, other.id, group.id, env.clock()), onError = { error = it })
             },
-            enabled = !env.runner.busy,
+            enabled = !env.runner.looksBusy(),
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("finish-open-group")
         ) { Text("Finish that set") }
         ErrorText(error)
@@ -355,7 +355,7 @@ internal fun GroupDialog(env: AppEnv, workout: Workout, we: WorkoutExercise, gro
                 "${countLabel(entry.stages.size, "stage")}. Other sets keep their values and times. This can't be undone.",
             confirmLabel = "Delete set",
             destructive = true,
-            busy = env.runner.busy,
+            busy = env.runner.looksBusy(),
             error = error,
             onDismiss = { confirmDelete = false },
             onConfirm = {
@@ -406,7 +406,7 @@ internal fun GroupDialog(env: AppEnv, workout: Workout, we: WorkoutExercise, gro
                                     onDismiss()
                                 }
                             },
-                            enabled = !env.runner.busy,
+                            enabled = !env.runner.looksBusy(),
                             modifier = Modifier.heightIn(min = 56.dp).testTag("join-drops")
                         )
                         DropdownMenuItem(
@@ -500,7 +500,7 @@ internal fun GroupDialog(env: AppEnv, workout: Workout, we: WorkoutExercise, gro
                         onDismiss()
                     }
                 },
-                enabled = !env.runner.busy,
+                enabled = !env.runner.looksBusy(),
                 modifier = Modifier.testTag("group-finish")
             ) { Text("Finish set") }
             else TextButton(onClick = onDismiss, modifier = Modifier.testTag("group-done")) { Text("Done") }
@@ -555,7 +555,7 @@ internal fun WeekCredit(env: AppEnv, workout: Workout) {
                         error = null
                         env.runner.run(Action.SetWeekCredit(workout.id, counted), onError = { error = it })
                     },
-                    enabled = !env.runner.busy,
+                    enabled = !env.runner.looksBusy(),
                     supporting = "Partial: not every target was met",
                     modifier = Modifier.testTag("week-credit-toggle")
                 )

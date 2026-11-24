@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Common journeys, each from where the previous one leaves off. They stop with a message at the first step that fails.
-#   flows.sh first-run [PHASE]      choose a phase on the first-run screen (default INTRO_TWO = Build consistency)
+#   flows.sh first-run [EXPERIENCE] [DAYS] [GEAR]   walk setup (default regular 4 gym: Upper and lower, Build
+#                                   consistency), skip rest alerts, land on Today
 #   flows.sh start-workout          Today: resume the active workout, else start today's, else the first on the week
 #   flows.sh log-set <kg> <reps>    log one working set on the exercise in focus
 #   flows.sh set-rest <seconds>     set the running rest to a quick choice: 30, 60, 90, 120, 180 or 300
@@ -14,10 +15,15 @@ root=$(git -C "$here" rev-parse --show-toplevel)
 
 case ${1:-} in
   first-run)
+    # Setup: welcome, experience (new|returning|regular|experienced), days (2–6), gear (gym|dumbbells|bodyweight),
+    # the plan, then the optional rest-alert step, skipped (or done when notifications are already allowed).
     "$here/emu.sh" launch >/dev/null
-    "$ui" wait "phase-${2:-INTRO_TWO}" 20
-    "$ui" tap "phase-${2:-INTRO_TWO}"
-    "$ui" tap "Start with"
+    "$ui" wait setup-action 20; "$ui" tap setup-action; sleep 0.6
+    "$ui" tap "setup-experience-${2:-regular}"; "$ui" tap setup-action; sleep 0.6
+    "$ui" tap "setup-days-${3:-4}"; "$ui" tap setup-action; sleep 0.6
+    "$ui" tap "setup-gear-${4:-gym}"; "$ui" tap setup-action; sleep 0.8
+    "$ui" tap setup-action; sleep 1
+    if "$ui" has setup-rest-skip; then "$ui" tap setup-rest-skip; else "$ui" tap setup-rest-done; fi
     "$ui" wait "Today" 10 ;;
   start-workout)
     "$ui" tap "Today"
@@ -57,10 +63,13 @@ print(" ".join(f"{n} {u}{chr(115) if n != 1 else str()}" for n, u in parts if n)
     [ -s "$seed" ] || { echo "the seed test didn't write $seed" >&2; exit 1; }
     "$adb" push "$seed" /sdcard/Download/rebuild-seed.json >/dev/null 2>&1
     "$here/emu.sh" launch >/dev/null
-    "$ui" wait "Restore a backup" 20; "$ui" tap "Restore a backup"
+    # Restore is offered on setup's welcome ("I have a backup").
+    "$ui" wait setup-restore 20; "$ui" tap setup-restore
     # The picker reopens in the last folder it showed. Already in Downloads: pick the file. Otherwise open the drawer
     # and choose its Downloads item ("title=Downloads": the toolbar can say "Downloads" too).
     "$ui" wait "Show roots" 10; sleep 1
+    # In grid view the file has no "title" node; switch to the list ("List view" is the button that does so).
+    if "$ui" has "List view"; then "$ui" tap "List view"; sleep 1; fi
     if ! "$ui" has "title=rebuild-seed.json"; then
       "$ui" tap "Show roots"
       "$ui" wait "title=Downloads" 5; sleep 0.8; "$ui" tap "title=Downloads"

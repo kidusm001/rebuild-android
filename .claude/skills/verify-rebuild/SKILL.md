@@ -64,6 +64,8 @@ The features each journey proves, and how to reach them, are in [`features/`](fe
 $S/evidence.sh shot workout-after               # screenshot
 $S/evidence.sh record rest-end 8                # 8-second screen recording (foreground)
 $S/evidence.sh frames rest-end 15               # split it into frames to inspect motion
+$S/evidence.sh record-while start 60 $S/flows.sh start-workout   # record while a flow drives the app
+$S/evidence.sh sheet start 3.2 1 30             # one time-stamped contact sheet: 1 s from 3.2 s at 30 fps
 $S/evidence.sh notifications countdown          # the notification shade
 $S/evidence.sh theme dark                       # the app follows the system theme
 ```
@@ -74,7 +76,7 @@ What counts as proof:
 - Drive the real user path: taps, holds and typing through the UI. Not repository calls, not `adb` intents into internals, not test-only hooks.
 - Capture the action and the state it leads to, not just a final screen: for example the held pill mid-drag, then the strip after the drop.
 - Check side effects alongside the screen. A posted notification: `adb shell dumpsys notification --noredact | grep -A3 com.rebuild` (channel, flags such as `FLAG_INSISTENT`). A scheduled alarm: `adb shell dumpsys alarm | grep -A2 com.rebuild`. Saved data survives `adb shell am force-stop com.rebuild` and relaunch.
-- Motion (rest-end flash, Up next, drags) needs a recording split into frames. The emulator renders in software and drops frames, so judge timing from the code and the curve tests, and the look from frames. Say "not verified on a real GPU" when smoothness matters.
+- Motion (rest-end flash, Up next, drags) needs a recording split into frames. `emu.sh up` boots on the host's NVIDIA GPU, which `emu.sh doctor` confirms. Under SwiftShader (CPU rendering, the fallback) a GPU program compile takes 60–80 ms and frames drop, so don't judge timing or performance there. Even on the host GPU it is still an emulator: say "not verified on a phone" when smoothness matters.
 
 ## Cleanup
 

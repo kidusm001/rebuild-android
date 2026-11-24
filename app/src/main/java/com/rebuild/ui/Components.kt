@@ -1,5 +1,11 @@
 package com.rebuild.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.layout.imeAnimationTarget
+import androidx.compose.foundation.layout.ime
+
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.composed
 import androidx.compose.material3.contentColorFor
@@ -27,12 +33,6 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.PaddingValues
 import android.content.res.Configuration
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.EaseOutQuart
-import androidx.compose.animation.AnimatedVisibility
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -77,10 +77,8 @@ import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
@@ -112,6 +110,22 @@ import androidx.compose.ui.zIndex
 internal fun compactLandscapeInput(): Boolean =
     LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE && WindowInsets.isImeVisible
 
+/**
+ * The keyboard is up or moving: true from the frame it starts to open until it has finished closing. Read through a
+ * derived state, so the keyboard's per-frame animation recomposes nothing until the answer changes.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun keyboardOpenOrMoving(): Boolean {
+    val ime = WindowInsets.ime
+    val target = WindowInsets.imeAnimationTarget
+    val density = LocalDensity.current
+    val showing = remember(ime, target, density) {
+        androidx.compose.runtime.derivedStateOf { ime.getBottom(density) > 0 || target.getBottom(density) > 0 }
+    }
+    return showing.value
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ScreenScaffold(
@@ -120,6 +134,8 @@ internal fun ScreenScaffold(
     subtitle: String? = null,
     onBack: (() -> Unit)? = null,
     compactWhenKeyboard: Boolean = false,
+    /** With [compactWhenKeyboard]: hide the subtitle now, ahead of the keyboard (a set field just took focus). */
+    compactNow: Boolean = false,
     /** A single icon action stays beside the title even at large text instead of taking a row of its own. */
     iconOnlyActions: Boolean = false,
     actions: @Composable RowScope.() -> Unit = {},
@@ -156,11 +172,19 @@ internal fun ScreenScaffold(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                     verticalAlignment = Alignment.CenterVertically, content = actions)
             }
-            if (subtitle != null && (!compactWhenKeyboard || !WindowInsets.isImeVisible)) Text(
-                subtitle, style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 4.dp).testTag("screen-subtitle")
-            )
+            // Typing gives the subtitle's line to the fields: it collapses as the keyboard starts to open and comes
+            // back by Expand once the keyboard has finished closing, never popping in a frame.
+            if (subtitle != null) androidx.compose.animation.AnimatedVisibility(
+                visible = !compactWhenKeyboard || !(compactNow || keyboardOpenOrMoving()),
+                enter = com.rebuild.ui.theme.Motion.expand(),
+                exit = com.rebuild.ui.theme.Motion.collapse()
+            ) {
+                Text(
+                    subtitle, style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 4.dp).testTag("screen-subtitle")
+                )
+            }
         } }
         content()
     }
@@ -649,18 +673,24 @@ internal fun OrderBadge(number: Int, met: Boolean = false, emphasized: Boolean =
     }
     // Grows with the text so the number never clips at large font sizes.
     val size = with(LocalDensity.current) { maxOf(24.dp, MaterialTheme.typography.labelMedium.lineHeight.toDp() + 6.dp) }
-    Box(Modifier.size(size).clip(CircleShape).background(background).clearAndSetSemantics {},
-        contentAlignment = Alignment.Center) {
-        if (met) {
-            RebuildIcon(R.drawable.ic_check, contentDescription = null, tint = colors.onTertiaryContainer,
-                modifier = Modifier.size(size * 2 / 3))
-        } else {
-            Text(
-                "$number",
-                style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
-                color = if (emphasized) colors.onPrimaryContainer else colors.onSurfaceVariant,
-                maxLines = 1
-            )
+    // Selecting a pill recolours its disc; a met target is a new disc, faded in over the old one, which never dims.
+    val fill by animateColorAsState(background, com.rebuild.ui.theme.Motion.colourSpec(), label = "badge-fill")
+    val ink by animateColorAsState(if (emphasized) colors.onPrimaryContainer else colors.onSurfaceVariant,
+        com.rebuild.ui.theme.Motion.colourSpec(), label = "badge-ink")
+    com.rebuild.ui.theme.FadeInOver(met, Modifier.clearAndSetSemantics {}, label = "order-badge") { done ->
+        Box(Modifier.size(size).clip(CircleShape).background(if (done) colors.tertiaryContainer else fill),
+            contentAlignment = Alignment.Center) {
+            if (done) {
+                RebuildIcon(R.drawable.ic_check, contentDescription = null, tint = colors.onTertiaryContainer,
+                    modifier = Modifier.size(size * 2 / 3))
+            } else {
+                Text(
+                    "$number",
+                    style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
+                    color = ink,
+                    maxLines = 1
+                )
+            }
         }
     }
 }
@@ -694,20 +724,6 @@ internal fun DayBlock(weekday: String, day: String?, description: String, emphas
             maxLines = 1
         )
     }
-}
-
-/**
- * Content that replaces something else (a finished target, a receipt) rises and fades in once, in 220 ms. Motion
- * only marks the change of state; Android's animation scale, including Remove animations, applies.
- */
-@Composable
-internal fun EnterOnce(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    val visible = remember { MutableTransitionState(false).apply { targetState = true } }
-    AnimatedVisibility(
-        visibleState = visible,
-        modifier = modifier,
-        enter = fadeIn(tween(220)) + slideInVertically(tween(220, easing = EaseOutQuart)) { it / 6 }
-    ) { content() }
 }
 
 /** A card: a lighter (light theme) or raised (dark theme) tonal container, never outlined. */
@@ -881,6 +897,8 @@ internal fun GroupedActionRow(
     @DrawableRes trailing: Int = R.drawable.ic_chevron_right,
     /** Spoken name, kept even when the row is scrolled almost out of view and its text is clipped. */
     label: String? = null,
+    /** For a row that opens something below it: a chevron that turns as it opens and closes, instead of [trailing]. */
+    expanded: Boolean? = null,
     content: @Composable RowScope.() -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
@@ -900,8 +918,19 @@ internal fun GroupedActionRow(
             RebuildIcon(icon, contentDescription = null, tint = colors.onSurface, modifier = Modifier.size(18.dp))
         }
         androidx.compose.material3.ProvideTextStyle(MaterialTheme.typography.labelLarge) { content() }
-        RebuildIcon(trailing, contentDescription = null, tint = colors.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        if (expanded != null) Chevron(expanded, tint = colors.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        else RebuildIcon(trailing, contentDescription = null, tint = colors.onSurfaceVariant, modifier = Modifier.size(18.dp))
     }
+}
+
+/** A down chevron that turns to point up while [expanded], by Move within, so opening and closing read as one motion. */
+@Composable
+internal fun Chevron(expanded: Boolean, modifier: Modifier = Modifier,
+    tint: Color = androidx.compose.material3.LocalContentColor.current) {
+    val turn by androidx.compose.animation.core.animateFloatAsState(if (expanded) 180f else 0f,
+        com.rebuild.ui.theme.Motion.moveWithinSpec(), label = "chevron")
+    RebuildIcon(R.drawable.ic_chevron_down, contentDescription = null, tint = tint,
+        modifier = modifier.graphicsLayer { rotationZ = turn })
 }
 
 @Composable
@@ -1146,7 +1175,7 @@ internal fun PillTab(
     val pressed by presses.collectIsPressedAsState()
     // Only a tab you're moving to gives under the finger; the selected one keeps its pill's size.
     val scale by androidx.compose.animation.core.animateFloatAsState(if (pressed && !selected) 0.96f else 1f,
-        androidx.compose.animation.core.spring(stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow),
+        com.rebuild.ui.theme.Motion.press(),
         label = "tab-press")
     Box(
         modifier
@@ -1198,8 +1227,10 @@ internal fun <T> PillChoice(
     ) {
         options.forEach { option ->
             val chosen = option == selected
+            // The choice moves by colour in place (no sliding pill: labels wrap at large text), by the Colour rule.
             val pill by androidx.compose.animation.animateColorAsState(
-                if (chosen) colors.secondaryContainer else Color.Transparent, label = "choice-pill")
+                if (chosen) colors.secondaryContainer else colors.secondaryContainer.copy(alpha = 0f),
+                com.rebuild.ui.theme.Motion.colourSpec(), label = "choice-pill")
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 Box(Modifier.matchParentSize().padding(4.dp).clip(CircleShape).background(pill))
                 PillTab(

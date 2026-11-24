@@ -96,7 +96,7 @@ class BodyAndPoundsDeviceTest {
         launch(repo)
         rule.onNodeWithText("Resume workout").performScrollTo().performClick()
         rule.waitUntil(5_000) {
-            rule.onAllNodes(hasTestTag("choose-load-unit") and isEnabled()).fetchSemanticsNodes().size == 1
+            rule.actionGuardOpen() && rule.onAllNodes(hasTestTag("choose-load-unit") and isEnabled()).fetchSemanticsNodes().size == 1
         }
         tap("choose-load-unit")
         tap("unit-LB")

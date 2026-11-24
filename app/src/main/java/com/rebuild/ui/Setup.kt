@@ -5,15 +5,8 @@ import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import com.rebuild.ui.theme.Motion
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -182,12 +175,17 @@ internal fun SetupFlow(env: AppEnv, onPlanSaving: (Boolean) -> Unit) {
     }
     BackHandler(enabled = step != SetupStep.WELCOME, onBack = ::back)
 
+    Column(Modifier.fillMaxSize()) {
+    // Back and the progress stay put above the pages: only the pages move, and the progress fills by the Colour rule.
+    SetupHeader(stepNumber(step), onBack = if (step == SetupStep.WELCOME) null else ::back)
+    val shift = with(LocalDensity.current) { Motion.Shift.roundToPx() }
     AnimatedContent(
         targetState = step,
+        modifier = Modifier.weight(1f),
         transitionSpec = {
+            // Steps are a sequence: the next comes in from the side you're heading to, the last leaves the other way.
             val sign = if (forward) 1 else -1
-            (slideInHorizontally(tween(260, easing = FastOutSlowInEasing)) { sign * it / 5 } + fadeIn(tween(220))) togetherWith
-                (slideOutHorizontally(tween(220, easing = FastOutSlowInEasing)) { -sign * it / 5 } + fadeOut(tween(160)))
+            Motion.lateralEnter(sign * shift) togetherWith Motion.lateralExit(-sign * shift) using null
         },
         label = "setup-step"
     ) { shown ->
@@ -200,7 +198,7 @@ internal fun SetupFlow(env: AppEnv, onPlanSaving: (Boolean) -> Unit) {
             SetupStep.WELCOME -> Welcome(onStart = { go(SetupStep.EXPERIENCE) }, onRestore = { env.platform.chooseRestore() })
             SetupStep.EXPERIENCE -> SetupPage(1, "How much have you trained?",
                 "This picks how your plan starts. You can change everything later.",
-                onBack = ::back, action = "Continue", enabled = experience != null, onAction = ::next) {
+                action = "Continue", enabled = experience != null, onAction = ::next) {
                 Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Experience.entries.forEach { option ->
                         ChoiceCard(option == experience, { experienceName = option.name }, option.title(), option.detail(),
@@ -210,7 +208,7 @@ internal fun SetupFlow(env: AppEnv, onPlanSaving: (Boolean) -> Unit) {
             }
             SetupStep.DAYS -> SetupPage(2, "How many days a week?",
                 "Pick what fits a normal week. Rebuild spreads the days out so you rest between them.",
-                onBack = ::back, action = "Continue", enabled = days != null, onAction = ::next) {
+                action = "Continue", enabled = days != null, onAction = ::next) {
                 DaySelector(days) { days = it }
                 days?.let { count ->
                     WeekStrip(Splits.weekdays(count).associateWith { null }, Modifier.testTag("setup-week-strip"))
@@ -224,7 +222,7 @@ internal fun SetupFlow(env: AppEnv, onPlanSaving: (Boolean) -> Unit) {
             }
             SetupStep.EQUIPMENT -> SetupPage(3, "What will you train with?",
                 "Every exercise in your plan will fit it.",
-                onBack = ::back, action = "See your plan", enabled = gear != null, onAction = ::next) {
+                action = "See your plan", enabled = gear != null, onAction = ::next) {
                 Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Gear.entries.forEach { option ->
                         ChoiceCard(option == gear, { gearName = option.name }, option.title(), option.detail(),
@@ -239,12 +237,15 @@ internal fun SetupFlow(env: AppEnv, onPlanSaving: (Boolean) -> Unit) {
             }
             SetupStep.PLAN -> {
                 val split = Splits.recommend(experience!!, days!!, gear!!)
-                SetupPage(4, null, null, onBack = ::back, action = "Start with this plan",
-                    enabled = !env.runner.busy, onAction = {
-                        // The last step is marked before the save, so it still shows if the screen turns mid-save.
-                        onPlanSaving(true)
-                        env.runner.run(Action.CompleteSetup(experience, split.id, gear, unit,
-                            localDateOf(env.clock()).toString()), onError = { error = it; onPlanSaving(false) })
+                SetupPage(4, null, null, action = "Start with this plan",
+                    // The save greys nothing unless it is slow; a second tap meanwhile does nothing.
+                    enabled = !env.runner.looksBusy(), onAction = {
+                        if (!env.runner.busy) {
+                            // The last step is marked before the save, so it still shows if the screen turns mid-save.
+                            onPlanSaving(true)
+                            env.runner.run(Action.CompleteSetup(experience, split.id, gear, unit,
+                                localDateOf(env.clock()).toString()), onError = { error = it; onPlanSaving(false) })
+                        }
                     }) {
                     PlanReveal(previewState(env.state, split, gear, experience), split, gear,
                         note = if (Splits.manyDaysForABeginner(experience, days!!))
@@ -255,6 +256,34 @@ internal fun SetupFlow(env: AppEnv, onPlanSaving: (Boolean) -> Unit) {
             }
         }
         } }
+    }
+    }
+}
+
+/** Which of the four numbered steps [step] is, or null for the welcome. */
+private fun stepNumber(step: SetupStep): Int? = if (step == SetupStep.WELCOME) null else step.ordinal
+
+/**
+ * Back and the four-step progress, above the pages and never moving with them. On the welcome both are absent: they
+ * fade in with the first question.
+ */
+@Composable
+private fun SetupHeader(number: Int?, onBack: (() -> Unit)?) {
+    val lastNumber = androidx.compose.runtime.remember { intArrayOf(1) }
+    if (number != null) lastNumber[0] = number
+    Row(Modifier.readableWidth().padding(start = 4.dp, end = 20.dp).heightIn(min = 56.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(48.dp)) {
+            androidx.compose.animation.AnimatedVisibility(onBack != null, enter = Motion.fadeIn(), exit = Motion.fadeOut()) {
+                IconButton(onClick = { onBack?.invoke() }, modifier = Modifier.testTag("setup-back")) {
+                    RebuildIcon(R.drawable.ic_arrow_left, contentDescription = "Back")
+                }
+            }
+        }
+        AnimatedVisibility(number != null, Modifier.weight(1f).padding(start = 4.dp),
+            enter = Motion.fadeIn(), exit = Motion.fadeOut()) {
+            SetupProgress(number ?: lastNumber[0])
+        }
     }
 }
 
@@ -271,7 +300,7 @@ private val LocalSettled = androidx.compose.runtime.staticCompositionLocalOf { t
 
 @Composable
 private fun Welcome(onStart: () -> Unit, onRestore: () -> Unit) {
-    SetupPage(null, null, null, onBack = null, action = "Get started", enabled = true, onAction = onStart,
+    SetupPage(null, null, null, action = "Get started", enabled = true, onAction = onStart,
         secondary = {
             SecondaryButton(onClick = onRestore, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                 .testTag("setup-restore")) { Text("I have a backup") }
@@ -319,7 +348,7 @@ private fun SetupProgress(step: Int, modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         (1..4).forEach { segment ->
             val fill by animateColorAsState(if (segment <= step) colors.primaryContainer else colors.surfaceContainerHigh,
-                tween(220), label = "setup-progress")
+                Motion.colourSpec(), label = "setup-progress")
             Box(Modifier.weight(1f).height(6.dp).clip(CircleShape).background(fill))
         }
     }
@@ -334,7 +363,6 @@ private fun SetupPage(
     number: Int?,
     title: String?,
     subtitle: String?,
-    onBack: (() -> Unit)?,
     action: String,
     enabled: Boolean,
     onAction: () -> Unit,
@@ -348,14 +376,8 @@ private fun SetupPage(
             modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("setup-action")) { Text(action) }
         secondary?.invoke()
     }
+    // Back and the progress are drawn above the pages by SetupHeader.
     Column(Modifier.fillMaxSize().semantics { paneTitle = listOfNotNull(step, title ?: "Rebuild").joinToString(": ") }) {
-        Row(Modifier.readableWidth().padding(start = 4.dp, end = 20.dp).heightIn(min = 56.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            if (onBack != null) IconButton(onClick = onBack, modifier = Modifier.testTag("setup-back")) {
-                RebuildIcon(R.drawable.ic_arrow_left, contentDescription = "Back")
-            } else Spacer(Modifier.width(16.dp))
-            if (number != null) SetupProgress(number, Modifier.weight(1f).padding(start = 4.dp))
-        }
         ScrollBody {
             if (title != null) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(title, style = MaterialTheme.typography.headlineLarge,
@@ -389,8 +411,9 @@ private fun ChoiceCard(
 ) {
     val colors = MaterialTheme.colorScheme
     val fill by animateColorAsState(if (selected) colors.secondaryContainer else colors.surfaceContainerLowest,
-        tween(180), label = "choice-fill")
-    val ring by animateColorAsState(if (selected) colors.primary else Color.Transparent, tween(180), label = "choice-ring")
+        Motion.colourSpec(), label = "choice-fill")
+    val ring by animateColorAsState(if (selected) colors.primary else colors.primary.copy(alpha = 0f), Motion.colourSpec(),
+        label = "choice-ring")
     Row(
         Modifier
             .fillMaxWidth()
@@ -466,7 +489,7 @@ private fun DaySelector(selected: Int?, onSelect: (Int) -> Unit) {
         (2..6).forEach { count ->
             val on = count == selected
             val fill by animateColorAsState(if (on) colors.primaryContainer else colors.surfaceContainerLowest,
-                tween(180), label = "day-fill")
+                Motion.colourSpec(), label = "day-fill")
             Column(
                 Modifier
                     .weight(1f)
@@ -641,11 +664,9 @@ private fun DayCard(state: AppState, template: ScheduledRoutine, phase: Phase, w
                         if (planned.size > 2) " and ${planned.size - 2} more" else "",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            RebuildIcon(if (open) R.drawable.ic_chevron_up else R.drawable.ic_chevron_down,
-                contentDescription = null, modifier = Modifier.size(20.dp))
+            Chevron(open, Modifier.size(20.dp))
         }
-        AnimatedVisibility(open, enter = expandVertically(tween(200)) + fadeIn(tween(200)),
-            exit = shrinkVertically(tween(150)) + fadeOut(tween(150))) {
+        AnimatedVisibility(open, enter = Motion.expand(), exit = Motion.collapse()) {
             Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 planned.forEachIndexed { i, exercise ->

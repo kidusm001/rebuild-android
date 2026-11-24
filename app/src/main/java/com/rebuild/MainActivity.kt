@@ -11,14 +11,17 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import android.util.Rational
+import android.view.animation.LinearInterpolator
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,11 +35,16 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.rebuild.platform.BackupViewModel
@@ -45,6 +53,7 @@ import com.rebuild.ui.PlatformStatus
 import com.rebuild.ui.RestAlert
 import com.rebuild.ui.RebuildApp
 import com.rebuild.ui.RestPip
+import com.rebuild.ui.theme.Motion
 import com.rebuild.ui.theme.RebuildTheme
 import com.rebuild.ui.AdaptiveDialog
 import com.rebuild.ui.countLabel
@@ -75,6 +84,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installLaunchSplash()
         super.onCreate(savedInstanceState)
         notificationRequestAttempted = savedInstanceState?.getBoolean("notificationRequestAttempted") ?: false
         enableEdgeToEdge()
@@ -84,32 +94,47 @@ class MainActivity : ComponentActivity(), PlatformActions {
             val backup by model.ui.collectAsStateWithLifecycle()
             val alarmError by app.alarms.failure.collectAsStateWithLifecycle()
             RebuildTheme {
+                // The loading screen and the app are whole screens over the canvas. Data that opens under the splash is
+                // shown at once (the splash fading away is the only motion); after a slow load the app, opaque, fades
+                // in over the loading screen from the app's first drawn frame, so a long first composition shows the
+                // spinner, never a cut, and nothing dims in between.
                 val loaded = repository
-                if (loaded == null) {
-                    Surface(Modifier.fillMaxSize()) {
-                        Column(
-                            Modifier.safeDrawingPadding().padding(24.dp),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            if (loadError != null) {
-                                Text(requireNotNull(loadError))
-                                Button(onClick = model::load) { Text("Try again") }
-                            } else {
-                                CircularProgressIndicator()
-                                Text("Opening your saved workouts", Modifier.padding(top = 16.dp))
+                // Decided in the composition the data arrives in: still under the splash, or after it.
+                val instant = remember(loaded != null) { splashHeld }
+                val appIn = remember { Animatable(0f) }
+                if (loaded != null && !instant) LaunchedEffect(Unit) {
+                    withFrameNanos { }
+                    appIn.animateTo(1f, Motion.fadeInSpec())
+                }
+                val appShown by remember(instant) { derivedStateOf { instant || appIn.value >= 1f } }
+                Box(Modifier.fillMaxSize()) {
+                    if (loaded == null || !appShown) {
+                        Surface(Modifier.fillMaxSize()) {
+                            Column(
+                                Modifier.safeDrawingPadding().padding(24.dp),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                if (loadError != null) {
+                                    Text(requireNotNull(loadError))
+                                    Button(onClick = model::load) { Text("Try again") }
+                                } else {
+                                    CircularProgressIndicator()
+                                    Text("Opening your saved workouts", Modifier.padding(top = 16.dp))
+                                }
                             }
                         }
                     }
-                } else {
-                    val appState by loaded.state.collectAsStateWithLifecycle()
-                    val timer = appState.restTimer?.takeIf { it.workoutId == appState.activeWorkoutId }
-                    val pip by inPictureInPicture.collectAsStateWithLifecycle()
-                    LaunchedEffect(timer?.id) { updateRestPip(timer != null) }
-                    // The app stays composed underneath, so returning from the small window keeps every screen's state.
-                    Box(Modifier.fillMaxSize()) {
-                        RebuildApp(loaded, this@MainActivity)
-                        if (pip) RestPip(timer, System::currentTimeMillis)
+                    if (loaded != null) {
+                        val appState by loaded.state.collectAsStateWithLifecycle()
+                        val timer = appState.restTimer?.takeIf { it.workoutId == appState.activeWorkoutId }
+                        val pip by inPictureInPicture.collectAsStateWithLifecycle()
+                        LaunchedEffect(timer?.id) { updateRestPip(timer != null) }
+                        // The app stays composed underneath, so returning from the small window keeps every screen's state.
+                        Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (instant) 1f else appIn.value }) {
+                            RebuildApp(loaded, this@MainActivity)
+                            if (pip) RestPip(timer, System::currentTimeMillis)
+                        }
                     }
                 }
                 val preview = backup.preview
@@ -198,6 +223,36 @@ class MainActivity : ComponentActivity(), PlatformActions {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * The system splash (the canvas with the icon on its launcher disc) stays until the saved data is open, a load
+     * error is known, or [Motion.SplashCapMs] of real time has passed, whichever comes first; the loading screen
+     * covers anything longer. On the way out only the splash moves: it fades by Fade out over the first screen, which
+     * is already drawn underneath.
+     */
+    /** The splash still covers the window, so whatever composes under it needs no entrance. */
+    @Volatile private var splashHeld = true
+
+    private fun installLaunchSplash() {
+        val splash = installSplashScreen()
+        val shownAt = SystemClock.uptimeMillis()
+        splash.setKeepOnScreenCondition {
+            (model.repository.value == null && model.loadError.value == null &&
+                SystemClock.uptimeMillis() - shownAt < Motion.SplashCapMs).also { splashHeld = it }
+        }
+        // From Android 12 the system splash is its own window: handing a copy of it to the app left a gap of up to
+        // half a second on the emulator in which the app showed and then the splash came back. There the system's own
+        // exit (the splash window fading over the app) is the only motion; below 12 the splash is a view in this
+        // window and fades by Fade out.
+        if (Build.VERSION.SDK_INT < 31) splash.setOnExitAnimationListener { provider ->
+            provider.view.animate()
+                .alpha(0f)
+                .setDuration(Motion.Fast.toLong())
+                .setInterpolator(LinearInterpolator())
+                .withEndAction { provider.remove() }
+                .start()
         }
     }
 

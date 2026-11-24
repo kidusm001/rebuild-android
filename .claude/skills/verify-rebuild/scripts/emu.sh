@@ -39,13 +39,25 @@ case ${1:-} in
       booted || { echo "attached device did not finish booting" >&2; exit 1; }
       echo "emulator ready"; exit 0
     fi
-    # xcb: the Qt wayland plugin is missing on this machine. swiftshader: the host GPU path segfaults.
-    QT_QPA_PLATFORM=xcb nohup "$ANDROID_HOME/emulator/emulator" -avd "$AVD" -gpu swiftshader_indirect \
-      -no-snapshot-save -no-audio >"$EVIDENCE/emulator.log" 2>&1 &
-    echo $! >"$STATE/emulator.pid"
-    "$adb" wait-for-device
-    for _ in $(seq 1 120); do booted && break; sleep 2; done
-    booted || { echo "emulator did not finish booting; see $EVIDENCE/emulator.log" >&2; exit 1; }
+    # xcb: the Qt wayland plugin is missing on this machine. The host GPU path segfaulted under the default (integrated)
+    # GPU, but runs on the NVIDIA GPU through PRIME offload. Frame timing on swiftshader (CPU rendering) is not
+    # representative: a GPU program compile there takes 60–80 ms, so motion and perf checks need GPU=host.
+    # GPU=swiftshader_indirect forces CPU rendering; a host boot that fails falls back to it.
+    start() {
+      QT_QPA_PLATFORM=xcb __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia \
+        nohup "$ANDROID_HOME/emulator/emulator" -avd "$AVD" -gpu "$1" \
+        -no-snapshot-save -no-audio >"$EVIDENCE/emulator.log" 2>&1 &
+      echo $! >"$STATE/emulator.pid"
+      for _ in $(seq 1 90); do booted && return 0; kill -0 "$(cat "$STATE/emulator.pid")" 2>/dev/null || return 1; sleep 2; done
+      return 1
+    }
+    gpu=${GPU:-host}
+    if ! start "$gpu"; then
+      [ "$gpu" = swiftshader_indirect ] && { echo "emulator did not finish booting; see $EVIDENCE/emulator.log" >&2; exit 1; }
+      echo "emulator did not boot with -gpu $gpu; retrying with swiftshader_indirect" >&2
+      kill "$(cat "$STATE/emulator.pid")" 2>/dev/null || true; sleep 3
+      start swiftshader_indirect || { echo "emulator did not finish booting; see $EVIDENCE/emulator.log" >&2; exit 1; }
+    fi
     "$adb" shell settings put global window_animation_scale 1 >/dev/null
     "$adb" shell input keyevent KEYCODE_WAKEUP
     echo "emulator ready"
@@ -73,6 +85,11 @@ case ${1:-} in
     [ -n "$installed" ] && echo "ok   app installed ($installed; checkout says $expected)" || { echo "FAIL app not installed (run: emu.sh install)"; ok=0; }
     "$adb" shell dumpsys package $PKG 2>/dev/null | grep -q "POST_NOTIFICATIONS: granted=true" \
       && echo "ok   notifications granted" || echo "warn notifications not granted (rest alerts won't post)"
+    gles=$("$adb" shell dumpsys SurfaceFlinger 2>/dev/null | grep -m1 'GLES:' | tr -d '\r')
+    case $gles in
+      *SwiftShader*|*swiftshader*) echo "warn CPU rendering (SwiftShader): frame timing isn't representative; restart with GPU=host" ;;
+      *) echo "ok   renderer ${gles#*GLES: }" ;;
+    esac
     "$adb" shell dumpsys power | grep -q "mWakefulness=Awake" && echo "ok   screen awake" || echo "warn screen asleep (input keyevent KEYCODE_WAKEUP)"
     avail=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo)
     [ "$avail" -gt 1500 ] && echo "ok   host RAM ${avail} MB free" || echo "warn host RAM low (${avail} MB); the emulator may crash"

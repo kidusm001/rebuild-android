@@ -357,7 +357,7 @@ internal fun RoutineDetailScreen(
                 "everything logged.",
             confirmLabel = "Delete",
             destructive = true,
-            busy = env.runner.busy,
+            busy = env.runner.looksBusy(),
             error = error,
             onDismiss = { deleting = false },
             onConfirm = {
@@ -458,7 +458,7 @@ private fun StartRoutineDialog(
             ErrorText(error)
         },
         confirmButton = {
-            TextButton(onClick = ::start, enabled = selected != null && !env.runner.busy,
+            TextButton(onClick = ::start, enabled = selected != null && !env.runner.looksBusy(),
                 modifier = Modifier.testTag("start-choice-confirm")) { Text("Start") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
@@ -611,7 +611,7 @@ internal fun ScheduleRoutineDialog(
         confirmButton = {
             TextButton(
                 onClick = ::schedule,
-                enabled = weekday != null && (onDay.isEmpty() || choice != null) && !env.runner.busy,
+                enabled = weekday != null && (onDay.isEmpty() || choice != null) && !env.runner.looksBusy(),
                 modifier = Modifier.testTag("schedule-confirm")
             ) { Text("Add to ${phaseShort(phase)} week") }
         },
@@ -656,7 +656,7 @@ internal fun MovePlacementDialog(env: AppEnv, placement: RoutinePlacement, onDis
         confirmButton = {
             TextButton(
                 onClick = ::move,
-                enabled = target != null && (onDay.isEmpty() || choice != null) && !env.runner.busy,
+                enabled = target != null && (onDay.isEmpty() || choice != null) && !env.runner.looksBusy(),
                 modifier = Modifier.testTag("move-confirm")
             ) { Text("Move") }
         },
@@ -695,7 +695,7 @@ internal fun RestoreTemplateDialog(env: AppEnv, phase: Phase, template: WorkoutT
         confirmButton = {
             TextButton(
                 onClick = ::restore,
-                enabled = (onDay.isEmpty() || choice != null) && !env.runner.busy,
+                enabled = (onDay.isEmpty() || choice != null) && !env.runner.looksBusy(),
                 modifier = Modifier.testTag("restore-confirm-week")
             ) { Text("Put back") }
         },
@@ -712,7 +712,7 @@ internal fun UpdateCopyDialog(env: AppEnv, placement: RoutinePlacement, onDismis
         text = "The ${weekdayName(placement.weekday)} copy on the ${phaseShort(placement.phase)} week takes this " +
             "routine's name and exercises.\nChanges made only to that copy are replaced.\nWorkouts keep what they had.",
         confirmLabel = "Update",
-        busy = env.runner.busy,
+        busy = env.runner.looksBusy(),
         error = error,
         onDismiss = onDismiss,
         onConfirm = {
@@ -736,7 +736,7 @@ internal fun TakeOffDialog(env: AppEnv, phase: Phase, occurrence: ScheduledRouti
             },
         confirmLabel = "Take off",
         destructive = true,
-        busy = env.runner.busy,
+        busy = env.runner.looksBusy(),
         error = error,
         onDismiss = onDismiss,
         onConfirm = {
@@ -1055,7 +1055,7 @@ internal fun RoutineEditorScreen(
                 ErrorText(error)
                 Button(
                     onClick = ::save,
-                    enabled = !env.runner.busy,
+                    enabled = !env.runner.looksBusy(),
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("routine-save")
                 ) { Text(saveLabel) }
             }

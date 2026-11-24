@@ -53,6 +53,8 @@ import androidx.compose.ui.unit.sp
 import com.rebuild.domain.Action
 import com.rebuild.domain.RestTimer
 import kotlinx.coroutines.delay
+import androidx.compose.animation.core.Animatable
+import com.rebuild.ui.theme.Motion
 
 /**
  * Displays the single persisted rest countdown. Remaining time is always derived from the
@@ -88,6 +90,17 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
     val trackColor = colors.onPrimaryContainer.copy(alpha = 0.18f)
     val fillColor = colors.onPrimaryContainer
     val progress = if (total != null && remaining > 0) (remainingMs / (total * 1000f)).coerceIn(0f, 1f) else 0f
+    // Each second the line steps in place; a jump from +30 s, −30 s or a new time moves within the bar.
+    val line = remember(timer.id) { Animatable(progress) }
+    var lineDeadline by remember(timer.id) { mutableLongStateOf(timer.deadline) }
+    LaunchedEffect(progress) {
+        if (timer.deadline != lineDeadline) {
+            lineDeadline = timer.deadline
+            line.animateTo(progress, Motion.moveWithinSpec())
+        } else {
+            line.snapTo(progress)
+        }
+    }
     val limitation = when {
         !env.status.notificationsAllowed -> "alerts off"
         !env.status.exactAlarmsAllowed -> "alerts may be late"
@@ -114,7 +127,7 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                             val y = size.height - 8.dp.toPx()
                             val track = size.width - inset * 2
                             drawRoundRect(trackColor, Offset(inset, y), Size(track, h), CornerRadius(h / 2))
-                            drawRoundRect(fillColor, Offset(inset, y), Size(track * progress, h), CornerRadius(h / 2))
+                            drawRoundRect(fillColor, Offset(inset, y), Size(track * line.value, h), CornerRadius(h / 2))
                         }
                     }
                     .padding(start = 20.dp, end = 8.dp, top = if (compact) 2.dp else 12.dp, bottom = if (compact) 2.dp else 14.dp),
@@ -155,7 +168,7 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                 if (remaining > 0) {
                     FilledTonalButton(
                         onClick = { adjust(30_000) },
-                        enabled = !env.runner.busy,
+                        enabled = !env.runner.looksBusy(),
                         colors = quiet,
                         contentPadding = PaddingValues(horizontal = if (compact) 10.dp else 14.dp),
                         modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Add 30 seconds" }
@@ -164,7 +177,7 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                 // Skipping ends this rest for good, so it's a labelled button rather than a bare icon beside Options.
                 FilledTonalButton(
                     onClick = { env.runner.run(Action.SkipRest) },
-                    enabled = !env.runner.busy,
+                    enabled = !env.runner.looksBusy(),
                     colors = strong,
                     contentPadding = PaddingValues(horizontal = 14.dp),
                     modifier = Modifier.heightIn(min = 48.dp).semantics {
@@ -186,7 +199,7 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                 Text(if (remaining > 0) "${formatRest(remaining)} remaining" else if (pause) "The pause is over." else "Rest is complete.")
                 if (we != null) Text("After ${we.exercise.name}")
                 if (remaining > 0) {
-                    TextButton(onClick = { adjust(-30_000) }, enabled = !env.runner.busy,
+                    TextButton(onClick = { adjust(-30_000) }, enabled = !env.runner.looksBusy(),
                         modifier = Modifier.heightIn(min = 48.dp)) { Text("−30 s") }
                     TextButton(onClick = { options = false; editing = true },
                         modifier = Modifier.heightIn(min = 48.dp)) { Text("Set time") }

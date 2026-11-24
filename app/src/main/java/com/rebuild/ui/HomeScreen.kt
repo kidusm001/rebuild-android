@@ -7,12 +7,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.ui.platform.LocalContext
 import android.content.Context
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.EnterExitState
+import com.rebuild.ui.theme.Motion
+import com.rebuild.ui.theme.MotionCrossfade
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +35,11 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateMapOf
+import com.rebuild.ui.theme.FadeInOver
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -42,7 +49,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -84,7 +90,13 @@ private const val SESSION_PREVIEW = 4
 private val dayMonthFormat: DateTimeFormatter get() = DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
 
 @Composable
-internal fun HomeScreen(env: AppEnv, onOpenWorkout: () -> Unit, onNavigate: (String) -> Unit) {
+internal fun HomeScreen(
+    env: AppEnv,
+    onOpenWorkout: () -> Unit,
+    onNavigate: (String) -> Unit,
+    /** Marks a start in flight, so the workout opens in the composition its state arrives in (see Navigator). */
+    onStarting: (Boolean) -> Unit = {}
+) {
     val state = env.state
     val phase = state.phase ?: return
     val now = env.clock()
@@ -93,82 +105,134 @@ internal fun HomeScreen(env: AppEnv, onOpenWorkout: () -> Unit, onNavigate: (Str
     val checklist = state.weekChecklist(date) ?: return
     val active = state.activeWorkout
     var startError by rememberSaveable { mutableStateOf<String?>(null) }
-
+    // A start in flight: if it shows the busy look, Today keeps it while it is the layer leaving under the workout
+    // (inert, frozen), so it never looks idle with an enabled Start while the workout comes in.
+    var starting by remember { mutableStateOf(false) }
+    var holdBusy by remember { mutableStateOf(false) }
+    val busyNow = env.runner.looksBusy()
+    if (starting && busyNow && !holdBusy) SideEffect { holdBusy = true }
+    val layerActive = LocalLayerActive.current
+    // The composition Today comes back on screen in (a pop, a tab switch, under a receipt): what changed while it was
+    // hidden is simply there, as it would be on any screen opened fresh, not replayed as a change.
+    val wasActive = remember { booleanArrayOf(layerActive) }
+    val returning = layerActive && !wasActive[0]
+    SideEffect { wasActive[0] = layerActive }
+    // Back on screen (the workout left, or the start failed), Today is itself again.
+    LaunchedEffect(layerActive) { if (layerActive) { starting = false; holdBusy = false } }
+    fun failed(message: String) {
+        startError = message
+        starting = false
+        holdBusy = false
+        onStarting(false)
+    }
     fun start(template: ScheduledRoutine) {
         startError = null
-        env.runner.run(Action.StartWorkout(template.id, env.clock()), onError = { startError = it }) {
-            onOpenWorkout()
+        if (env.runner.run(Action.StartWorkout(template.id, env.clock()), onError = ::failed)) {
+            starting = true
+            onStarting(true)
         }
     }
 
     fun startExtra() {
         startError = null
-        env.runner.run(Action.StartExtraWorkout(env.clock()), onError = { startError = it }) { onOpenWorkout() }
+        if (env.runner.run(Action.StartExtraWorkout(env.clock()), onError = ::failed)) {
+            starting = true
+            onStarting(true)
+        }
     }
 
+    val heroes = remember { mutableStateMapOf<String, @Composable () -> Unit>() }
+    var shownHero by remember { mutableStateOf("") }
+    CompositionLocalProvider(LocalBusyHeld provides holdBusy) {
     ScreenScaffold(title = weekdayName(today), subtitle = "${dayMonthFormat.format(date)} · ${phaseShort(phase)}") {
         ScrollBody {
             // Sections sit 24dp apart: 16 here plus the section header's own 8 above its title.
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                if (active != null) {
-                    ActiveSessionCard(env, active, onResume = onOpenWorkout)
-                    TodayNotices(env, now, onNavigate)
-                    BodySection(env, onNavigate)
-                    WeekChecklistSection(env, checklist, date, featured = null, onStart = null)
-                } else {
-                    val plan = state.todayPlan(date, checklist)
-                    val scheduled = plan.scheduled
-                    val suggested = plan.suggested
-                    // A day can hold several routines; each keeps its own Start in the week below.
-                    val todays = checklist.routines.filter { it.template.weekday == today }
-                    val featured = when {
-                        plan.kind == TodayKind.SCHEDULED && scheduled != null -> {
-                            // The header already names the day, so the card needs no "Scheduled for" line.
+                // The hero card is replaced in place by Fade in over (the old card stays opaque underneath while the
+                // new one fades in on top) and its height changes by Expand or Collapse, so what's below moves
+                // instead of jumping: on Start (hidden by the push), Discard, Finish and a new day.
+                fun hero(key: String, card: @Composable () -> Unit): String {
+                    heroes[key] = card
+                    return key
+                }
+                val plan = if (active == null) state.todayPlan(date, checklist) else null
+                val scheduled = plan?.scheduled
+                val suggested = plan?.suggested
+                // A day can hold several routines; each keeps its own Start in the week below.
+                val todays = checklist.routines.filter { it.template.weekday == today }
+                var featured: String? = null
+                val heroKey = when {
+                    active != null -> hero("active:${active.id}") { ActiveSessionCard(env, active, onResume = onOpenWorkout) }
+                    plan == null -> hero("none") { }
+                    plan.kind == TodayKind.SCHEDULED && scheduled != null -> {
+                        featured = scheduled.id
+                        // The header already names the day, so the card needs no "Scheduled for" line.
+                        hero("scheduled:${scheduled.id}") {
                             ScheduledSessionCard(
                                 env, scheduled, phase, reason = null, "start-scheduled",
                                 status = checklist.statusOf(scheduled.id), onStart = { start(scheduled) }
                             )
-                            scheduled.id
                         }
-                        plan.kind == TodayKind.NEXT_UNFINISHED && scheduled != null && suggested != null -> {
+                    }
+                    plan.kind == TodayKind.NEXT_UNFINISHED && scheduled != null && suggested != null -> {
+                        featured = suggested.id
+                        hero("next:${suggested.id}") {
                             ScheduledSessionCard(
                                 env, suggested, phase,
                                 (if (todays.size > 1) "${weekdayName(today)}'s routines are" else "${scheduled.name} is") +
                                     " done this week · next unfinished",
                                 "start-suggested", status = checklist.statusOf(suggested.id), onStart = { start(suggested) }
                             )
-                            suggested.id
                         }
-                        plan.kind == TodayKind.WEEK_COMPLETE -> {
-                            NoteCard(
-                                "Week complete",
-                                "All ${checklist.routines.size} workouts done this week.",
-                                Modifier.testTag("week-complete")
-                            )
-                            null
-                        }
-                        // A split started after its last day this week: its first workout, offered, never required.
-                        plan.kind == TodayKind.REST && checklist.routines.isEmpty() && suggested != null -> {
+                    }
+                    plan.kind == TodayKind.WEEK_COMPLETE -> hero("week-complete") {
+                        NoteCard(
+                            "Week complete",
+                            "All ${checklist.routines.size} workouts done this week.",
+                            Modifier.testTag("week-complete")
+                        )
+                    }
+                    // A split started after its last day this week: its first workout, offered, never required.
+                    plan.kind == TodayKind.REST && checklist.routines.isEmpty() && suggested != null -> {
+                        featured = suggested.id
+                        hero("first:${suggested.id}") {
                             ScheduledSessionCard(
                                 env, suggested, phase,
                                 "Your plan's first workout · optional today, or wait for ${weekdayName(suggested.weekday)}",
                                 "start-suggested", status = checklist.statusOf(suggested.id), onStart = { start(suggested) }
                             )
-                            suggested.id
-                        }
-                        plan.kind == TodayKind.NEXT_UNFINISHED && scheduled != null -> {
-                            NoteCard("Done this week", (if (todays.size > 1) "${weekdayName(today)}'s routines are"
-                                else "${scheduled.name} is") + " already done this week.")
-                            null
-                        }
-                        else -> {
-                            NoteCard(
-                                "Rest day",
-                                "Nothing scheduled for ${weekdayName(today)}."
-                            )
-                            null
                         }
                     }
+                    plan.kind == TodayKind.NEXT_UNFINISHED && scheduled != null -> hero("done-this-week") {
+                        NoteCard("Done this week", (if (todays.size > 1) "${weekdayName(today)}'s routines are"
+                            else "${scheduled.name} is") + " already done this week.")
+                    }
+                    else -> hero("rest-day") {
+                        NoteCard(
+                            "Rest day",
+                            "Nothing scheduled for ${weekdayName(today)}."
+                        )
+                    }
+                }
+                SideEffect { heroes.keys.retainAll(setOf(heroKey, shownHero)); shownHero = heroKey }
+                FadeInOver(heroKey, instant = returning, label = "today-hero") { key -> heroes[key]?.invoke() }
+                // The sections below come in another order with a workout in progress. Changing between the two (a
+                // finish or a discard here) crossfades them while their height follows the hero's, by Expand or
+                // Collapse, instead of jumping; the copy leaving is inert.
+                AnimatedContent(active != null, transitionSpec = {
+                    if (returning) EnterTransition.None togetherWith ExitTransition.None using null
+                    else Motion.crossfade() using Motion.expandOrCollapse()
+                },
+                    label = "today-sections") { activeLayout ->
+                Column(
+                    Modifier.then(if (transition.targetState == EnterExitState.PostExit) INERT else Modifier),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                if (activeLayout) {
+                    TodayNotices(env, now, onNavigate)
+                    BodySection(env, onNavigate)
+                    WeekChecklistSection(env, checklist, date, featured = null, onStart = null)
+                } else if (plan != null) {
                     val alsoToday = todays.filter { it.template.id != featured }
                     if (plan.kind == TodayKind.SCHEDULED && alsoToday.isNotEmpty()) Text(
                         "Also on ${weekdayName(today)}: " + alsoToday.joinToString { "${it.template.name} (${statusWord(it.status)})" },
@@ -185,7 +249,7 @@ internal fun HomeScreen(env: AppEnv, onOpenWorkout: () -> Unit, onNavigate: (Str
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             OutlinedButton(
                                 onClick = ::startExtra,
-                                enabled = !env.runner.busy,
+                                enabled = !env.runner.looksBusy(),
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("start-empty")
                             ) {
                                 RebuildIcon(R.drawable.ic_plus, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -199,8 +263,11 @@ internal fun HomeScreen(env: AppEnv, onOpenWorkout: () -> Unit, onNavigate: (Str
                         }
                     }
                 }
+                }
+                }
             }
         }
+    }
     }
 }
 
@@ -257,11 +324,7 @@ private fun <T> PreviewRows(items: List<T>, key: String, row: @Composable (index
     Column {
         items.take(SESSION_PREVIEW).forEachIndexed { i, item -> row(i, item) }
         if (hidden > 0) {
-            AnimatedVisibility(
-                visible = expanded,
-                enter = fadeIn(tween(200)) + expandVertically(tween(200)),
-                exit = fadeOut(tween(200)) + shrinkVertically(tween(200))
-            ) {
+            AnimatedVisibility(visible = expanded, enter = Motion.expand(), exit = Motion.collapse()) {
                 Column { items.drop(SESSION_PREVIEW).forEachIndexed { i, item -> row(SESSION_PREVIEW + i, item) } }
             }
             MoreRowsToggle(expanded, hidden) { expanded = !expanded }
@@ -288,18 +351,15 @@ private fun MoreRowsToggle(expanded: Boolean, hidden: Int, onToggle: () -> Unit)
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Box(Modifier.widthIn(min = 24.dp), contentAlignment = Alignment.Center) {
-            RebuildIcon(
-                R.drawable.ic_chevron_down,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp).rotate(if (expanded) 180f else 0f)
+            Chevron(expanded, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        MotionCrossfade(expanded, label = "more-rows-label") { open ->
+            Text(
+                if (open) "Show fewer" else "+$hidden more",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Text(
-            if (expanded) "Show fewer" else "+$hidden more",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
@@ -332,7 +392,7 @@ private fun ScheduledSessionCard(
             )
             Button(
                 onClick = onStart,
-                enabled = !env.runner.busy,
+                enabled = !env.runner.looksBusy(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 56.dp)
@@ -518,7 +578,7 @@ private fun WeekChecklistSection(
                         {
                             SecondaryButton(
                                 onClick = { onStart(template) },
-                                enabled = !env.runner.busy,
+                                enabled = !env.runner.looksBusy(),
                                 modifier = Modifier.semantics {
                                     contentDescription = "${if (isDone) "Repeat" else "Start"} ${template.name} ($day)"
                                 }
@@ -621,14 +681,14 @@ private fun ActiveSessionCard(env: AppEnv, workout: Workout, onResume: () -> Uni
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                SecondaryButton(onClick = { finishing = true }, enabled = !env.runner.busy, icon = R.drawable.ic_check) {
+                SecondaryButton(onClick = { finishing = true }, enabled = !env.runner.looksBusy(), icon = R.drawable.ic_check) {
                     Text("Finish")
                 }
                 // Discard sits at the far edge, so a thumb aimed at Finish never lands on it; quiet red text.
                 Spacer(Modifier.weight(1f))
                 TextButton(
                     onClick = { discarding = true },
-                    enabled = !env.runner.busy,
+                    enabled = !env.runner.looksBusy(),
                     colors = ButtonDefaults.textButtonColors(contentColor = colors.error),
                     modifier = Modifier.heightIn(min = 48.dp)
                 ) { Text("Discard") }

@@ -1,13 +1,9 @@
 package com.rebuild.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
+import com.rebuild.ui.theme.Motion
+import com.rebuild.ui.theme.MotionCrossfade
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -249,7 +245,7 @@ internal fun TopSetChart(
         // Each view keeps the points it was drawn with, so the outgoing one never refilters new data (another unit, say)
         // by its old range and comes up empty.
         val points = remember(all, range, today) { pointsInRange(all, range, today) }
-        Crossfade(targetState = range to points, animationSpec = tween(220), label = "top-set-range") { (shownRange, shown) ->
+        MotionCrossfade(range to points, label = "top-set-range") { (shownRange, shown) ->
             if (shown.isNotEmpty()) TopSetPlot(shown, shownRange, split, unit, exercise, today, title)
         }
     }
@@ -271,7 +267,8 @@ private fun TopSetPlot(
     title: String
 ) {
     val split = splitAsked && canSplitByWorkout(points)
-    val progress by animateFloatAsState(if (split) 1f else 0f, tween(320), label = "top-set-split")
+    // Lines, dots and labels move within the chart as it splits or joins.
+    val progress by animateFloatAsState(if (split) 1f else 0f, Motion.moveWithinSpec(), label = "top-set-split")
     val single = remember(points) { topSetLines(points, split = false) }
     val apart = remember(points) { topSetLines(points, split = true).takeIf { it.size > 1 }.orEmpty() }
     val lines = if (split) apart else single
@@ -442,8 +439,7 @@ private fun TopSetPlot(
             }
         }
         DateAxis(from, to, days, today, axisWidth)
-        AnimatedVisibility(visible = split, enter = expandVertically(tween(320)) + fadeIn(tween(320)),
-            exit = shrinkVertically(tween(320)) + fadeOut(tween(200))) {
+        AnimatedVisibility(visible = split, enter = Motion.expand(), exit = Motion.collapse()) {
             WorkoutKey(apart.map { it.first().workout }, line, card)
         }
     }

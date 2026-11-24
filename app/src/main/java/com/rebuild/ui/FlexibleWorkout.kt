@@ -200,7 +200,7 @@ internal fun RemoveEntryDialog(env: AppEnv, workout: Workout, we: WorkoutExercis
         },
         confirmLabel = if (records == 0) "Remove" else "Remove and delete ${countLabel(records, "record")}",
         destructive = records > 0,
-        busy = env.runner.busy,
+        busy = env.runner.looksBusy(),
         error = error,
         onDismiss = onDismiss,
         onConfirm = {
@@ -246,12 +246,12 @@ internal fun ReorderDialog(env: AppEnv, workout: Workout, onDismiss: () -> Unit)
                                 if (status != null) Text(status, style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            IconButton(onClick = { move(we, index - 1) }, enabled = index > 0 && !env.runner.busy,
+                            IconButton(onClick = { move(we, index - 1) }, enabled = index > 0 && !env.runner.looksBusy(),
                                 modifier = Modifier.testTag("move-up-$index")) {
                                 RebuildIcon(R.drawable.ic_arrow_up, contentDescription = "Move ${we.exercise.name} up")
                             }
                             IconButton(onClick = { move(we, index + 1) },
-                                enabled = index < workout.exercises.lastIndex && !env.runner.busy,
+                                enabled = index < workout.exercises.lastIndex && !env.runner.looksBusy(),
                                 modifier = Modifier.testTag("move-down-$index")) {
                                 RebuildIcon(R.drawable.ic_arrow_down, contentDescription = "Move ${we.exercise.name} down")
                             }
@@ -400,7 +400,7 @@ internal fun EntryGoalDialog(env: AppEnv, workout: Workout, we: WorkoutExercise,
             ErrorText(error)
         },
         confirmButton = {
-            TextButton(onClick = ::save, enabled = !env.runner.busy, modifier = Modifier.testTag("goal-save")) {
+            TextButton(onClick = ::save, enabled = !env.runner.looksBusy(), modifier = Modifier.testTag("goal-save")) {
                 Text("Save")
             }
         },
@@ -508,7 +508,7 @@ internal fun PlanAdditionDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = ::save, enabled = !env.runner.busy, modifier = Modifier.testTag("plan-addition-save")) {
+            TextButton(onClick = ::save, enabled = !env.runner.looksBusy(), modifier = Modifier.testTag("plan-addition-save")) {
                 Text(if (existing != null) "Save changes" else "Save to plan")
             }
         },
@@ -522,7 +522,7 @@ internal fun PlanAdditionDialog(
                 "Started and finished " +
                 "workouts keep it with everything logged.",
             confirmLabel = "Remove",
-            busy = env.runner.busy,
+            busy = env.runner.looksBusy(),
             error = removeError,
             onDismiss = { confirmingRemove = false },
             onConfirm = {
@@ -552,7 +552,8 @@ internal fun SkippedPanel(
     var error by rememberSaveable(we.id) { mutableStateOf<String?>(null) }
     val large = LocalDensity.current.fontScale > 1.3f
     Column(Modifier.testTag("skipped-panel"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(LocalDockRise.current, verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             RebuildIcon(R.drawable.ic_skip_forward, contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
@@ -569,7 +570,7 @@ internal fun SkippedPanel(
                     NextExerciseLabel(nextName)
                 }
             } else {
-                Button(onClick = onFinish, enabled = !env.runner.busy,
+                Button(onClick = onFinish, enabled = !env.runner.looksBusy(),
                     modifier = modifier.heightIn(min = 56.dp).testTag("finish-from-entry")) { Text("Finish workout") }
             }
         }
@@ -579,7 +580,7 @@ internal fun SkippedPanel(
                     error = null
                     env.runner.run(Action.SetSkipped(workout.id, we.id, false), onError = { error = it })
                 },
-                enabled = !env.runner.busy,
+                enabled = !env.runner.looksBusy(),
                 modifier = modifier.heightIn(min = 56.dp).testTag("undo-skip")
             ) { Text("Undo skip", maxLines = 1) }
         }
@@ -647,7 +648,7 @@ internal fun EntryOptions(
 ) {
     var error by rememberSaveable(we.id) { mutableStateOf<String?>(null) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val busy = env.runner.busy
+    val busy = env.runner.looksBusy()
     fun skip(skipped: Boolean) {
         error = null
         env.runner.run(Action.SetSkipped(workout.id, we.id, skipped), onError = { error = it }) {

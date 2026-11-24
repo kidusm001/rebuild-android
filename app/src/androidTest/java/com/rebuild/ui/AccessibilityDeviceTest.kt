@@ -1,5 +1,8 @@
 package com.rebuild.ui
 
+import com.rebuild.ui.theme.Motion
+import android.os.SystemClock
+import androidx.compose.ui.test.isNotEnabled
 import android.util.Log
 import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
@@ -172,7 +175,17 @@ class AccessibilityDeviceTest {
         val gate = CompletableDeferred<Unit>()
         repo.gate = gate
         try {
+            val tapped = SystemClock.uptimeMillis()
             rule.onNodeWithTag("log-set").performScrollTo().performClick()
+            // A second tap while the first save runs is guarded: it logs nothing, though nothing looks busy yet.
+            rule.onNodeWithTag("log-set").performClick()
+            // A slow save (this one waits on the gate) shows its busy look after the real-time threshold, whatever
+            // the animator scale, and only on the button that started it.
+            rule.waitUntil(5_000) {
+                rule.onAllNodes(hasTestTag("log-set") and isNotEnabled()).fetchSemanticsNodes().isNotEmpty()
+            }
+            assertTrue("The busy look waits for ${Motion.BusyAfterMs} ms of real time",
+                SystemClock.uptimeMillis() - tapped >= Motion.BusyAfterMs)
             rule.onNodeWithTag("log-set").assertIsNotEnabled().assertTextContains("Saving", substring = true)
             rule.onRoot().tryPerformAccessibilityChecks()
             captureEvidence("disabled-saving")
@@ -180,6 +193,8 @@ class AccessibilityDeviceTest {
             gate.complete(Unit)
         }
         rule.waitUntil { repo.state.value.workouts.single().exercises.first().sets.size == 1 }
+        rule.waitForIdle()
+        assertEquals("The guarded second tap logged nothing", 1, repo.actions.count { it is Action.SaveSet })
         rule.onNodeWithContentDescription("Rest options").performClick()
         rule.onNodeWithText("Rest options").tryPerformAccessibilityChecks()
     }
@@ -303,7 +318,7 @@ class AccessibilityDeviceTest {
             rule.onNodeWithTag("log-set").performScrollTo().performClick()
             rule.waitUntil(5_000) { sets() == before + 1 }
             // Log, unlike the type button, stays while a rest-pause set is open; both wait out the save cooldown.
-            rule.waitUntil(5_000) { SemanticsProperties.Disabled !in rule.onNodeWithTag("log-set").fetchSemanticsNode().config }
+            rule.waitUntil(5_000) { rule.actionGuardOpen() && SemanticsProperties.Disabled !in rule.onNodeWithTag("log-set").fetchSemanticsNode().config }
         }
         fun openMenu() {
             rule.onNodeWithTag("set-type").performScrollTo().performClick()
@@ -394,7 +409,7 @@ class AccessibilityDeviceTest {
         rule.onNodeWithTag("move-up-7").performScrollTo().performClick()
         rule.waitUntil(5_000) { repo.state.value.activeWorkout!!.exercises[6].id == "added-face-pull" }
         rule.waitUntil(5_000) {
-            rule.onAllNodes(hasTestTag("move-up-6") and isEnabled()).fetchSemanticsNodes().isNotEmpty()
+            rule.actionGuardOpen() && rule.onAllNodes(hasTestTag("move-up-6") and isEnabled()).fetchSemanticsNodes().isNotEmpty()
         }
         rule.onNodeWithTag("reorder-done").tryPerformAccessibilityChecks()
         captureEvidence("reorder")
@@ -655,7 +670,7 @@ class AccessibilityDeviceTest {
 
     /** Taps [tag] once the app's busy guard allows it: a tap while it is closed would be ignored. */
     private fun tap(tag: String) {
-        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag(tag) and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(5_000) { rule.actionGuardOpen() && rule.onAllNodes(hasTestTag(tag) and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         scrolled(tag).performClick()
         rule.waitForIdle()
     }

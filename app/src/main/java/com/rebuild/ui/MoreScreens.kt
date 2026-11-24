@@ -129,7 +129,7 @@ private fun LiftingUnitRow(env: AppEnv) {
         Text("Default weight unit", style = MaterialTheme.typography.bodyLarge)
         Text("Your next sets on every exercise. Logged sets keep their unit; plate machines keep plates.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        LoadUnitSelector(env.state.liftingUnit.loadUnit, listOf(LoadUnit.KG, LoadUnit.LB), enabled = !env.runner.busy) {
+        LoadUnitSelector(env.state.liftingUnit.loadUnit, listOf(LoadUnit.KG, LoadUnit.LB), enabled = !env.runner.looksBusy()) {
             error = null
             val unit = if (it == LoadUnit.LB) MassUnit.LB else MassUnit.KG
             if (unit != env.state.liftingUnit) env.runner.run(Action.SetLiftingUnit(unit), onError = { error = it })

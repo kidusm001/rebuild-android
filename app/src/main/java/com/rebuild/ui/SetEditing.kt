@@ -260,7 +260,7 @@ private fun SetEditDialogContent(
             } else "${setText(set, exercise)} will be removed from ${exercise.name}. This can't be undone.",
             confirmLabel = if (group != null) "Delete stage" else "Delete set",
             destructive = true,
-            busy = env.runner.busy,
+            busy = env.runner.looksBusy(),
             error = error,
             onDismiss = { confirmDelete = false },
             onConfirm = {
@@ -336,7 +336,7 @@ private fun SetEditDialogContent(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = ::save, enabled = !env.runner.busy) { Text("Save") } },
+        confirmButton = { TextButton(onClick = ::save, enabled = !env.runner.looksBusy()) { Text("Save") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
@@ -436,7 +436,7 @@ internal fun CustomExerciseDialog(
                 ErrorText(error)
             }
         },
-        confirmButton = { TextButton(onClick = ::save, enabled = !env.runner.busy) { Text("Add") } },
+        confirmButton = { TextButton(onClick = ::save, enabled = !env.runner.looksBusy()) { Text("Add") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }

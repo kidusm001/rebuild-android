@@ -91,6 +91,7 @@ class WeekChecklistDeviceTest {
         rule.onNodeWithTag("confirm-button").performClick()
         rule.waitUntil(5_000) { repo.state.value.activeWorkoutId == null }
         rule.waitForIdle()
+        rule.closeReceiptIfShown()
         // A repeat (even an empty one) never counts twice or replaces the first.
         rule.onNodeWithTag("week-progress").assertTextContains("2 of 2")
         rowText("upper-a", "Done · Tue 22 Sep").assertExists()
