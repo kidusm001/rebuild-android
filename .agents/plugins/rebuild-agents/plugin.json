@@ -1,0 +1,6 @@
+{
+  "name": "rebuild-agents",
+  "displayName": "Rebuild Agents",
+  "version": "1.0.0",
+  "description": "Project-specific Antigravity subagents for Rebuild Android (motion-critic and motion-designer)."
+}
