@@ -232,11 +232,12 @@ data class PlanSlot(
     }
 
     /**
-     * The rep range with [with]. An exercise done without added load (any bodyweight option, and a dumbbell option
-     * that is the same bodyweight exercise) uses the slot's wider bodyweight range.
+     * The rep range with [with]. An exercise done without added load (any bodyweight option, or a dumbbell option
+     * that is itself a bodyweight exercise and carries bodyweight reps) uses the slot's wider bodyweight range.
      */
     fun repsFor(with: Gear): IntRange {
-        val unloaded = with == Gear.BODYWEIGHT || (with == Gear.DUMBBELLS && gear?.dumbbell != null && gear.dumbbell == gear.bodyweight)
+        val unloaded = with == Gear.BODYWEIGHT || (with == Gear.DUMBBELLS && gear?.dumbbell != null &&
+            (gear.dumbbell == gear.bodyweight || gear.bodyweight == null))
         return if (unloaded && gear?.bodyweightMinReps != null && gear.bodyweightMaxReps != null)
             gear.bodyweightMinReps..gear.bodyweightMaxReps
         else minReps..maxReps

@@ -115,10 +115,17 @@ internal fun WorkoutReceipt(env: AppEnv, workout: Workout, onView: () -> Unit, o
         workout.countedForWeek -> "Counted for this week"
         else -> "Partial · you can count it in History"
     }
+    val showReceiptTip = shouldShowFirstReceiptTip(env.state, env.tips)
+    var tipSeen by rememberSaveable(workout.id) { mutableStateOf(false) }
+    if (showReceiptTip && !tipSeen) tipSeen = true
     AppSheet(
         key = workout.id,
         paneTitle = "${workout.name} saved",
-        onClosed = onClosed,
+        onClosed = {
+            // Once seen on a receipt, retire the tip so a re-enabled receipt tip never repeats on later workouts.
+            if (tipSeen) env.platform.dismissTip(Tip.FIRST_RECEIPT)
+            onClosed()
+        },
         onShown = onShown,
         scrimFrom = env.runner.coverDim,
         modifier = Modifier.testTag("workout-receipt")
@@ -201,6 +208,13 @@ internal fun WorkoutReceipt(env: AppEnv, workout: Workout, onView: () -> Unit, o
             }
             Text(week, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.testTag("receipt-week"))
+            TipCard(
+                tip = Tip.FIRST_RECEIPT,
+                visible = showReceiptTip,
+                text = "Every finished workout saves a receipt like this. History keeps every workout, set and chart on this phone.",
+                onDismiss = { env.platform.dismissTip(Tip.FIRST_RECEIPT) },
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            )
             // A workout day is when most people weigh in; one tap here, never a requirement.
             val weighIn = env.state.weighInsOn(localDateOf(finished)).firstOrNull()
             ListRow(

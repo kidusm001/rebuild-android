@@ -3,6 +3,7 @@ package com.rebuild.ui.theme
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RippleConfiguration
@@ -209,6 +210,10 @@ fun RebuildTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composabl
         typography = RebuildTypography,
         shapes = RebuildShapes
     ) {
-        CompositionLocalProvider(LocalRippleConfiguration provides emberRipple(darkTheme), content = content)
+        CompositionLocalProvider(
+            LocalContentColor provides scheme.onSurface,
+            LocalRippleConfiguration provides emberRipple(darkTheme),
+            content = content
+        )
     }
 }

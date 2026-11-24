@@ -37,4 +37,10 @@ interface PlatformActions {
      * Android's alarm, which can arrive late and would then ring after the user had already moved on.
      */
     fun announceRestEnd(timerId: String, shortPause: Boolean)
+
+    /** This phone's in-place tip preference and dismissed tips. */
+    val tips: StateFlow<TipsState>
+    fun dismissTip(tip: Tip)
+    fun setTipsEnabled(enabled: Boolean)
+    fun resetTips()
 }

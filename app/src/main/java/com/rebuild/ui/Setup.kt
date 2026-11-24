@@ -544,11 +544,18 @@ private fun WeekStrip(days: Map<Int, String?>, modifier: Modifier = Modifier) {
     }
 }
 
-/** "Full body A" → "A", "Upper B" → "Up B", "Push" → "Push": short enough for one day of the strip. */
-private fun workoutInitials(name: String): String {
+/** "Full body A" → "A", "Upper B" → "Up B", "Upper power" → "Up P", "Chest and back A" → "C/B A": short for the strip. */
+internal fun workoutInitials(name: String): String {
     val words = name.split(" ")
     return when {
         name.startsWith("Full body") -> words.last()
+        name == "Shoulders" -> "Delts"
+        name.startsWith("Chest and back") -> "C/B " + words.last()
+        name.startsWith("Shoulders and arms") -> "S/A " + words.last()
+        words.size == 2 && words.first() == "Push" -> "Psh " + words.last()
+        words.size == 2 && words.first() == "Pull" -> "Pll " + words.last()
+        words.size == 2 && words.last() == "power" -> words.first().take(2) + " P"
+        words.size == 2 && words.last() == "hypertrophy" -> words.first().take(2) + " H"
         words.size == 2 && words.last().length == 1 -> words.first().take(2) + " " + words.last()
         else -> words.first().take(5)
     }
@@ -873,7 +880,8 @@ internal fun ChangeSplitScreen(env: AppEnv, onBack: () -> Unit) {
             Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Splits.forGear(gear).sortedWith(compareBy({ it.days }, { it.name })).forEach { split ->
                     ChoiceCard(split == chosen, { pickedId = split.id }, split.name,
-                        "${split.days} days a week" + if (split.id == state.activeSplitId) " · your split now" else "",
+                        "${split.days} days a week" + (if (split.id == state.activeSplitId) " · your split now" else "") +
+                            "\n${split.reason}",
                         tag = "split-pick-${split.id}") {
                         val on = split == chosen
                         Box(Modifier.size(44.dp).clip(CircleShape).background(

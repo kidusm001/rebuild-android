@@ -230,6 +230,7 @@ internal fun HomeScreen(
                 ) {
                 if (activeLayout) {
                     TodayNotices(env, now, onNavigate)
+                    BackupAfterThreeTip(env, onNavigate)
                     BodySection(env, onNavigate)
                     WeekChecklistSection(env, checklist, date, featured = null, onStart = null)
                 } else if (plan != null) {
@@ -242,6 +243,7 @@ internal fun HomeScreen(
                     )
                     ErrorText(startError)
                     TodayNotices(env, now, onNavigate)
+                    BackupAfterThreeTip(env, onNavigate)
                     WeekChecklistSection(env, checklist, date, featured = featured, onStart = ::start)
                     BodySection(env, onNavigate)
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -424,7 +426,9 @@ private fun ScheduledSessionCard(
 private fun TodayNotices(env: AppEnv, now: Long, onNavigate: (String) -> Unit) {
     val state = env.state
     val status = env.status
-    val backupDue = state.backupDue(now)
+    // While the third-workout backup tip is visible, hold back the generic 7-day backup row so Today never shows two
+    // backup prompts at once (and a 2-day lifter whose third workout falls past day 7 still sees the tip).
+    val backupDue = state.backupDue(now) && !shouldShowBackupTip(state, env.tips)
     val alert: Triple<String, String, () -> Unit>? = when {
         !status.notificationsAllowed ->
             Triple("Notifications off · rest alerts can't appear", "Allow notifications") { env.platform.requestNotifications() }
@@ -466,6 +470,21 @@ private fun TodayNotices(env: AppEnv, now: Long, onNavigate: (String) -> Unit) {
             }
         }
     } }
+}
+
+@Composable
+private fun BackupAfterThreeTip(env: AppEnv, onNavigate: (String) -> Unit) {
+    val finished = env.state.workouts.count { it.finishedAt != null }
+    TipCard(
+        tip = Tip.BACKUP_AFTER_THREE,
+        visible = shouldShowBackupTip(env.state, env.tips),
+        text = "You've logged ${countLabel(finished, "workout")}. Rebuild stays offline on this phone — export a backup file to keep a copy safe.",
+        onDismiss = { env.platform.dismissTip(Tip.BACKUP_AFTER_THREE) },
+        // Match Today's session cards so the tonal Back up pill stands out cleanly in both themes.
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+        actionLabel = "Back up",
+        onAction = { onNavigate(Routes.BACKUP) }
+    )
 }
 
 @Composable

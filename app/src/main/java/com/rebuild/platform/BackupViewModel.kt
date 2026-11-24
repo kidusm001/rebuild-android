@@ -10,6 +10,7 @@ import com.rebuild.domain.Action
 import com.rebuild.domain.AppRepository
 import com.rebuild.domain.BackupDocument
 import com.rebuild.domain.BackupPreview
+import com.rebuild.ui.Tip
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
@@ -97,6 +98,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
             requireNotNull(_repository.value).execute(Action.MarkBackup(document.revision, System.currentTimeMillis()))
+            app.tips.dismiss(Tip.BACKUP_AFTER_THREE)
             _ui.value = if (wasSafety) {
                 _ui.value.copy(safetyRevision = document.revision, message = null)
             } else {

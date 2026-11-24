@@ -128,7 +128,10 @@ class FakeRepository(initial: AppState) : AppRepository {
     override suspend fun consumeRestTimer(timerId: String, now: Long) = false
 }
 
-class FakePlatform(status: PlatformStatus = PlatformStatus()) : PlatformActions {
+class FakePlatform(
+    status: PlatformStatus = PlatformStatus(),
+    initialTips: TipsState = TipsState(enabled = false)
+) : PlatformActions {
     override val status = MutableStateFlow(status)
     val calls = mutableListOf<String>()
     override fun requestNotifications() { calls += "notifications" }
@@ -139,6 +142,10 @@ class FakePlatform(status: PlatformStatus = PlatformStatus()) : PlatformActions 
     override fun chooseRestore() { calls += "restore" }
     override val restAlert = MutableStateFlow(RestAlert())
     override fun setRestAlert(alert: RestAlert) { restAlert.value = alert }
+    override val tips = MutableStateFlow(initialTips)
+    override fun dismissTip(tip: Tip) { tips.value = tips.value.dismiss(tip) }
+    override fun setTipsEnabled(enabled: Boolean) { tips.value = tips.value.setEnabled(enabled) }
+    override fun resetTips() { tips.value = tips.value.reset() }
     override fun previewRestAlert() {
         calls += "previewAlert"
         if (restAlert.value.sound == RestSound.ALARM) alarmRingingSince.value = System.currentTimeMillis()

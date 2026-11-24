@@ -53,6 +53,8 @@ import com.rebuild.ui.PlatformStatus
 import com.rebuild.ui.RestAlert
 import com.rebuild.ui.RebuildApp
 import com.rebuild.ui.RestPip
+import com.rebuild.ui.Tip
+import com.rebuild.ui.TipsState
 import com.rebuild.ui.theme.Motion
 import com.rebuild.ui.theme.RebuildTheme
 import com.rebuild.ui.AdaptiveDialog
@@ -348,6 +350,10 @@ class MainActivity : ComponentActivity(), PlatformActions {
     override fun exportBackup() { model.beginExport(false) { saveBackup.launch(it) } }
     override val restAlert: StateFlow<RestAlert> get() = app.restAlerts.alert
     override fun setRestAlert(alert: RestAlert) = app.restAlerts.set(alert)
+    override val tips: StateFlow<TipsState> get() = app.tips.tips
+    override fun dismissTip(tip: Tip) = app.tips.dismiss(tip)
+    override fun setTipsEnabled(enabled: Boolean) = app.tips.setEnabled(enabled)
+    override fun resetTips() = app.tips.reset()
     override fun previewRestAlert() = app.alarms.notifyExpired(about = com.rebuild.platform.RestContext("", nextSet = 2, ofSets = 3))
     override fun stopRestAlarm() = app.alarms.stopRinging(always = true)
     override val alarmRingingSince: StateFlow<Long?> get() = app.alarms.ringingSince

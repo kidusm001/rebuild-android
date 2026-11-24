@@ -30,11 +30,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -107,6 +109,22 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
         env.status.batteryRestricted -> "battery limits alerts"
         else -> null
     }
+    val showRestTip = !compact && remaining > 0 && shouldShowRestBarTip(env.state, env.tips, pause)
+    // Remember when this rest showed the tip so it retires once this first rest ends or is skipped, instead of
+    // repeating on every subsequent rest of the first workout.
+    var tipSeenOnTimer by rememberSaveable(timer.id) { mutableStateOf(false) }
+    if (showRestTip && !tipSeenOnTimer) tipSeenOnTimer = true
+    LaunchedEffect(timer.id, remaining) {
+        if (tipSeenOnTimer && remaining == 0) env.platform.dismissTip(Tip.REST_BAR)
+    }
+    val latestEnv by rememberUpdatedState(env)
+    DisposableEffect(timer.id) {
+        onDispose {
+            if (tipSeenOnTimer && latestEnv.state.restTimer?.id != timer.id) {
+                latestEnv.platform.dismissTip(Tip.REST_BAR)
+            }
+        }
+    }
     // A floating signal-amber pill above the navigation, with a thin ink progress line along its foot. Decorative; the
     // countdown is what's spoken.
     // A full-width amber sheet docked above the navigation: rounded top corners, square bottom, edge to edge.
@@ -118,8 +136,10 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
             shadowElevation = 0.dp,
             modifier = Modifier.fillMaxWidth().testTag("rest-bar")
         ) { InkPress { // on the amber sheet, presses are ink
-            Row(
+            // The progress line always sits along the foot of the whole amber sheet (below any tip).
+            Column(
                 Modifier
+                    .fillMaxWidth()
                     .drawBehind {
                         if (total != null && remaining > 0 && !compact) {
                             val inset = 20.dp.toPx()
@@ -130,7 +150,11 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                             drawRoundRect(fillColor, Offset(inset, y), Size(track * line.value, h), CornerRadius(h / 2))
                         }
                     }
-                    .padding(start = 20.dp, end = 8.dp, top = if (compact) 2.dp else 12.dp, bottom = if (compact) 2.dp else 14.dp),
+                    .padding(bottom = if (compact) 2.dp else 14.dp)
+            ) {
+            Row(
+                Modifier
+                    .padding(start = 20.dp, end = 8.dp, top = if (compact) 2.dp else 12.dp, bottom = if (showRestTip) 6.dp else 0.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
@@ -176,7 +200,10 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                 }
                 // Skipping ends this rest for good, so it's a labelled button rather than a bare icon beside Options.
                 FilledTonalButton(
-                    onClick = { env.runner.run(Action.SkipRest) },
+                    onClick = {
+                        if (tipSeenOnTimer) env.platform.dismissTip(Tip.REST_BAR)
+                        env.runner.run(Action.SkipRest)
+                    },
                     enabled = !env.runner.looksBusy(),
                     colors = strong,
                     contentPadding = PaddingValues(horizontal = 14.dp),
@@ -187,6 +214,11 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                 IconButton(onClick = { options = true }, modifier = Modifier.size(48.dp)) {
                     RebuildIcon(R.drawable.ic_ellipsis_vertical, contentDescription = "Rest options")
                 }
+            }
+            RestBarTip(
+                visible = showRestTip,
+                onDismiss = { env.platform.dismissTip(Tip.REST_BAR) }
+            )
             }
         } }
     }

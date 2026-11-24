@@ -212,7 +212,17 @@ fun RebuildApp(
         val state by repository.state.collectAsStateWithLifecycle()
         val status by platform.status.collectAsStateWithLifecycle()
         val restAlert by platform.restAlert.collectAsStateWithLifecycle()
+        val tips by platform.tips.collectAsStateWithLifecycle()
         val ringingSince by platform.alarmRingingSince.collectAsStateWithLifecycle()
+        // Completing a backup retires any re-enabled backup tip so logging the next set doesn't bring it back.
+        var seenBackupRevision by remember { mutableStateOf(state.lastBackupRevision) }
+        LaunchedEffect(state.lastBackupRevision) {
+            val current = state.lastBackupRevision
+            if (current != null && current != seenBackupRevision && Tip.BACKUP_AFTER_THREE in tips.forceShow) {
+                platform.dismissTip(Tip.BACKUP_AFTER_THREE)
+            }
+            seenBackupRevision = current
+        }
         // Setup's last step (rest alerts) comes after the plan is saved, so it's shown by this flag, not the data.
         var setupRestStep by rememberSaveable { mutableStateOf(false) }
         val restEnd = remember { RestEndState() }
@@ -260,8 +270,8 @@ fun RebuildApp(
 
         // One instance per real change of its inputs. Every screen takes it, so a fresh instance on each recomposition
         // here (a tab tap, a back press, the lifecycle) would recompose every screen on the stack for nothing.
-        val env = remember(state, status, platform, runner, clock, readClock, effortDrafts, today, restAlert) {
-            AppEnv(state, status, platform, runner, clock, readClock, effortDrafts, restAlert, previewRestEnd = {
+        val env = remember(state, status, platform, runner, clock, readClock, effortDrafts, today, restAlert, tips) {
+            AppEnv(state, status, platform, runner, clock, readClock, effortDrafts, restAlert, tips, previewRestEnd = {
                 platform.previewRestAlert()
                 restEnd.current = RestEnd("preview-${clock()}", shortPause = false, preview = true,
                     about = com.rebuild.platform.RestContext("", nextSet = 2, ofSets = 3))
@@ -578,6 +588,7 @@ internal class AppEnv(
     val monotonic: () -> Monotonic,
     val effortDrafts: EffortDrafts = EffortDrafts(),
     val restAlert: RestAlert = RestAlert(),
+    val tips: TipsState = TipsState(),
     /** Shows and sounds the chosen rest-end alert now, from the settings screen. */
     val previewRestEnd: () -> Unit = {}
 ) {

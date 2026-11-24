@@ -27,12 +27,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.rebuild.R
 
@@ -69,6 +72,13 @@ internal fun MoreScreen(env: AppEnv, onNavigate: (String) -> Unit) {
             }
             SectionHeader("Units")
             TonalCard { Box(Modifier.padding(16.dp)) { LiftingUnitRow(env) } }
+            SectionHeader("Tips")
+            ShowTipsCard(
+                tips = env.tips,
+                hasHistory = state.workouts.isNotEmpty(),
+                onToggle = { env.platform.setTipsEnabled(it) },
+                onReset = { env.platform.resetTips() }
+            )
             SectionHeader("Your data")
             val unsaved = state.revision > (state.lastBackupRevision ?: -1)
             MoreRow(
@@ -135,6 +145,36 @@ private fun LiftingUnitRow(env: AppEnv) {
             if (unit != env.state.liftingUnit) env.runner.run(Action.SetLiftingUnit(unit), onError = { error = it })
         }
         ErrorText(error)
+    }
+}
+
+@Composable
+private fun ShowTipsCard(
+    tips: TipsState,
+    hasHistory: Boolean,
+    onToggle: (Boolean) -> Unit,
+    onReset: () -> Unit
+) {
+    val supporting = if (tips.enabled) "Short hints the first time you log, rest or finish."
+        else "Off · turn on to show tips again."
+    val canReplay = tips.enabled && (tips.dismissed.isNotEmpty() || (hasHistory && tips.forceShow.isEmpty()))
+    TonalCard {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            ListRow(
+                "Show tips",
+                modifier = Modifier
+                    .toggleable(value = tips.enabled, role = Role.Switch, onValueChange = onToggle)
+                    .testTag("more-show-tips"),
+                supporting = supporting,
+                trailing = { Switch(checked = tips.enabled, onCheckedChange = null) }
+            )
+            if (canReplay) {
+                SecondaryButton(
+                    onClick = onReset,
+                    modifier = Modifier.padding(bottom = 4.dp).heightIn(min = 48.dp).testTag("more-reset-tips")
+                ) { Text("Show tips again") }
+            }
+        }
     }
 }
 
