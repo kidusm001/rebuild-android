@@ -1,13 +1,16 @@
 package com.rebuild.ui
 
+import android.content.Context
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.rebuild.data.RebuildRepository
 import com.rebuild.data.SnapshotCodec
 import com.rebuild.data.SnapshotPersistence
 import com.rebuild.data.StateChanges
 import com.rebuild.domain.*
+import com.rebuild.platform.TipsPrefs
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -199,5 +202,85 @@ class TipsDeviceTest {
         runBlocking { repo.execute(Action.SetLiftingUnit(MassUnit.LB)) }
         rule.waitForIdle()
         rule.onNodeWithTag("tip-backup-after-three").assertDoesNotExist()
+    }
+
+    @Test fun setEntryAndReceiptTipsRetireAutomaticallyOnSaveAndCloseAndPersistInPrefs() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences("tips", Context.MODE_PRIVATE).edit().clear().commit()
+        val prefs = TipsPrefs(context)
+        val platform = object : PlatformActions by FakePlatform() {
+            override val tips get() = prefs.tips
+            override fun dismissTip(tip: Tip) = prefs.dismiss(tip)
+            override fun setTipsEnabled(enabled: Boolean) = prefs.setEnabled(enabled)
+            override fun resetTips() = prefs.reset()
+        }
+        val steadyState = StateChanges.apply(
+            Seed.initialState(),
+            Action.CompleteSetup(Experience.REGULAR, Splits.FULL_BODY_3, Gear.GYM, MassUnit.KG, localDateOf(monday).toString())
+        )
+        var now = monday
+        val repo = realRepo(steadyState, monday)
+        rule.setContent { RebuildApp(repo, platform, clock = { now }) }
+
+        // Start workout 1: leave the set-entry tip open and save set 1 so onSaved retires it automatically.
+        rule.onNodeWithTag("start-scheduled").performClick()
+        rule.onNodeWithTag("tip-set-entry").assertIsDisplayed()
+        rule.onNodeWithTag("entry-kg").performScrollTo().performTextInput("40")
+        rule.onNodeWithTag("entry-reps").performScrollTo().performTextInput("10")
+        rule.onNodeWithTag("log-set").performScrollTo().performClick()
+        rule.waitUntil(5_000) { Tip.SET_ENTRY in prefs.tips.value.dismissed }
+        assertTrue(Tip.SET_ENTRY in prefs.tips.value.dismissed)
+        rule.onNodeWithTag("tip-set-entry").assertDoesNotExist()
+
+        // Skip rest and log set 2: set-entry tip stays gone on subsequent sets.
+        rule.waitUntil(5_000) { repo.state.value.restTimer != null }
+        rule.waitUntil(5_000) { rule.actionGuardOpen() }
+        rule.onNodeWithContentDescription("Skip rest").performClick()
+        rule.waitUntil(5_000) { repo.state.value.restTimer == null }
+        rule.onNodeWithTag("tip-set-entry").assertDoesNotExist()
+        rule.waitUntil(5_000) { rule.actionGuardOpen() }
+        rule.onNodeWithTag("log-set").performScrollTo().performClick()
+        rule.waitUntil(5_000) { repo.state.value.restTimer != null }
+        rule.waitUntil(5_000) { rule.actionGuardOpen() }
+        rule.onNodeWithContentDescription("Skip rest").performClick()
+        rule.waitUntil(5_000) { repo.state.value.restTimer == null }
+
+        // Finish workout 1: leave the receipt tip open and close via Done so onClosed retires it automatically.
+        rule.waitUntil(5_000) { rule.actionGuardOpen() }
+        rule.onNodeWithText("Finish").performClick()
+        rule.onNodeWithTag("confirm-button").performClick()
+        rule.waitUntil(5_000) { repo.state.value.activeWorkoutId == null }
+        rule.onNodeWithTag("workout-receipt").assertIsDisplayed()
+        rule.onNodeWithTag("tip-first-receipt").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Done").performClick()
+        rule.waitUntil(5_000) { Tip.FIRST_RECEIPT in prefs.tips.value.dismissed }
+        assertTrue(Tip.FIRST_RECEIPT in prefs.tips.value.dismissed)
+
+        // Reopen TipsPrefs from SharedPreferences: both automatic retirements persisted cleanly.
+        val reopened = TipsPrefs(context).tips.value
+        assertTrue(Tip.SET_ENTRY in reopened.dismissed)
+        assertTrue(Tip.FIRST_RECEIPT in reopened.dismissed)
+        assertTrue(reopened.forceShow.isEmpty())
+
+        // Start and finish a second workout: neither set-entry nor receipt tip reappears.
+        now = monday + 300_000
+        runBlocking {
+            repo.execute(Action.StartWorkout("full-body-3-b", now, localDateOf(now).toString()))
+        }
+        rule.onNodeWithText("Resume workout").performClick()
+        rule.onNodeWithTag("tip-set-entry").assertDoesNotExist()
+        rule.onNodeWithTag("entry-kg").performScrollTo().performTextInput("40")
+        rule.onNodeWithTag("entry-reps").performScrollTo().performTextInput("10")
+        rule.onNodeWithTag("log-set").performScrollTo().performClick()
+        rule.waitUntil(5_000) { repo.state.value.restTimer != null }
+        rule.waitUntil(5_000) { rule.actionGuardOpen() }
+        rule.onNodeWithContentDescription("Skip rest").performClick()
+        rule.waitUntil(5_000) { repo.state.value.restTimer == null }
+        rule.waitUntil(5_000) { rule.actionGuardOpen() }
+        rule.onNodeWithText("Finish").performClick()
+        rule.onNodeWithTag("confirm-button").performClick()
+        rule.waitUntil(5_000) { repo.state.value.activeWorkoutId == null }
+        rule.onNodeWithTag("workout-receipt").assertIsDisplayed()
+        rule.onNodeWithTag("tip-first-receipt").assertDoesNotExist()
     }
 }
