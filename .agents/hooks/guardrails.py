@@ -6,7 +6,7 @@ Enforces three hard project rules from AGENTS.md:
    (checks both inline command arguments and referenced --body-file / -F / --file files).
 2. Never commit directly to `main` (tracks branch switches in execution order).
 3. Never uninstall or clear com.rebuild data on a physical (non-emulator) device
-   (checks each `adb` invocation independently).
+   (checks each `adb` invocation independently, including inside shell/command wrappers).
 """
 
 import json
@@ -29,6 +29,8 @@ AI_ATTRIBUTION_PATTERNS = (
 
 SEGMENT_SEPARATORS = {";", "&&", "||", "|", "&", "\n"}
 ENV_ASSIGN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=(.*)$")
+SHELL_NAMES = {"sh", "bash", "zsh", "dash", "ash", "ksh"}
+MAX_RECURSION_DEPTH = 5
 
 
 def allow() -> None:
@@ -46,14 +48,18 @@ def has_ai_attribution(text: str) -> bool:
 
 
 def split_segments(cmd: str) -> list[list[str]]:
-    """Split a shell command string into token lists per command segment."""
+    """Split a shell command string into token lists per command segment.
+
+    Uses whitespace_split=True with punctuation_chars=";&|\\n" so unquoted arguments
+    containing colons, slashes, or dots (such as wireless adb addresses like
+    `192.168.1.2:5555`) remain single tokens while shell operators still split cleanly.
+    """
     try:
         lexer = shlex.shlex(cmd, posix=True, punctuation_chars=";&|\n")
         lexer.whitespace = " \t\r"
-        lexer.whitespace_split = False
+        lexer.whitespace_split = True
         tokens = list(lexer)
     except ValueError:
-        # Fallback for unbalanced quotes/heredocs: split on common shell operators.
         raw_parts = re.split(r"(?:&&|\|\||[;\n|])", cmd)
         segments = []
         for part in raw_parts:
@@ -76,6 +82,28 @@ def split_segments(cmd: str) -> list[list[str]]:
     return segments
 
 
+def strip_grouping_tokens(tokens: list[str]) -> list[str]:
+    """Strip outer shell subshell/brace grouping tokens like `( ... )` or `{ ... }`."""
+    out = list(tokens)
+    while out and out[0] in {"(", "{"}:
+        out.pop(0)
+    if out and out[0].startswith("(") and not out[0].startswith("$("):
+        stripped = out[0].lstrip("(")
+        if stripped:
+            out[0] = stripped
+        else:
+            out.pop(0)
+    while out and out[-1] in {")", "}"}:
+        out.pop()
+    if out and out[-1].endswith(")") and "(" not in out[-1]:
+        stripped = out[-1].rstrip(")")
+        if stripped:
+            out[-1] = stripped
+        else:
+            out.pop()
+    return out
+
+
 def strip_leading_env(tokens: list[str]) -> tuple[dict[str, str], list[str]]:
     """Separate leading VAR=VAL assignments from the command tokens."""
     env: dict[str, str] = {}
@@ -88,6 +116,233 @@ def strip_leading_env(tokens: list[str]) -> tuple[dict[str, str], list[str]]:
         env[key] = m.group(1)
         idx += 1
     return env, tokens[idx:]
+
+
+def unwrap_command_prefixes(
+    env: dict[str, str], tokens: list[str], cwd: str
+) -> tuple[dict[str, str], list[str], str]:
+    """Unwrap command prefix wrappers (`env`, `timeout`, `sudo`, `nohup`, `command`, `nice`, `time`, `exec`)."""
+    merged_env = dict(env)
+    cur = list(tokens)
+    cur_cwd = cwd
+
+    for _ in range(8):
+        more_env, cur = strip_leading_env(cur)
+        merged_env.update(more_env)
+        if not cur:
+            break
+
+        exe = os.path.basename(cur[0])
+        rest = cur[1:]
+
+        if exe in {"command", "nohup", "exec", "time"}:
+            i = 0
+            while i < len(rest) and rest[i].startswith("-"):
+                if rest[i] == "--":
+                    i += 1
+                    break
+                i += 1
+            cur = rest[i:]
+            continue
+
+        if exe == "env":
+            i = 0
+            while i < len(rest):
+                tok = rest[i]
+                if tok == "--":
+                    i += 1
+                    break
+                if tok in {"-u", "--unset"} and i + 1 < len(rest):
+                    merged_env.pop(rest[i + 1], None)
+                    i += 2
+                    continue
+                if tok in {"-C", "--chdir"} and i + 1 < len(rest):
+                    target = os.path.expanduser(rest[i + 1])
+                    cur_cwd = target if os.path.isabs(target) else os.path.normpath(os.path.join(cur_cwd, target))
+                    i += 2
+                    continue
+                if tok == "-i" or tok == "--ignore-environment":
+                    merged_env.clear()
+                    i += 1
+                    continue
+                if tok == "-S" and i + 1 < len(rest):
+                    try:
+                        expanded = shlex.split(rest[i + 1])
+                    except ValueError:
+                        expanded = rest[i + 1].split()
+                    rest = expanded + rest[i + 2 :]
+                    i = 0
+                    continue
+                if tok.startswith("-"):
+                    i += 1
+                    continue
+                m = ENV_ASSIGN_RE.match(tok)
+                if m:
+                    merged_env[tok.split("=", 1)[0]] = m.group(1)
+                    i += 1
+                    continue
+                break
+            cur = rest[i:]
+            continue
+
+        if exe == "timeout":
+            i = 0
+            opts_with_arg = {"-k", "--kill-after", "-s", "--signal"}
+            while i < len(rest):
+                tok = rest[i]
+                if tok == "--":
+                    i += 1
+                    break
+                if tok in opts_with_arg and i + 1 < len(rest):
+                    i += 2
+                    continue
+                if tok.startswith("-"):
+                    i += 1
+                    continue
+                # Skip the duration positional argument.
+                i += 1
+                break
+            cur = rest[i:]
+            continue
+
+        if exe == "nice":
+            i = 0
+            while i < len(rest) and rest[i].startswith("-"):
+                if rest[i] == "--":
+                    i += 1
+                    break
+                if rest[i] == "-n" and i + 1 < len(rest):
+                    i += 2
+                    continue
+                i += 1
+            cur = rest[i:]
+            continue
+
+        if exe == "sudo":
+            i = 0
+            opts_with_arg = {"-u", "-g", "-C", "-p", "-h", "-r", "-t", "-T", "-U", "-D"}
+            while i < len(rest):
+                tok = rest[i]
+                if tok == "--":
+                    i += 1
+                    break
+                if tok in opts_with_arg and i + 1 < len(rest):
+                    i += 2
+                    continue
+                if tok.startswith("-"):
+                    i += 1
+                    continue
+                m = ENV_ASSIGN_RE.match(tok)
+                if m:
+                    merged_env[tok.split("=", 1)[0]] = m.group(1)
+                    i += 1
+                    continue
+                break
+            cur = rest[i:]
+            continue
+
+        break
+
+    return merged_env, cur, cur_cwd
+
+
+def extract_nested_shell_command(tokens: list[str]) -> str | None:
+    """If tokens invoke `sh -c '...'` / `bash -lc '...'` / `eval ...`, return the inner command string."""
+    if not tokens:
+        return None
+    exe = os.path.basename(tokens[0])
+    args = tokens[1:]
+
+    if exe == "eval" and args:
+        return " ".join(args)
+
+    if exe not in SHELL_NAMES:
+        return None
+
+    i = 0
+    while i < len(args):
+        tok = args[i]
+        if tok == "--":
+            break
+        if (tok in {"-o", "+o"} or (tok.startswith(("-", "+")) and not tok.startswith("--") and tok.endswith("o"))) and i + 1 < len(args):
+            i += 2
+            continue
+        if tok == "-c" or (tok.startswith("-") and not tok.startswith("--") and "c" in tok[1:]):
+            if i + 1 < len(args):
+                return args[i + 1]
+            return None
+        if tok.startswith("-") or tok.startswith("+"):
+            i += 1
+            continue
+        break
+    return None
+
+
+def strip_quoted_heredocs(cmd: str) -> str:
+    """Remove bodies of single/double-quoted heredocs (`<<'EOF' ... EOF`), which bash never expands."""
+    lines = cmd.splitlines(keepends=True)
+    out: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        out.append(line)
+        m = re.search(r"<<-?\s*(['\"])([A-Za-z_][A-Za-z0-9_]*)\1", line)
+        if m:
+            delim = m.group(2)
+            i += 1
+            while i < len(lines):
+                if lines[i].strip() == delim:
+                    break
+                i += 1
+        i += 1
+    return "".join(out)
+
+
+def extract_command_substitutions(cmd: str) -> list[str]:
+    """Extract inner commands from simple `$(...)` and backtick substitutions."""
+    cmd = strip_quoted_heredocs(cmd)
+    results: list[str] = []
+    # Find `$(...)` with balanced parentheses (outside single quotes).
+    i = 0
+    in_single = False
+    n = len(cmd)
+    while i < n:
+        ch = cmd[i]
+        if ch == "\\" and not in_single and i + 1 < n:
+            i += 2
+            continue
+        if ch == "'":
+            in_single = not in_single
+            i += 1
+            continue
+        if not in_single and ch == "$" and i + 1 < n and cmd[i + 1] == "(":
+            depth = 1
+            j = i + 2
+            while j < n and depth > 0:
+                if cmd[j] == "\\" and j + 1 < n:
+                    j += 2
+                    continue
+                if cmd[j] == "(":
+                    depth += 1
+                elif cmd[j] == ")":
+                    depth -= 1
+                j += 1
+            if depth == 0:
+                inner = cmd[i + 2 : j - 1].strip()
+                if inner:
+                    results.append(inner)
+                i = j
+                continue
+        if not in_single and ch == "`":
+            j = cmd.find("`", i + 1)
+            if j != -1:
+                inner = cmd[i + 1 : j].strip()
+                if inner:
+                    results.append(inner)
+                i = j + 1
+                continue
+        i += 1
+    return results
 
 
 def parse_git_invocation(tokens: list[str], cwd: str) -> tuple[str | None, list[str], str]:
@@ -201,7 +456,6 @@ def branch_switched_to(subcmd: str, args: list[str], repo_cwd: str) -> str | Non
             return created[0]
         if "--detach" in args or "-d" in args:
             return "__detached__"
-        # First positional argument before `--`
         i = 0
         opts_with_arg = {"-c", "-C", "--create", "--force-create", "--orphan", "--conflict"}
         while i < len(args):
@@ -222,7 +476,6 @@ def branch_switched_to(subcmd: str, args: list[str], repo_cwd: str) -> str | Non
         if created:
             return created[0]
         if "--" in args or "-p" in args or "--patch" in args:
-            # File restoration (`git checkout -- README.md`) or patch checkout does not switch branches.
             return None
         if "--detach" in args or "-d" in args:
             return "__detached__"
@@ -241,7 +494,6 @@ def branch_switched_to(subcmd: str, args: list[str], repo_cwd: str) -> str | Non
             i += 1
         if len(positionals) == 1:
             candidate = positionals[0]
-            # If the single positional exists as a path in the working tree, treat as file checkout.
             if not os.path.exists(os.path.join(repo_cwd, candidate)):
                 return candidate
         return None
@@ -331,6 +583,129 @@ def check_adb_segment(env: dict[str, str], tokens: list[str]) -> None:
         )
 
 
+def inspect_command(
+    cmd: str,
+    cwd: str,
+    inherited_env: dict[str, str],
+    branch_by_repo: dict[str, str],
+    depth: int = 0,
+) -> None:
+    if depth > MAX_RECURSION_DEPTH:
+        if re.search(r"\b(uninstall|pm\s+clear)\b[^\n]*\bcom\.rebuild\b", cmd):
+            deny(
+                "Blocked by rebuild-guardrails: deeply nested destructive com.rebuild command "
+                "could not be safely verified."
+            )
+        return
+
+    # Inspect any command substitutions (`$(...)` or backticks) first.
+    for sub in extract_command_substitutions(cmd):
+        inspect_command(sub, cwd, dict(inherited_env), dict(branch_by_repo), depth + 1)
+
+    current_cwd = cwd
+    session_env = dict(inherited_env)
+    segments = split_segments(strip_quoted_heredocs(cmd))
+
+    for raw_seg in segments:
+        seg = strip_grouping_tokens(raw_seg)
+        if not seg:
+            continue
+
+        seg_env, tokens = strip_leading_env(seg)
+        if not tokens:
+            # Bare assignment like `ANDROID_SERIAL=PHONE` persists across subsequent segments.
+            session_env.update(seg_env)
+            continue
+
+        # Track `export VAR=VAL` and `unset VAR` across segments.
+        first_exe = os.path.basename(tokens[0])
+        if first_exe == "export":
+            for arg in tokens[1:]:
+                m = ENV_ASSIGN_RE.match(arg)
+                if m:
+                    session_env[arg.split("=", 1)[0]] = m.group(1)
+            continue
+        if first_exe == "unset":
+            for arg in tokens[1:]:
+                if not arg.startswith("-"):
+                    session_env.pop(arg, None)
+            continue
+
+        combined_env = dict(session_env)
+        combined_env.update(seg_env)
+
+        effective_env, tokens, effective_cwd = unwrap_command_prefixes(
+            combined_env, tokens, current_cwd
+        )
+        if not tokens:
+            continue
+
+        exe = os.path.basename(tokens[0])
+
+        # Track `cd <dir>` so relative paths and branch checks use the right working directory.
+        if exe == "cd" and len(tokens) >= 2 and not tokens[1].startswith("-"):
+            target = os.path.expanduser(tokens[1])
+            current_cwd = target if os.path.isabs(target) else os.path.normpath(os.path.join(current_cwd, target))
+            continue
+
+        # Recursively inspect nested shell invocations (`sh -c`, `bash -lc`, `eval`, ...).
+        nested = extract_nested_shell_command(tokens)
+        if nested is not None:
+            inspect_command(nested, effective_cwd, effective_env, branch_by_repo, depth + 1)
+            continue
+
+        # 1. Check git commands (attribution + no commit on main) in execution order.
+        git_subcmd, git_args, repo_cwd = parse_git_invocation(tokens, effective_cwd)
+        if git_subcmd is not None:
+            if git_subcmd in {"switch", "checkout"}:
+                switched = branch_switched_to(git_subcmd, git_args, repo_cwd)
+                if switched is not None:
+                    branch_by_repo[repo_cwd] = switched
+            elif git_subcmd == "commit" and "--help" not in git_args and "-h" not in git_args:
+                seg_text = " ".join(tokens)
+                if has_ai_attribution(seg_text) or (("<<" in cmd) and has_ai_attribution(cmd)):
+                    deny(
+                        "Blocked by rebuild-guardrails: never add AI co-author trailers or "
+                        "'Generated with ...' attribution to commits (see AGENTS.md)."
+                    )
+                for msg_file in extract_option_values(git_args, {"-F"}, {"--file"}):
+                    if has_ai_attribution(read_text_safely(msg_file, repo_cwd)):
+                        deny(
+                            f"Blocked by rebuild-guardrails: commit message file `{msg_file}` "
+                            f"contains forbidden AI attribution (see AGENTS.md)."
+                        )
+                if repo_cwd not in branch_by_repo:
+                    branch_by_repo[repo_cwd] = current_git_branch(repo_cwd)
+                if branch_by_repo[repo_cwd] == "main":
+                    deny(
+                        "Blocked by rebuild-guardrails: never commit directly to `main`. "
+                        "Create a topic branch first (`git switch -c <branch>`)."
+                    )
+
+        # 1c. Check `gh pr|issue create|edit|comment` attribution (inline + `--body-file` / `-F`).
+        if (
+            exe == "gh"
+            and len(tokens) >= 3
+            and tokens[1] in {"pr", "issue"}
+            and tokens[2] in {"create", "edit", "comment"}
+        ):
+            gh_args = tokens[3:]
+            if has_ai_attribution(" ".join(tokens)) or (("<<" in cmd) and has_ai_attribution(cmd)):
+                deny(
+                    "Blocked by rebuild-guardrails: never add AI attribution to PRs or issues (see AGENTS.md)."
+                )
+            for body_file in extract_option_values(gh_args, {"-F"}, {"--body-file"}):
+                if has_ai_attribution(read_text_safely(body_file, effective_cwd)):
+                    deny(
+                        f"Blocked by rebuild-guardrails: body file `{body_file}` contains "
+                        f"forbidden AI attribution (see AGENTS.md)."
+                    )
+
+        # 3. Check each `adb` call independently for physical-device data wipes.
+        if exe == "adb":
+            check_adb_segment(effective_env, tokens)
+
+
 def main() -> None:
     try:
         payload = json.load(sys.stdin)
@@ -343,77 +718,9 @@ def main() -> None:
 
     args = tool_call.get("args") or {}
     cmd = args.get("CommandLine") or ""
-    current_cwd = payload.get("cwd") or "."
+    cwd = payload.get("cwd") or "."
 
-    segments = split_segments(cmd)
-
-    # Track effective branch per repo directory as commands execute in order.
-    branch_by_repo: dict[str, str] = {}
-
-    for seg in segments:
-        env, tokens = strip_leading_env(seg)
-        if not tokens:
-            continue
-
-        exe = os.path.basename(tokens[0])
-
-        # Track `cd <dir>` so relative paths and branch checks use the right working directory.
-        if exe == "cd" and len(tokens) >= 2 and not tokens[1].startswith("-"):
-            target = os.path.expanduser(tokens[1])
-            current_cwd = target if os.path.isabs(target) else os.path.normpath(os.path.join(current_cwd, target))
-            continue
-
-        # 1. Check git commands (attribution + no commit on main) in execution order.
-        git_subcmd, git_args, repo_cwd = parse_git_invocation(tokens, current_cwd)
-        if git_subcmd is not None:
-            if git_subcmd in {"switch", "checkout"}:
-                switched = branch_switched_to(git_subcmd, git_args, repo_cwd)
-                if switched is not None:
-                    branch_by_repo[repo_cwd] = switched
-            elif git_subcmd == "commit" and "--help" not in git_args and "-h" not in git_args:
-                # 1a. Inline attribution check (also check full cmd for heredocs like `git commit -F - <<EOF`).
-                seg_text = " ".join(tokens)
-                if has_ai_attribution(seg_text) or (
-                    ("<<" in cmd) and has_ai_attribution(cmd)
-                ):
-                    deny(
-                        "Blocked by rebuild-guardrails: never add AI co-author trailers or "
-                        "'Generated with ...' attribution to commits (see AGENTS.md)."
-                    )
-                # 1b. File-backed commit message attribution check (`-F` / `--file`).
-                for msg_file in extract_option_values(git_args, {"-F"}, {"--file"}):
-                    if has_ai_attribution(read_text_safely(msg_file, repo_cwd)):
-                        deny(
-                            f"Blocked by rebuild-guardrails: commit message file `{msg_file}` "
-                            f"contains forbidden AI attribution (see AGENTS.md)."
-                        )
-                # 2. No direct commits to `main`.
-                if repo_cwd not in branch_by_repo:
-                    branch_by_repo[repo_cwd] = current_git_branch(repo_cwd)
-                if branch_by_repo[repo_cwd] == "main":
-                    deny(
-                        "Blocked by rebuild-guardrails: never commit directly to `main`. "
-                        "Create a topic branch first (`git switch -c <branch>`)."
-                    )
-
-        # 1c. Check `gh pr|issue create|edit|comment` attribution (inline + `--body-file` / `-F`).
-        if exe == "gh" and len(tokens) >= 3 and tokens[1] in {"pr", "issue"} and tokens[2] in {"create", "edit", "comment"}:
-            gh_args = tokens[3:]
-            if has_ai_attribution(" ".join(tokens)) or (("<<" in cmd) and has_ai_attribution(cmd)):
-                deny(
-                    "Blocked by rebuild-guardrails: never add AI attribution to PRs or issues (see AGENTS.md)."
-                )
-            for body_file in extract_option_values(gh_args, {"-F"}, {"--body-file"}):
-                if has_ai_attribution(read_text_safely(body_file, current_cwd)):
-                    deny(
-                        f"Blocked by rebuild-guardrails: body file `{body_file}` contains "
-                        f"forbidden AI attribution (see AGENTS.md)."
-                    )
-
-        # 3. Check each `adb` call independently for physical-device data wipes.
-        if exe == "adb":
-            check_adb_segment(env, tokens)
-
+    inspect_command(cmd, cwd, {}, {}, depth=0)
     allow()
 
 
