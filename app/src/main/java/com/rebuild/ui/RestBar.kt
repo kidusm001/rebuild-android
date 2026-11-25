@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -81,6 +82,9 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
     val pause = timer.shortPause
     val total = we?.restSeconds?.takeIf { it > 0 && !pause }
     var editing by rememberSaveable(timer.id) { mutableStateOf(false) }
+    val undoWindow = LocalAccessibilityManager.current?.calculateRecommendedTimeoutMillis(
+        ActionRunner.UNDO_SKIP_MS, containsIcons = false, containsText = true, containsControls = true
+    ) ?: ActionRunner.UNDO_SKIP_MS
     var options by rememberSaveable(timer.id) { mutableStateOf(false) }
     val compact = compactLandscapeInput() || shortLandscapeWindow() || LocalDensity.current.fontScale > 1.3f
 
@@ -210,12 +214,11 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                 FilledTonalButton(
                     onClick = {
                         if (tipSeenOnTimer) env.platform.dismissTip(Tip.REST_BAR)
-                        // A skip mid-rest can be undone for a few seconds; dismissing a finished rest has nothing to undo.
-                        val skipped = timer.takeIf { remaining > 0 }
-                        env.runner.run(Action.SkipRest, onSuccess = {
-                            if (skipped != null) env.runner.notify(Notice(
-                                if (skipped.shortPause) "Pause skipped" else "Rest skipped", "Undo"
-                            ) { env.runner.run(Action.RestoreRest(skipped, env.clock())) })
+                        // A skip with time left can be undone for a few seconds, from the bar itself; dismissing a
+                        // finished (or all but finished) rest has nothing worth bringing back.
+                        val skipped = timer.takeIf { it.deadline - env.clock() > UNDO_MIN_LEFT_MS }
+                        env.runner.run(Action.SkipRest, onSaved = {
+                            if (skipped != null) env.runner.offerUndoSkip(skipped, undoWindow)
                         })
                     },
                     enabled = !env.runner.looksBusy(),
@@ -270,6 +273,60 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
             }
         )
     }
+}
+
+/** Below this much time left, a skip just ends the rest: Undo would bring back a rest that's already over. */
+private const val UNDO_MIN_LEFT_MS = 5_000L
+
+/**
+ * The rest bar a moment after Skip: the same amber sheet, the same height (so the dock doesn't move), with "Skipped"
+ * where the countdown was and Undo where Skip was. It collapses when the undo window ends.
+ */
+@Composable
+internal fun SkippedRestBar(env: AppEnv, timer: RestTimer) {
+    val colors = MaterialTheme.colorScheme
+    val compact = compactLandscapeInput() || shortLandscapeWindow() || LocalDensity.current.fontScale > 1.3f
+    val word = if (timer.shortPause) "Pause" else "Rest"
+    Surface(
+        color = colors.primaryContainer,
+        contentColor = colors.onPrimaryContainer,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        modifier = Modifier.fillMaxWidth().testTag("rest-skipped")
+    ) { InkPress {
+        Row(
+            Modifier.padding(start = 20.dp, end = 8.dp, top = if (compact) 2.dp else 12.dp,
+                bottom = if (compact) 2.dp else 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Column(Modifier.weight(1f).semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }) {
+                if (compact) Text("$word skipped", style = MaterialTheme.typography.titleLarge, maxLines = 1,
+                    softWrap = false, overflow = TextOverflow.Ellipsis)
+                else {
+                    Text(word, style = overlineStyle())
+                    Text("Skipped", style = MaterialTheme.typography.displayMedium, maxLines = 1, softWrap = false,
+                        overflow = TextOverflow.Ellipsis)
+                }
+            }
+            FilledTonalButton(
+                onClick = {
+                    env.runner.run(Action.RestoreRest(timer, env.clock()), onSaved = { env.runner.endUndoSkip() })
+                },
+                enabled = !env.runner.looksBusy(),
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = colors.onPrimaryContainer,
+                    contentColor = colors.primaryContainer
+                ),
+                contentPadding = PaddingValues(horizontal = 14.dp),
+                modifier = Modifier.heightIn(min = 48.dp).semantics {
+                    contentDescription = if (timer.shortPause) "Undo skip, bring the pause back"
+                        else "Undo skip, bring the rest back"
+                }
+            ) { Text("Undo", maxLines = 1) }
+            // Where Options sat, so Undo lands under the thumb that just pressed Skip.
+            Box(Modifier.size(48.dp))
+        }
+    } }
 }
 
 /**

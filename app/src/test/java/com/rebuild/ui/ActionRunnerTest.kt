@@ -44,6 +44,24 @@ class ActionRunnerTest {
         Dispatchers.resetMain()
     }
 
+    @Test fun undoSkipWindowEndsOnItsOwnAndANewerSkipRestartsIt() = runTest {
+        val first = com.rebuild.domain.RestTimer("a", "w", "e", 100_000)
+        val second = first.copy(id = "b")
+        runner.offerUndoSkip(first, 4_000)
+        advanceTimeBy(3_000)
+        runner.offerUndoSkip(second, 4_000)
+        advanceTimeBy(2_000)
+        runCurrent()
+        // The first window would have ended by now; the newer skip keeps its own.
+        assertEquals(second, runner.skippedRest)
+        advanceTimeBy(2_001)
+        runCurrent()
+        assertEquals(null, runner.skippedRest)
+        runner.offerUndoSkip(first, 4_000)
+        runner.endUndoSkip()
+        assertEquals(null, runner.skippedRest)
+    }
+
     @Test fun chainedNoteSavesKeepGuardUntilTheNextWriteFinishes() = runTest {
         val gate = CompletableDeferred<Unit>()
         repository.secondGate = gate

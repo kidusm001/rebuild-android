@@ -97,8 +97,10 @@ read the set by its own first stage; drops are never plotted. The set's editor l
 The rest bar is a full-width signal-amber sheet docked above the navigation (rounded
 top, square bottom): a small "Rest" label over a large condensed countdown, a tonal
 "+30 s", an ink Skip pill and Options, with a thin progress line along its foot.
-Skip sits a wider gap from +30 s, and skipping a running rest shows "Rest skipped ·
-Undo", which brings back the same deadline. −30 s and Set time (minute and second
+Skip sits a wider gap from +30 s. Skipping a rest with more than five seconds left
+keeps the bar in place for four seconds (longer if TalkBack asks for it), showing
+"Skipped" where the countdown was and Undo where Skip was; Undo brings back the same
+deadline, then the bar collapses as usual. −30 s and Set time (minute and second
 wheels) live in Options.
 Leaving the app during a rest shows a picture-in-picture countdown and an ongoing
 countdown notification. At text above 130% or in a short landscape window (under

@@ -47,9 +47,6 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarResult
-import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -239,13 +236,6 @@ fun RebuildApp(
         }
         val snackbar = remember { SnackbarHostState() }
         LaunchedEffect(runner) { runner.errors.collect { snackbar.showSnackbar(it) } }
-        // A newer notice cancels the one showing (collectLatest), so Undo always refers to the latest change.
-        LaunchedEffect(runner) {
-            runner.notices.collectLatest { notice ->
-                val result = snackbar.showSnackbar(notice.message, notice.actionLabel, duration = SnackbarDuration.Short)
-                if (result == SnackbarResult.ActionPerformed) notice.onAction()
-            }
-        }
         val context = LocalContext.current.applicationContext
         val readClock = monotonic ?: remember(context) { { PhoneClock.read(context) } }
 
@@ -337,6 +327,11 @@ fun RebuildApp(
         val timer = state.restTimer.takeIf { !setupShown }
         val watch = state.stopwatch.takeIf { !setupShown }
         val ringing = ringingSince?.takeIf { timer == null && !setupShown }
+        // A rest skipped a moment ago keeps the bar, showing Undo where Skip was, until its window ends.
+        val skipped = runner.skippedRest?.takeIf {
+            timer == null && ringing == null && !setupShown && it.workoutId == state.activeWorkoutId
+        }
+        LaunchedEffect(state.restTimer != null) { if (state.restTimer != null) runner.endUndoSkip() }
         // The shared bars come and go by Expand / Collapse (opaque bar): each is kept, with what it last showed, while
         // it collapses away. A rest that ends into the Up next takeover goes at once: the sheet grows from its edge.
         // One reveal value per bar is read both where the bar is drawn and where the layers pad themselves, so the
@@ -344,6 +339,7 @@ fun RebuildApp(
         val restFace: BarFace? = when {
             timer != null -> BarFace.Rest(timer)
             ringing != null -> BarFace.Alarm(ringing)
+            skipped != null -> BarFace.Skipped(skipped)
             else -> null
         }
         val lastRestFace = remember { arrayOfNulls<BarFace>(1) }
@@ -383,8 +379,9 @@ fun RebuildApp(
             bottomNav -> MaterialTheme.colorScheme.surface
             // On the workout the pill floats on the dock's tone, so dock and pill read as one base.
             // Only when the entry dock is pinned at the bottom; at large text or in landscape it scrolls inline.
-            timer != null && route == Routes.WORKOUT && dockPinned() -> MaterialTheme.colorScheme.surfaceContainer
-            timer != null -> MaterialTheme.colorScheme.surface
+            (timer != null || skipped != null) && route == Routes.WORKOUT && dockPinned() ->
+                MaterialTheme.colorScheme.surfaceContainer
+            timer != null || skipped != null -> MaterialTheme.colorScheme.surface
             else -> MaterialTheme.colorScheme.surfaceContainerHighest
         }
         // Test tags double as Android resource IDs, so an on-device driver (uiautomator, the verify-rebuild skill) can
@@ -455,6 +452,7 @@ fun RebuildApp(
                                 is BarFace.Rest -> Box(Modifier.onGloballyPositioned {
                                     restBarTop = it.boundsInRoot().top
                                 }) { RestBar(env, shown.timer) }
+                                is BarFace.Skipped -> SkippedRestBar(env, shown.timer)
                                 is BarFace.Alarm -> RestAlarmBar(shown.since, clock, onStop = platform::stopRestAlarm)
                             }
                         }
@@ -1138,6 +1136,8 @@ private fun dockPinned(): Boolean {
 private sealed interface BarFace {
     data class Rest(val timer: RestTimer) : BarFace
     data class Alarm(val since: Long) : BarFace
+    /** A rest skipped a moment ago: the bar stays to offer Undo. */
+    data class Skipped(val timer: RestTimer) : BarFace
 }
 
 /**

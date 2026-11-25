@@ -9,7 +9,7 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.unit.dp
@@ -66,19 +66,38 @@ class RestBarTest {
         repo
     }
 
-    @Test fun skipCanBeUndoneAndBringsBackTheSameRest() {
+    @Test fun skipKeepsTheBarInPlaceWithUndoThatBringsBackTheSameRest() {
         val repo = resting()
         val timer = requireNotNull(repo.state.value.restTimer)
         compose.setContent { RebuildApp(repo, platform, clock = { now }) }
         compose.waitForIdle()
+        val restHeight = height("rest-bar")
         compose.onNodeWithContentDescription("Skip rest").performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitUntil(5_000) { repo.state.value.restTimer == null }
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("Rest skipped").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Undo").performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("rest-skipped").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(null, repo.state.value.restTimer)
+        // Same height as the bar it replaces, so the dock above doesn't move.
+        assertEquals(restHeight.value, height("rest-skipped").value, 0.5f)
+        compose.onNodeWithContentDescription("Undo skip, bring the rest back")
+            .performSemanticsAction(SemanticsActions.OnClick)
         compose.waitUntil(5_000) { repo.state.value.restTimer != null }
         assertEquals(timer, repo.state.value.restTimer)
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("rest-skipped").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithTag("rest-bar").assertExists()
     }
+
+    @Test fun skippingTheLastSecondsOffersNoUndo() {
+        val repo = resting()
+        val timer = requireNotNull(repo.state.value.restTimer)
+        val late = timer.deadline - 3_000
+        compose.setContent { RebuildApp(repo, platform, clock = { late }) }
+        compose.onNodeWithContentDescription("Skip rest").performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(5_000) { repo.state.value.restTimer == null }
+        compose.waitForIdle()
+        compose.onAllNodesWithTag("rest-skipped").assertCountEquals(0)
+    }
+
+    private fun height(tag: String): Dp =
+        compose.onNodeWithTag(tag).getUnclippedBoundsInRoot().let { it.bottom - it.top }
 
     @Test fun roomyPortraitKeepsTheTwoLineBar() {
         val repo = resting()

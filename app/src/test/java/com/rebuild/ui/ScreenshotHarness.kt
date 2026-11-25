@@ -7,6 +7,8 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onFirst
@@ -122,6 +124,7 @@ class ScreenshotHarness {
         shot("$mode-02-today-active")
         tap("Resume workout")
         shot("$mode-03-workout")
+        restSkippedAndUndone(mode)
         compose.onNodeWithTag("exercise-picker").performScrollToNode(hasTestTag("exercise-chip-0"))
         tapTag("exercise-chip-0")
         shot("$mode-03c-workout-drop")
@@ -254,6 +257,17 @@ class ScreenshotHarness {
     private fun resumeClock() {
         compose.mainClock.advanceTimeBy(6_000)
         compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+    }
+
+    /** Skip offers Undo for a few seconds; Undo brings the same rest back, so the tour goes on as before. */
+    private fun restSkippedAndUndone(mode: String) {
+        // Through semantics: injected touches don't reach the bars drawn over the layers under Robolectric.
+        compose.onAllNodes(hasContentDescription("Skip rest")).onFirst().performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Undo")).fetchSemanticsNodes().isNotEmpty() }
+        shot("$mode-03b-rest-skipped-undo")
+        compose.onAllNodes(hasText("Undo")).onFirst().performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(5_000) { compose.onAllNodes(hasTestTag("rest-bar")).fetchSemanticsNodes().isNotEmpty() }
         compose.waitForIdle()
     }
 

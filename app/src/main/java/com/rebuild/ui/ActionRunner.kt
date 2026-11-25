@@ -10,8 +10,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rebuild.domain.Action
 import com.rebuild.domain.AppRepository
+import com.rebuild.domain.RestTimer
 import com.rebuild.ui.theme.Motion
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -113,12 +115,27 @@ class ActionRunner(
     private val errorChannel = Channel<String>(Channel.BUFFERED)
     val errors = errorChannel.receiveAsFlow()
 
-    private val noticeChannel = Channel<Notice>(Channel.BUFFERED)
-    /** Short confirmations with one way back (Undo), shown in the snackbar; a newer one replaces the one showing. */
-    val notices = noticeChannel.receiveAsFlow()
+    /**
+     * A rest just skipped from the rest bar, which keeps its place showing Undo until [offerUndoSkip]'s window ends;
+     * null otherwise. Not saved: Undo is only for the moment after the tap.
+     */
+    var skippedRest by mutableStateOf<RestTimer?>(null)
+        private set
+    private var skipWindow: Job? = null
 
-    fun notify(notice: Notice) {
-        noticeChannel.trySend(notice)
+    fun offerUndoSkip(timer: RestTimer, windowMs: Long) {
+        skippedRest = timer
+        skipWindow?.cancel()
+        // Wall clock, like the busy look: the window never follows the animator duration scale.
+        skipWindow = viewModelScope.launch {
+            delay(windowMs)
+            if (skippedRest == timer) skippedRest = null
+        }
+    }
+
+    fun endUndoSkip() {
+        skipWindow?.cancel()
+        skippedRest = null
     }
 
     /** Whether the control tagged [tag] should show its busy look ("Saving…") now. */
@@ -183,14 +200,13 @@ class ActionRunner(
     }
 
     companion object {
+        /** How long a skipped rest offers Undo; screen readers stretch it to the user's own timeout. */
+        const val UNDO_SKIP_MS = 4_000L
         /** Guard kept after logging a new set; long enough to swallow a double tap, short enough to go unnoticed. */
         const val NEW_SET_COOLDOWN_MS = 500L
         private const val RECEIPT_KEY = "receipt-pending"
     }
 }
-
-/** A snackbar message with a single action, such as "Rest skipped · Undo". */
-class Notice(val message: String, val actionLabel: String, val onAction: () -> Unit)
 
 /**
  * The busy look ([ActionRunner.showsBusy], or for [tag] only) for a control on the layer being composed. A hidden kept
