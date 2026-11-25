@@ -4,6 +4,17 @@ Every version installs over the one before it with the same signing key and keep
 on, release APKs are built and published by [GitHub Actions](.github/workflows/release.yml); notes for each are in
 [docs/releases](docs/releases/).
 
+## 0.5.0 (version code 25)
+- New installs open on a short guided setup that builds a weekly plan from your experience, days and equipment.
+  Plan gains Change split, with eight splits including Power and hypertrophy, Torso and limbs, Bro and Arnold.
+- First-time tips explain the app in place; More > Tips turns them back on.
+- A "Today" home screen widget shows today's workout, live progress, the rest countdown and what's up next.
+- The app ships its own font, Archivo, and Phosphor Bold icons, so it looks the same on every phone.
+- One motion system: no blank flashes between screens, a calmer receipt, and buttons that no longer grey out on save.
+- Rest: the bar fits one line in landscape, Skip can be undone for a few seconds, the bar slides away when a rest
+  ends, and the picture-in-picture timer no longer breaks after a theme or text-size change.
+- Fixes: History detail's tiles stack at large text; a wide logged set no longer runs under its edit pencil.
+
 ## 0.4.1 (version code 24)
 - During a workout, dragging an exercise to reorder it lands where you drop it. The pill stays under your finger, the
   strip no longer jumps, holding at an edge scrolls gently, and the drop eases into place.
