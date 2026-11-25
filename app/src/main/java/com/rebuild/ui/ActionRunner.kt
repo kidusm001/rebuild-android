@@ -113,6 +113,14 @@ class ActionRunner(
     private val errorChannel = Channel<String>(Channel.BUFFERED)
     val errors = errorChannel.receiveAsFlow()
 
+    private val noticeChannel = Channel<Notice>(Channel.BUFFERED)
+    /** Short confirmations with one way back (Undo), shown in the snackbar; a newer one replaces the one showing. */
+    val notices = noticeChannel.receiveAsFlow()
+
+    fun notify(notice: Notice) {
+        noticeChannel.trySend(notice)
+    }
+
     /** Whether the control tagged [tag] should show its busy look ("Saving…") now. */
     fun showsBusy(tag: String): Boolean = showsBusy && busyTag == tag
 
@@ -180,6 +188,9 @@ class ActionRunner(
         private const val RECEIPT_KEY = "receipt-pending"
     }
 }
+
+/** A snackbar message with a single action, such as "Rest skipped · Undo". */
+class Notice(val message: String, val actionLabel: String, val onAction: () -> Unit)
 
 /**
  * The busy look ([ActionRunner.showsBusy], or for [tag] only) for a control on the layer being composed. A hidden kept

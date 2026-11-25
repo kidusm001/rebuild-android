@@ -110,6 +110,14 @@ import androidx.compose.ui.zIndex
 internal fun compactLandscapeInput(): Boolean =
     LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE && WindowInsets.isImeVisible
 
+/** A landscape window too short to give the rest bar two lines without crowding the set entry. */
+@Composable
+internal fun shortLandscapeWindow(): Boolean = LocalConfiguration.current.let {
+    it.orientation == Configuration.ORIENTATION_LANDSCAPE && it.screenHeightDp < SHORT_WINDOW_HEIGHT_DP
+}
+
+private const val SHORT_WINDOW_HEIGHT_DP = 480
+
 /**
  * The keyboard is up or moving: true from the frame it starts to open until it has finished closing. Read through a
  * derived state, so the keyboard's per-frame animation recomposes nothing until the answer changes.

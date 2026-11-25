@@ -49,6 +49,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -81,8 +82,7 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
     val total = we?.restSeconds?.takeIf { it > 0 && !pause }
     var editing by rememberSaveable(timer.id) { mutableStateOf(false) }
     var options by rememberSaveable(timer.id) { mutableStateOf(false) }
-    val compactLandscape = compactLandscapeInput()
-    val compact = compactLandscape || LocalDensity.current.fontScale > 1.3f
+    val compact = compactLandscapeInput() || shortLandscapeWindow() || LocalDensity.current.fontScale > 1.3f
 
     fun adjust(deltaMs: Long) {
         env.runner.run(restChange(timer, timer.deadline + deltaMs, env.clock()))
@@ -166,14 +166,20 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                     val word = if (pause) "Pause" else "Rest"
                     val note = limitation?.let { " · $it" } ?: ""
                     val time = if (remaining > 0) formatRest(remaining) else "Done"
-                    // Short windows and large text keep the bar to one line, so it never squeezes the entry: the
-                    // countdown stays whole and the alert limitation moves to Options (and to TalkBack).
-                    // Compact: the countdown alone, in numerals, so it is never the part that gets squeezed out.
-                    if (compact) Text("$word $time", style = MaterialTheme.typography.titleLarge.copy(fontFamily = Numerals),
-                        maxLines = 1, softWrap = false,
-                        modifier = Modifier.semantics {
+                    // Short windows and large text keep the bar to one line, so it never squeezes the entry. The
+                    // countdown stays whole; an alert limitation follows it and is the part that gets cut short.
+                    if (compact) Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clearAndSetSemantics {
                             contentDescription = "$word $time" + (limitation?.let { ", $it" } ?: "")
-                        })
+                        }
+                    ) {
+                        Text("$word $time", style = MaterialTheme.typography.titleLarge.copy(fontFamily = Numerals),
+                            maxLines = 1, softWrap = false)
+                        if (note.isNotEmpty()) Text(note, style = MaterialTheme.typography.labelLarge, maxLines = 1,
+                            softWrap = false, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false))
+                    }
                     else {
                         Text(word + note, style = overlineStyle())
                         Text(time, style = MaterialTheme.typography.displayMedium)
@@ -195,14 +201,22 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                         enabled = !env.runner.looksBusy(),
                         colors = quiet,
                         contentPadding = PaddingValues(horizontal = if (compact) 10.dp else 14.dp),
-                        modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Add 30 seconds" }
+                        // Twice the usual gap before Skip, so a thumb aiming for +30 s doesn't end the rest.
+                        modifier = Modifier.padding(end = 6.dp).heightIn(min = 48.dp)
+                            .semantics { contentDescription = "Add 30 seconds" }
                     ) { Text(if (compact) "+30" else "+30 s", maxLines = 1, softWrap = false) }
                 }
                 // Skipping ends this rest for good, so it's a labelled button rather than a bare icon beside Options.
                 FilledTonalButton(
                     onClick = {
                         if (tipSeenOnTimer) env.platform.dismissTip(Tip.REST_BAR)
-                        env.runner.run(Action.SkipRest)
+                        // A skip mid-rest can be undone for a few seconds; dismissing a finished rest has nothing to undo.
+                        val skipped = timer.takeIf { remaining > 0 }
+                        env.runner.run(Action.SkipRest, onSuccess = {
+                            if (skipped != null) env.runner.notify(Notice(
+                                if (skipped.shortPause) "Pause skipped" else "Rest skipped", "Undo"
+                            ) { env.runner.run(Action.RestoreRest(skipped, env.clock())) })
+                        })
                     },
                     enabled = !env.runner.looksBusy(),
                     colors = strong,

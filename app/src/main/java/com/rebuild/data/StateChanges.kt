@@ -475,6 +475,19 @@ internal object StateChanges {
         }
         Action.SkipRest -> state.copy(restTimer = null)
         is Action.SkipRestOf -> if (state.restTimer?.id == action.timerId) state.copy(restTimer = null) else state
+        is Action.RestoreRest -> {
+            val timer = action.timer
+            SnapshotCodec.id(timer.id)
+            SnapshotCodec.timestamp(timer.deadline)
+            SnapshotCodec.timestamp(action.now)
+            // A rest started since wins, and one that would already be over isn't worth bringing back.
+            if (state.restTimer != null || timer.deadline <= action.now) state else {
+                val workout = liveWorkout(state, timer.workoutId, "The workout has ended, so its rest can't come back.")
+                ensure(workout.exercises.any { it.id == timer.exerciseId }, "This exercise is not part of the workout.")
+                requireNotTiming(state, workout.id)
+                state.copy(restTimer = timer)
+            }
+        }
         is Action.MarkBackup -> {
             ensure(action.revision in 0..state.revision, "The saved backup revision is invalid or newer than your data.")
             SnapshotCodec.timestamp(action.now)

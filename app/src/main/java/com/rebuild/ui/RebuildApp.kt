@@ -47,6 +47,9 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
+import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -236,6 +239,13 @@ fun RebuildApp(
         }
         val snackbar = remember { SnackbarHostState() }
         LaunchedEffect(runner) { runner.errors.collect { snackbar.showSnackbar(it) } }
+        // A newer notice cancels the one showing (collectLatest), so Undo always refers to the latest change.
+        LaunchedEffect(runner) {
+            runner.notices.collectLatest { notice ->
+                val result = snackbar.showSnackbar(notice.message, notice.actionLabel, duration = SnackbarDuration.Short)
+                if (result == SnackbarResult.ActionPerformed) notice.onAction()
+            }
+        }
         val context = LocalContext.current.applicationContext
         val readClock = monotonic ?: remember(context) { { PhoneClock.read(context) } }
 

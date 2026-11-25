@@ -123,4 +123,46 @@ class RestTimerTest {
         repo.execute(Action.DiscardWorkout)
         assertFalse(repo.consumeRestTimer(second.id, second.deadline))
     }
+
+    @Test fun skippedRestCanBeRestoredWithItsDeadline() = runTest {
+        val repo = repository()
+        repo.start()
+        repo.log(now = 4000)
+        val timer = repo.state.value.restTimer!!
+        repo.execute(Action.SkipRest)
+        repo.execute(Action.RestoreRest(timer, 10_000))
+        assertEquals(timer, repo.state.value.restTimer)
+        // Restoring again while that rest runs changes nothing.
+        repo.execute(Action.RestoreRest(timer.copy(deadline = timer.deadline + 60_000), 10_000))
+        assertEquals(timer, repo.state.value.restTimer)
+    }
+
+    @Test fun restoringNeverReplacesANewerRestOrBringsBackAnEndedOne() = runTest {
+        val repo = repository()
+        repo.start()
+        repo.log(id = "set-a", now = 2000)
+        val first = repo.state.value.restTimer!!
+        repo.execute(Action.SkipRest)
+        repo.log(id = "set-b", now = 5000)
+        val second = repo.state.value.restTimer!!
+        repo.execute(Action.RestoreRest(first, 6000))
+        assertEquals(second, repo.state.value.restTimer)
+
+        repo.execute(Action.SkipRest)
+        repo.execute(Action.RestoreRest(second, second.deadline))
+        assertNull(repo.state.value.restTimer)
+    }
+
+    @Test fun restOfAFinishedWorkoutCannotBeRestored() = runTest {
+        val repo = repository()
+        repo.start()
+        repo.log()
+        val timer = repo.state.value.restTimer!!
+        repo.execute(Action.SkipRest)
+        repo.execute(Action.FinishWorkout(5000))
+        val before = repo.state.value
+        val error = runCatching { repo.execute(Action.RestoreRest(timer, 6000)) }.exceptionOrNull()
+        assertNotNull(error)
+        assertEquals(before, repo.state.value)
+    }
 }
