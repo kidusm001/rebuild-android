@@ -381,7 +381,10 @@ fun RebuildApp(
         LaunchedEffect(restFace != null) {
             when {
                 restFace != null -> restReveal.animateTo(1f, Motion.expandSizeSpec())
-                restEnd.current != null -> restReveal.snapTo(0f)
+                // Only the Up next takeover replaces the bar at once (its sheet grows from the bar's edge). An edge
+                // light or no visual leaves the bar to collapse as usual, so the dock never drops in one frame.
+                restEnd.current?.takeIf { !it.preview } != null && restAlert.visual == RestVisual.SWEEP ->
+                    restReveal.snapTo(0f)
                 else -> restReveal.animateTo(0f, Motion.collapseSizeSpec())
             }
         }
