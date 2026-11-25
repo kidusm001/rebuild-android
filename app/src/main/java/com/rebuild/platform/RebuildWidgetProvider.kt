@@ -144,8 +144,14 @@ class WidgetPublishGate {
     private val reads = AtomicLong()
     private val published = HashMap<Int, Long>()
 
-    /** Call right when saved state is read; the stamp goes with whatever is rendered from it. */
-    fun markRead(): Long = reads.incrementAndGet()
+    /** A stamp for a render that reads no saved state (such as "Open Rebuild" after a failed open). */
+    fun markRead(): Long = synchronized(published) { reads.incrementAndGet() }
+
+    /**
+     * Reads saved state and stamps the read in one step, so stamp order is read order: a later stamp always saw state at
+     * least as new. Reading and stamping separately would let another path read and stamp in between.
+     */
+    fun <T> read(source: () -> T): Pair<T, Long> = synchronized(published) { source() to reads.incrementAndGet() }
 
     /** Publishes through [publish] unless widget [id] already shows something read later than [read]. */
     fun admit(id: Int, read: Long, publish: () -> Unit): Boolean = synchronized(published) {
@@ -205,13 +211,13 @@ object WidgetUpdater {
         }
     }
 
-    /** Pass [read] from right where [state] was read, when that wasn't just now. */
+    /** [read] is the stamp [WidgetPublishGate.read] gave when [state] was read. */
     fun refreshFromState(
         context: Context,
         state: AppState,
+        read: Long,
         ids: IntArray = widgetIds(context),
-        nowMillis: Long = System.currentTimeMillis(),
-        read: Long = gate.markRead()
+        nowMillis: Long = System.currentTimeMillis()
     ) {
         if (ids.isEmpty()) return
         renderAll(context, modelFor(context, state, nowMillis), ids, nowMillis, read = read)
@@ -228,8 +234,8 @@ object WidgetUpdater {
             renderAll(context, WidgetModel.Unavailable, ids)
             return
         }
-        val state = repository.state.value
-        refreshFromState(context, state, ids, read = gate.markRead())
+        val (state, read) = gate.read { repository.state.value }
+        refreshFromState(context, state, read, ids)
     }
 
     suspend fun refreshOne(context: Context, appWidgetId: Int, options: Bundle) {
@@ -238,8 +244,9 @@ object WidgetUpdater {
         val now = System.currentTimeMillis()
         var read = gate.markRead()
         val model = try {
-            val state = app.repository().state.value
-            read = gate.markRead()
+            val repository = app.repository()
+            val (state, stateRead) = gate.read { repository.state.value }
+            read = stateRead
             modelFor(context, state, now)
         } catch (error: Exception) {
             if (error is CancellationException) throw error

@@ -148,6 +148,12 @@ class RebuildWidgetTest {
         // Other widgets keep their own order, and a later read still publishes.
         assertTrue(gate.admit(8, resizeRead) { shown += "other widget" })
         assertTrue(gate.admit(7, gate.markRead()) { shown += "next" })
+        // Reading and stamping are one step: the stamp of a later read is always larger.
+        var source = 1
+        val (first, firstRead) = gate.read { source }
+        source = 2
+        val (second, secondRead) = gate.read { source }
+        assertTrue(first < second && firstRead < secondRead)
     }
 
     @Test

@@ -290,7 +290,8 @@ class MainActivity : ComponentActivity(), PlatformActions {
                 model.repository.value?.let { repository ->
                     app.alarms.reconcileCurrent(repository)
                     if (WidgetUpdater.hasWidgets(this@MainActivity)) {
-                        WidgetUpdater.refreshFromState(this@MainActivity, repository.state.value)
+                        val (state, read) = WidgetUpdater.gate.read { repository.state.value }
+                        WidgetUpdater.refreshFromState(this@MainActivity, state, read)
                     }
                 }
             } catch (error: RuntimeException) {

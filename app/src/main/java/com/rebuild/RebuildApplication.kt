@@ -85,8 +85,7 @@ class RebuildApplication : Application() {
                         delay(100)
                         // Read the latest state after the debounce, and stamp the read so a slower, older render from
                         // another path (resize, rest expiry) can't replace this one, or this one a newer one.
-                        val state = repository.state.value
-                        val read = WidgetUpdater.gate.markRead()
+                        val (state, read) = WidgetUpdater.gate.read { repository.state.value }
                         val now = System.currentTimeMillis()
                         val model = WidgetUpdater.modelFor(this@RebuildApplication, state, now)
                         val key = WidgetRenderKey(
