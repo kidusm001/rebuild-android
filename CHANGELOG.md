@@ -6,7 +6,7 @@ on, release APKs are built and published by [GitHub Actions](.github/workflows/r
 
 ## 0.5.0 (version code 25)
 - New installs open on a short guided setup that builds a weekly plan from your experience, days and equipment.
-  Plan gains Change split, with eight splits including Power and hypertrophy, Torso and limbs, Bro and Arnold.
+  Plan gains Change split, with new splits including Power and hypertrophy, Torso and limbs, Bro and Arnold.
 - First-time tips explain the app in place; More > Tips turns them back on.
 - A "Today" home screen widget shows today's workout, live progress, the rest countdown and what's up next.
 - The app ships its own font, Archivo, and Phosphor Bold icons, so it looks the same on every phone.
