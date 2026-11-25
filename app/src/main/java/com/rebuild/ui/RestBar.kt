@@ -178,17 +178,17 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                     val time = if (remaining > 0) formatRest(remaining) else "Done"
                     // Short windows and large text keep the bar to one line, so it never squeezes the entry. The
                     // countdown stays whole; an alert limitation follows it and is the part that gets cut short.
-                    if (compact) Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clearAndSetSemantics {
-                            contentDescription = "$word $time" + (limitation?.let { ", $it" } ?: "")
-                        }
-                    ) {
+                    // The time keeps its text in the merged status (tests and TalkBack read it there); its description
+                    // already carries the limitation, so the visible note is not read a second time.
+                    if (compact) Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("$word $time", style = MaterialTheme.typography.titleLarge.copy(fontFamily = Numerals),
-                            maxLines = 1, softWrap = false)
+                            maxLines = 1, softWrap = false,
+                            modifier = Modifier.semantics {
+                                contentDescription = "$word $time" + (limitation?.let { ", $it" } ?: "")
+                            })
                         if (note.isNotEmpty()) Text(note, style = MaterialTheme.typography.labelLarge, maxLines = 1,
                             softWrap = false, overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false))
+                            modifier = Modifier.weight(1f, fill = false).clearAndSetSemantics {})
                     }
                     else {
                         Text(word + note, style = overlineStyle())

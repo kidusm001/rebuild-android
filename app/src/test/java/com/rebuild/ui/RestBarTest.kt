@@ -2,6 +2,7 @@ package com.rebuild.ui
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -142,6 +143,8 @@ class RestBarTest {
         val seconds = ((requireNotNull(repo.state.value.restTimer).deadline - now) / 1000).toInt()
         compose.setContent { RebuildApp(repo, platform, clock = { now }) }
         compose.onNodeWithContentDescription("Rest ${formatRest(seconds)}, alerts off").assertExists()
+        // The merged status still carries the time as text, which device tests and TalkBack read.
+        compose.onNodeWithTag("rest-status").assertTextContains("Rest ${formatRest(seconds)}", substring = true)
         val height = compose.onNodeWithTag("rest-bar").getUnclippedBoundsInRoot().let { it.bottom - it.top }
         assert(height <= 72.dp) { "rest bar is $height tall" }
     }
