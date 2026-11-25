@@ -93,6 +93,9 @@ class MainActivity : ComponentActivity(), PlatformActions {
         installLaunchSplash()
         super.onCreate(savedInstanceState)
         notificationRequestAttempted = savedInstanceState?.getBoolean("notificationRequestAttempted") ?: false
+        // A theme or text-size change while in the small window recreates the activity there, and no mode change
+        // follows; without this it would draw the whole app (the rest bar's controls) into the window.
+        inPictureInPicture.value = supportsPip && isInPictureInPictureMode
         if (savedInstanceState == null) {
             parseWidgetDestination(intent)?.let { pendingWidgetLink.value = it }
         }
