@@ -249,7 +249,7 @@ private fun ExerciseLibraryContent(
             ) {
                 Text(countLabel(results.size, "exercise"), style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                SecondaryButton(onClick = onAdd, icon = R.drawable.ic_plus) { Text("Add custom exercise") }
+                SecondaryButton(onClick = onAdd, icon = R.drawable.ic_plus) { Text("New exercise") }
             }
             HorizontalDivider()
         }

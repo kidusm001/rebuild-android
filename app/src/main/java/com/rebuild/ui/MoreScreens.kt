@@ -155,8 +155,8 @@ private fun ShowTipsCard(
     onToggle: (Boolean) -> Unit,
     onReset: () -> Unit
 ) {
-    val supporting = if (tips.enabled) "Short hints the first time you log, rest or finish."
-        else "Off · turn on to show tips again."
+    // What the switch does, either way: the switch itself says whether it's on.
+    val supporting = "Short hints the first time you log, rest or finish."
     val canReplay = tips.enabled && (tips.dismissed.isNotEmpty() || (hasHistory && tips.forceShow.isEmpty()))
     TonalCard {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {

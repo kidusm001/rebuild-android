@@ -46,7 +46,8 @@ class ChartTouchTest {
     @Test fun beforeATouchTheReadoutIsTheLatestPointAndSaysTheChartCanBeTouched() {
         trend()
         val text = readout()
-        assertEquals("82.7 kg | 2026-09-28 | Touch to read", text)
+        // The hint sits beside the value, before the detail line under them.
+        assertEquals("82.7 kg | Touch to read | 2026-09-28", text)
     }
 
     @Test fun aTapReadsTheNearestPointAndADragFollowsTheFinger() {

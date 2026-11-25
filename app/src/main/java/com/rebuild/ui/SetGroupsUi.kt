@@ -144,7 +144,7 @@ internal fun SetWithFollowUps(group: WorkEntry.Group, exercise: Exercise, muted:
         group.followUps.forEach { stage ->
             // Laid out like the set above it: the value, then its RIR beneath, indented after the "↳".
             Column(Modifier.padding(top = 4.dp).testTag("follow-up")) {
-                Text(
+                FitText(
                     buildAnnotatedString {
                         withStyle(SpanStyle(color = if (muted) colors.onSurfaceVariant else accent, fontWeight = FontWeight.SemiBold)) {
                             append("↳ ${followUpLabel(group.group.method)} ")
@@ -551,7 +551,7 @@ internal fun WeekCredit(env: AppEnv, workout: Workout) {
             retired && !workout.countedForWeek -> Unit
             workout.hasWorkingEffort() -> {
                 CheckRow(
-                    "Count as ${workout.name} done for its $week",
+                    "Count toward the $week",
                     workout.countedForWeek,
                     { counted ->
                         error = null

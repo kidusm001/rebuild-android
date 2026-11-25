@@ -680,7 +680,8 @@ private fun ActiveSessionCard(env: AppEnv, workout: Workout, onResume: () -> Uni
                 ) { PlayLabel("Resume workout") }
                 val openSet = resumeAt?.openGroup()
                 val watchHere = watch?.takeIf { it.exerciseId == resumeAt?.id }
-                if (resumeAt != null && (workout.exercises.size > 1 || openSet != null || watchHere != null)) {
+                // Which exercise Resume opens is the highlighted row below; this line is only for what's mid-way there.
+                if (resumeAt != null && (openSet != null || watchHere != null)) {
                     Text(
                         "Opens ${resumeAt.exercise.name}" +
                             (openSet?.let { " · ${it.method.title.lowercase()} in progress" } ?: "") +

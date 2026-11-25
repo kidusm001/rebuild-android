@@ -195,12 +195,15 @@ internal fun rememberEntryDraft(draftKey: String, suggestion: EntrySuggestion?, 
 internal inline fun <T> confinedKey(value: Any?, content: @Composable () -> T): T =
     key("confined-key") { key(value) { content() } }
 
-/** Where the fields' values came from; a normal set offered for a drop or rest-pause stage says so. */
+/**
+ * Where the fields' values came from, when that's worth saying; a normal set offered for a drop or rest-pause stage
+ * says so. Last time's matching set is the usual source and sits in the ledger right above, so it goes unsaid.
+ */
 internal fun prefillText(suggestion: EntrySuggestion?, method: SetMethod?): String? {
     suggestion ?: return null
     val normal = method != null && suggestion.set.groupId == null
     return when {
-        suggestion.source == PrefillSource.LAST_TIME -> if (normal) "prefilled from last time's normal set" else "prefilled from last time"
+        suggestion.source == PrefillSource.LAST_TIME -> if (normal) "prefilled from last time's normal set" else null
         suggestion.withReps -> if (normal) "prefilled from today's last normal set" else "prefilled from this workout"
         else -> "load from the stage before"
     }

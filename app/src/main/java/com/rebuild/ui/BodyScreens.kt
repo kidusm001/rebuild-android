@@ -663,7 +663,7 @@ internal fun ColumnScope.BodyOverview(env: AppEnv, onWeight: () -> Unit, onMeasu
             Button(onClick = { logging = true }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                 .testTag("body-log-weight")) { Text("Log weight") }
             if (weeks.isNotEmpty()) SecondaryButton(onClick = onWeight, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                .testTag("body-weight-trend")) { Text("Trend and weigh-ins") }
+                .testTag("body-weight-trend")) { Text("Weigh-ins") }
         }
         SectionHeader("Measurements")
         val progress = state.siteProgress()
@@ -683,7 +683,7 @@ internal fun ColumnScope.BodyOverview(env: AppEnv, onWeight: () -> Unit, onMeasu
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (state.measurementDue(today)) Button(onClick = onMeasure,
-                modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("body-measure")) { Text("Measure this week") }
+                modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("body-measure")) { Text("Measure") }
             SecondaryButton(onClick = onMeasurements, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                 .testTag("body-measurements")) { Text("All measurements") }
         }

@@ -84,11 +84,11 @@ class LoadPresentationTest {
             prefillText(EntrySuggestion(kg, PrefillSource.LAST_TIME), SetMethod.DROP))
         assertEquals("prefilled from today's last normal set",
             prefillText(EntrySuggestion(kg, PrefillSource.THIS_WORKOUT), SetMethod.REST_PAUSE))
-        assertEquals("prefilled from last time", prefillText(EntrySuggestion(stage, PrefillSource.LAST_TIME), SetMethod.DROP))
+        assertNull(prefillText(EntrySuggestion(stage, PrefillSource.LAST_TIME), SetMethod.DROP))
         assertEquals("load from the stage before",
             prefillText(EntrySuggestion(stage, PrefillSource.THIS_WORKOUT, withReps = false), SetMethod.REST_PAUSE))
-        // Normal sets read exactly as before.
-        assertEquals("prefilled from last time", prefillText(EntrySuggestion(kg, PrefillSource.LAST_TIME), null))
+        // Last time's set is the usual source, so it goes unsaid.
+        assertNull(prefillText(EntrySuggestion(kg, PrefillSource.LAST_TIME), null))
         assertEquals("prefilled from this workout", prefillText(EntrySuggestion(kg, PrefillSource.THIS_WORKOUT), null))
         assertNull(prefillText(null, SetMethod.DROP))
     }

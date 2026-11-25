@@ -258,7 +258,9 @@ class RebuildAppTest {
         rule.onNodeWithTag("exercise-chip-0").assertIsSelected()
 
         rule.onNodeWithContentDescription("Back").performClick()
-        rule.onNodeWithText("Opens Dumbbell press").assertExists()
+        // The highlighted row says where Resume goes; the line under it is only for a set or stopwatch mid-way.
+        rule.onNodeWithContentDescription("Resume opens this exercise", substring = true).assertExists()
+        rule.onNodeWithTag("opens-line").assertDoesNotExist()
         rule.onNodeWithText("Resume workout").performClick()
         rule.onNodeWithTag("exercise-chip-1").assertIsSelected()
         rule.onNodeWithContentDescription("exercise 2 of 2", substring = true).assertExists()
@@ -558,7 +560,7 @@ class RebuildAppTest {
         startScheduled()
         rule.onNodeWithTag("exercise-details").performScrollTo().performClick()
         rule.onNodeWithText("Adjust today").performScrollTo().performClick()
-        rule.onNodeWithText("Add custom exercise").performScrollTo().performClick()
+        rule.onNodeWithText("New exercise").performScrollTo().performClick()
         rule.onNodeWithText("Custom exercise").assertIsDisplayed()
         rule.onNodeWithText("How is it loaded?").performScrollTo().assertIsDisplayed()
     }

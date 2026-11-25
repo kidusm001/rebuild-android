@@ -10,6 +10,14 @@ import androidx.compose.foundation.Canvas
 import com.rebuild.ui.theme.MotionCrossfade
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material3.ripple
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,9 +26,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,6 +54,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import com.rebuild.ui.theme.SignalAmber
@@ -73,16 +79,40 @@ enum class ChartRange(val label: String, val months: Long?) {
         months?.let { today.minusMonths(it) }?.takeIf { it > first } ?: first
 }
 
+/**
+ * The five ranges as slim pills sharing the row's width. Their labels share one size, stepped down together when even
+ * one wouldn't fit its fifth (large text on a narrow phone), so none is ever cut off and they still match. Each pill
+ * takes a 48 dp tap and reads as one choice of five.
+ */
 @Composable
 internal fun RangeChips(selected: ChartRange, onSelect: (ChartRange) -> Unit, modifier: Modifier = Modifier) {
-    LazyRow(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(ChartRange.entries) { range ->
-            TonalChip(
-                selected = range == selected,
-                onClick = { onSelect(range) },
-                label = { Text(range.label) },
-                modifier = Modifier.testTag("range-${range.name}")
-            )
+    val gap = 6.dp
+    val ranges = ChartRange.entries
+    val colors = MaterialTheme.colorScheme
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val gaps = with(LocalDensity.current) { (gap * (ranges.size - 1)).roundToPx() }
+        val style = fittedTabStyle(ranges.map { it.label }, constraints.maxWidth - gaps, padding = 4.dp,
+            base = MaterialTheme.typography.labelLarge)
+        Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(gap)) {
+            ranges.forEach { range ->
+                val chosen = range == selected
+                val presses = remember { MutableInteractionSource() }
+                Box(
+                    Modifier.weight(1f).heightIn(min = 48.dp)
+                        .selectable(chosen, interactionSource = presses, indication = null, role = Role.RadioButton) {
+                            onSelect(range)
+                        }
+                        .testTag("range-${range.name}"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(range.label, style = style, maxLines = 1, softWrap = false, textAlign = TextAlign.Center,
+                        color = if (chosen) colors.onSecondaryContainer else colors.onSurface,
+                        modifier = Modifier.fillMaxWidth().clip(CircleShape)
+                            .background(if (chosen) colors.secondaryContainer else tonalFill())
+                            .indication(presses, ripple())
+                            .padding(horizontal = 4.dp, vertical = 6.dp))
+                }
+            }
         }
     }
 }
@@ -141,22 +171,26 @@ internal fun rememberChartSelection(key: Any): MutableState<Int?> {
 
 /**
  * What the chart reads out: the touched point, or the latest one before anything is touched, with a small "Touch to
- * read" until then. It keeps two lines of height either way, so touching never moves the chart.
+ * read" until then. Its height is the same either way, so touching never moves the chart.
  */
 @Composable
 internal fun ChartReadout(value: String, detail: String, touched: Boolean, modifier: Modifier = Modifier) {
     // The chart itself announces this as its state, so screen readers don't hear it twice.
-    Row(modifier.fillMaxWidth().semantics { hideFromAccessibility() }.testTag("chart-readout"),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Column(Modifier.weight(1f)) {
-            Text(value, style = MaterialTheme.typography.displaySmall.copy(fontSize = 28.sp, lineHeight = 32.sp), maxLines = 1)
-            Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1)
+    Column(modifier.fillMaxWidth().semantics { hideFromAccessibility() }.testTag("chart-readout")) {
+        // The hint sits beside the value only, so the detail under them has the card's full width.
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(value, style = MaterialTheme.typography.displaySmall.copy(fontSize = 28.sp, lineHeight = 32.sp), maxLines = 1,
+                modifier = Modifier.weight(1f))
+            if (!touched) Text("Touch to read", style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp).clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(horizontal = 10.dp, vertical = 4.dp))
         }
-        if (!touched) Text("Touch to read", style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp).clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(horizontal = 10.dp, vertical = 4.dp))
+        // Large text gives the detail a second line rather than cutting it off, and always keeps both lines so
+        // a shorter detail on touch never moves the chart.
+        val lines = if (LocalDensity.current.fontScale > 1.3f) 2 else 1
+        Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            minLines = lines, maxLines = lines, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -287,13 +321,9 @@ internal fun TrendChart(
                 }
             }
         }
-        // Labelled with its range, so the axis is never an unnamed strip when scrolled to the edge.
-        Row(Modifier.fillMaxWidth().padding(start = 48.dp).clearAndSetSemantics { contentDescription = "From ${dayMonthYear(from)} to ${dayMonthYear(to)}" }, horizontalArrangement = Arrangement.SpaceBetween) {
-            // Start, middle and end, so a week in between can be read off the axis.
-            Text(dayMonthYear(from), style = axisStyle, color = colors.onSurfaceVariant)
-            if (days >= 14) Text(dayMonthYear(from.plusDays(days / 2)), style = axisStyle, color = colors.onSurfaceVariant)
-            if (days > 0) Text(dayMonthYear(to), style = axisStyle, color = colors.onSurfaceVariant)
-        }
+        // The same start, middle and end dates as the exercise chart: no year when the range sits in one year, and
+        // no middle date at large text, where it would run into the ends.
+        DateAxis(from, to, days, today = to, start = 48.dp)
     }
 }
 

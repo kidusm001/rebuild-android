@@ -1566,7 +1566,7 @@ internal fun FinishWorkoutDialog(
             }
             if (offerCredit) {
                 CheckRow(
-                    "Count ${workout.name} as done for its ${weekOf(workout.weekStart())}",
+                    "Count toward the ${weekOf(workout.weekStart())}",
                     countForWeek, { countForWeek = it },
                     enabled = !busy,
                     supporting = "You can change this later in History",
