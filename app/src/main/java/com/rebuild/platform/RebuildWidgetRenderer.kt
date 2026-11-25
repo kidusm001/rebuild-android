@@ -23,6 +23,7 @@ import com.rebuild.domain.WidgetRow
 import com.rebuild.domain.WidgetSize
 import com.rebuild.domain.destination
 import com.rebuild.domain.spokenSummary
+import com.rebuild.domain.widgetCompactRows
 import com.rebuild.domain.widgetListRows
 import com.rebuild.domain.widgetSizeFor
 import com.rebuild.domain.widgetWindow
@@ -202,13 +203,6 @@ object RebuildWidgetRenderer {
         return "Last time $load${NBSP}×${NBSP}${set.reps}"
     }
 
-    /** Rows the 2x2 fits at the user's font scale; larger text trades rows for legibility, never clipping. */
-    private fun compactRows(fontScale: Float): Int = when {
-        fontScale <= 1.15f -> 3
-        fontScale <= 1.3f -> 2
-        else -> 1
-    }
-
     private fun workoutProgressLine(name: String, done: Int, total: Int): String =
         if (total > 0) "$name${NBSP}· $done${NBSP}of${NBSP}$total exercises done" else name
 
@@ -368,7 +362,7 @@ object RebuildWidgetRenderer {
 
         fun bindCompact(model: WidgetModel) {
             val content = widthDp - 28f
-            val budget = compactRows(fontScale)
+            val scale = (fontScale * 0.75f).coerceAtLeast(1f)
             gone(R.id.rest_next_title, R.id.rest_set_line, R.id.rest_last)
             when (model) {
                 is WidgetModel.Resting -> {
@@ -376,10 +370,23 @@ object RebuildWidgetRenderer {
                     gone(R.id.header_resume, R.id.list_more)
                     restClock(R.id.rest_chronometer, R.id.rest_static_time, model, STATIC_TIME, 58f, content)
                     text(R.id.rest_label, model.label, LABEL, content)
-                    text(R.id.rest_next_title, model.nextTitle, NEXT_TITLE_COMPACT, content, lines = 2)
-                    text(R.id.rest_set_line, model.setLine, SET_LINE_COMPACT, content)
-                    // Last time gives way first at large text; the countdown and the set never do.
-                    optional(R.id.rest_last, lastTimeText(model).takeIf { fontScale <= 1.3f }, LAST_COMPACT, content)
+                    // From the cell's real height, under the label and the countdown: the exercise, then its set, then
+                    // last time, then a second line for a long name. What doesn't fit is left out, never clipped.
+                    val clockDp = painter.dp(TypedValue.applyDimension(
+                        TypedValue.COMPLEX_UNIT_SP, 58f * 1.15f, context.resources.displayMetrics).toInt())
+                    var room = heightDp - 28 - 18 * scale - clockDp
+                    var titleLines = 0
+                    if (room >= 20 * scale) { titleLines = 1; room -= 20 * scale }
+                    val showSet = room >= 18 * scale
+                    if (showSet) room -= 18 * scale
+                    val last = lastTimeText(model)?.takeIf { fontScale <= 1.3f && room >= 17 * scale }
+                    if (last != null) room -= 17 * scale
+                    if (titleLines == 1 && room >= 20 * scale) titleLines = 2
+                    if (titleLines > 0) {
+                        text(R.id.rest_next_title, model.nextTitle, NEXT_TITLE_COMPACT, content, lines = titleLines)
+                    }
+                    if (showSet) text(R.id.rest_set_line, model.setLine, SET_LINE_COMPACT, content)
+                    optional(R.id.rest_last, last, LAST_COMPACT, content)
                     bindRows(emptyList(), content, trailing = false)
                     footer(null, content)
                 }
@@ -389,7 +396,8 @@ object RebuildWidgetRenderer {
                     compactHeader(model.workoutName, if (model.restOver) (model.restOverLabel ?: "Rest over") else "In progress",
                         accent = true, meta = meta, content = content)
                     text(R.id.header_resume, context.getString(R.string.widget_resume), PILL, content - 16)
-                    bindWindow(model.rows, model.currentIndex, budget, content, trailing = false)
+                    val rows = widgetCompactRows(heightDp, fontScale, belowDp = 40)
+                    bindWindow(model.rows, model.currentIndex, rows, content, trailing = false)
                     gone(R.id.list_more)
                     footer(null, content)
                 }
@@ -397,7 +405,8 @@ object RebuildWidgetRenderer {
                     showRest(false)
                     gone(R.id.header_resume)
                     compactHeader(model.title, model.dateLabel, accent = false, meta = null, content = content)
-                    bindHead(model.rows, budget, content, trailing = false, showMore = false)
+                    val rows = widgetCompactRows(heightDp, fontScale, belowDp = 18)
+                    bindHead(model.rows, rows, content, trailing = false, showMore = false)
                     footer(when {
                         model.rows.isEmpty() -> model.detail
                         model.weekTotal > 0 -> "${model.weekDone}${NBSP}of${NBSP}${model.weekTotal} done this${NBSP}week"

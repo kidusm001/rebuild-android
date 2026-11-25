@@ -76,20 +76,24 @@ class RebuildApplication : Application() {
                     }
             }
             applicationScope.launch {
-                repository.state.collectLatest { state ->
+                repository.state.collectLatest {
                     try {
                         if (!WidgetUpdater.hasWidgets(this@RebuildApplication)) {
                             lastWidgetKey = null
                             return@collectLatest
                         }
                         delay(100)
+                        // Read the latest state after the debounce, and stamp the read so a slower, older render from
+                        // another path (resize, rest expiry) can't replace this one, or this one a newer one.
+                        val state = repository.state.value
+                        val read = WidgetUpdater.gate.markRead()
                         val now = System.currentTimeMillis()
                         val model = WidgetUpdater.modelFor(this@RebuildApplication, state, now)
                         val key = WidgetRenderKey(
                             model, resources.configuration.fontScale, RebuildWidgetRenderer.displayIsLandscape(this@RebuildApplication)
                         )
                         if (key != lastWidgetKey) {
-                            WidgetUpdater.renderAll(this@RebuildApplication, model, nowMillis = now)
+                            WidgetUpdater.renderAll(this@RebuildApplication, model, nowMillis = now, read = read)
                             lastWidgetKey = key
                         }
                     } catch (error: Exception) {

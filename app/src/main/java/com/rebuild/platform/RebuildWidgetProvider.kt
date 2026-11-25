@@ -11,6 +11,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
+import java.util.concurrent.atomic.AtomicLong
 import android.util.Log
 import com.rebuild.RebuildApplication
 import com.rebuild.domain.AppState
@@ -134,8 +135,30 @@ class WidgetRefreshReceiver : BroadcastReceiver() {
     }
 }
 
+/**
+ * Orders widget publishes by when their state was read. Resizes, rest expiry, resume, broadcasts and state changes all
+ * render on their own; a slow render of older state must never replace a newer one (a resize that read a running rest
+ * landing after the expiry refresh would leave a countdown running past zero).
+ */
+class WidgetPublishGate {
+    private val reads = AtomicLong()
+    private val published = HashMap<Int, Long>()
+
+    /** Call right when saved state is read; the stamp goes with whatever is rendered from it. */
+    fun markRead(): Long = reads.incrementAndGet()
+
+    /** Publishes through [publish] unless widget [id] already shows something read later than [read]. */
+    fun admit(id: Int, read: Long, publish: () -> Unit): Boolean = synchronized(published) {
+        if (read < (published[id] ?: 0L)) return false
+        published[id] = read
+        publish()
+        true
+    }
+}
+
 object WidgetUpdater {
     private const val MIDNIGHT_REQUEST_CODE = 110
+    val gate = WidgetPublishGate()
 
     fun componentName(context: Context): ComponentName =
         ComponentName(context, RebuildWidgetProvider::class.java)
@@ -164,59 +187,67 @@ object WidgetUpdater {
         )
     }
 
+    /** Renders [model] into every widget; [read] stamps when the state behind it was read (see [WidgetPublishGate]). */
     fun renderAll(
         context: Context,
         model: WidgetModel,
         ids: IntArray = widgetIds(context),
         nowMillis: Long = System.currentTimeMillis(),
-        elapsedRealtimeMs: Long = SystemClock.elapsedRealtime()
+        elapsedRealtimeMs: Long = SystemClock.elapsedRealtime(),
+        read: Long = gate.markRead()
     ) {
         if (ids.isEmpty()) return
         val manager = AppWidgetManager.getInstance(context) ?: return
         for (id in ids) {
             val options = manager.getAppWidgetOptions(id)
             val views = RebuildWidgetRenderer.buildResponsive(context, model, options, nowMillis, elapsedRealtimeMs)
-            manager.updateAppWidget(id, views)
+            gate.admit(id, read) { manager.updateAppWidget(id, views) }
         }
     }
 
+    /** Pass [read] from right where [state] was read, when that wasn't just now. */
     fun refreshFromState(
         context: Context,
         state: AppState,
         ids: IntArray = widgetIds(context),
-        nowMillis: Long = System.currentTimeMillis()
+        nowMillis: Long = System.currentTimeMillis(),
+        read: Long = gate.markRead()
     ) {
         if (ids.isEmpty()) return
-        renderAll(context, modelFor(context, state, nowMillis), ids, nowMillis)
+        renderAll(context, modelFor(context, state, nowMillis), ids, nowMillis, read = read)
     }
 
     suspend fun refreshFromRepository(context: Context, ids: IntArray = widgetIds(context)) {
         if (ids.isEmpty()) return
         val app = context.applicationContext as? RebuildApplication ?: return
-        val state = try {
-            app.repository().state.value
+        val repository = try {
+            app.repository()
         } catch (error: Exception) {
             if (error is CancellationException) throw error
             Log.e("Rebuild", "Widget could not open saved workouts", error)
             renderAll(context, WidgetModel.Unavailable, ids)
             return
         }
-        refreshFromState(context, state, ids)
+        val state = repository.state.value
+        refreshFromState(context, state, ids, read = gate.markRead())
     }
 
     suspend fun refreshOne(context: Context, appWidgetId: Int, options: Bundle) {
         val app = context.applicationContext as? RebuildApplication ?: return
         val manager = AppWidgetManager.getInstance(context) ?: return
         val now = System.currentTimeMillis()
+        var read = gate.markRead()
         val model = try {
-            modelFor(context, app.repository().state.value, now)
+            val state = app.repository().state.value
+            read = gate.markRead()
+            modelFor(context, state, now)
         } catch (error: Exception) {
             if (error is CancellationException) throw error
             Log.e("Rebuild", "Widget resize could not open saved workouts", error)
             WidgetModel.Unavailable
         }
         val views = RebuildWidgetRenderer.buildResponsive(context, model, options, now)
-        manager.updateAppWidget(appWidgetId, views)
+        gate.admit(appWidgetId, read) { manager.updateAppWidget(appWidgetId, views) }
     }
 
     /**

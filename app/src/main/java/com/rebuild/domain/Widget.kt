@@ -43,13 +43,26 @@ fun widgetListRows(heightDp: Int, fontScale: Float, headerDp: Int = 46, footerLi
 }
 
 /**
- * The [count] consecutive indices of a [size]-long list to show so [focus] stays visible with one row of context above
- * it when there is room: rows already done scroll away, the current one never does.
+ * How many 24 dp rows fit a [heightDp]-tall 2x2 under its ~48 dp header, after [belowDp] of other content beneath
+ * them (the Resume pill, or a footer line), at [fontScale]. Zero when none fit: a short 2x2 shows its header and
+ * Resume alone rather than clipping rows.
+ */
+fun widgetCompactRows(heightDp: Int, fontScale: Float, belowDp: Int): Int {
+    val scale = (fontScale * 0.75f).coerceAtLeast(1f)
+    val usable = heightDp - 28 - (48 + belowDp) * scale
+    return (usable / (24 * scale)).toInt().coerceIn(0, 3)
+}
+
+/**
+ * The [count] consecutive indices of a [size]-long list to show so [focus] stays visible, with one row of context
+ * above it when at least two rows fit: rows already done scroll away, the current one never does.
  */
 fun widgetWindow(size: Int, focus: Int, count: Int): IntRange {
     if (count <= 0 || size <= 0) return IntRange.EMPTY
     if (size <= count) return 0 until size
-    val start = (focus - 1).coerceIn(0, size - count)
+    // One row of context above the current exercise only when there is room for both.
+    val context = if (count > 1) 1 else 0
+    val start = (focus - context).coerceIn(0, size - count)
     return start until start + count
 }
 
@@ -554,11 +567,17 @@ private data class WidgetRestAbout(
     val lastExercise: Exercise? = null
 )
 
-/** Last time's main set at [ordinal] (1-based) for [we], same unit and same per-leg counting; null when none. */
-private fun AppState.lastTimeSet(workout: Workout, we: WorkoutExercise, ordinal: Int): LoggedSet? {
+/**
+ * Last time's set for [we]'s next entry, paired the way the set ledger and entry prefill pair them: the n-th entry
+ * logged today in the entry unit meets last time's n-th same-unit entry, so a set logged in another unit never shifts
+ * the pairing. Its main set (a drop's first stage); null when there is none, or for anything but reps.
+ */
+private fun AppState.lastTimeSet(workout: Workout, we: WorkoutExercise): LoggedSet? {
     if (we.exercise.measure != Measure.REPS) return null
-    return previousComparable(we.exercise, workout.id, we.entryLoadUnit, we.perLeg)
-        ?.mainSets()?.getOrNull(ordinal - 1)
+    val previous = previousComparable(we.exercise, workout.id, we.entryLoadUnit, we.perLeg)
+        ?.workEntries()?.filter { it.unit == we.entryLoadUnit } ?: return null
+    val paired = we.workEntries().count { it.unit == we.entryLoadUnit }
+    return previous.getOrNull(paired)?.mainSet
 }
 
 private fun widgetRestAbout(state: AppState, workout: Workout, timer: RestTimer): WidgetRestAbout {
@@ -581,7 +600,7 @@ private fun widgetRestAbout(state: AppState, workout: Workout, timer: RestTimer)
             title = name,
             setLine = "Set$NBSP$nextSet$ofSets",
             next = "Next: set$NBSP$nextSet$ofSets",
-            lastSet = state.lastTimeSet(workout, current, nextSet),
+            lastSet = state.lastTimeSet(workout, current),
             lastExercise = current.exercise
         )
     }
@@ -594,7 +613,7 @@ private fun widgetRestAbout(state: AppState, workout: Workout, timer: RestTimer)
             title = nextEx.exercise.name,
             setLine = "Set$NBSP$ordinal$ofSets",
             next = "Next: ${nextEx.exercise.name}",
-            lastSet = state.lastTimeSet(workout, nextEx, ordinal),
+            lastSet = state.lastTimeSet(workout, nextEx),
             lastExercise = nextEx.exercise
         )
     } else {

@@ -315,6 +315,50 @@ class WidgetModelTest {
         assertEquals(5 until 8, widgetWindow(8, 7, 3))
         assertEquals(0 until 2, widgetWindow(2, 1, 3))
         assertTrue(widgetWindow(5, 2, 0).isEmpty())
+        // One row is the current exercise itself, never the one before it.
+        assertEquals(4..4, widgetWindow(8, 4, 1))
+        assertEquals(0..0, widgetWindow(8, 0, 1))
+        assertEquals(7..7, widgetWindow(8, 7, 1))
+    }
+
+    @Test
+    fun compactRowsComeFromTheCellHeight() {
+        assertEquals(3, widgetCompactRows(223, 1f, belowDp = 40))
+        assertEquals(2, widgetCompactRows(186, 1f, belowDp = 40))
+        assertEquals(0, widgetCompactRows(130, 1f, belowDp = 40))
+        assertEquals(1, widgetCompactRows(130, 1f, belowDp = 18))
+        assertEquals(0, widgetCompactRows(186, 2f, belowDp = 40))
+    }
+
+    @Test
+    fun lastTimePairsWithinTheEntryUnitLikeTheSetLedger() {
+        val tuesday = LocalDate.of(2026, 9, 15)
+        var state = baseState()
+        val template = state.scheduledRoutines(Phase.INTRO_TWO).first { it.weekday == 2 }
+        // Last week, in pounds: 50 lb x 10, then 55 lb x 8.
+        val lastWeek = millis(tuesday.minusDays(7), 18, 0)
+        state = StateChanges.apply(state, Action.StartWorkout(template.id, lastWeek))
+        var w = requireNotNull(state.activeWorkout)
+        val ex = w.exercises[0]
+        state = StateChanges.apply(state, Action.SetLoadUnit(w.id, ex.id, LoadUnit.LB))
+        state = StateChanges.apply(state, Action.SaveSet(w.id, ex.id, "o1", 50.0, 10, 2.0, false, lastWeek + 60_000, LoadUnit.LB))
+        state = StateChanges.apply(state, Action.SaveSet(w.id, ex.id, "o2", 55.0, 8, 1.0, false, lastWeek + 240_000, LoadUnit.LB))
+        state = StateChanges.apply(state, Action.FinishWorkout(lastWeek + 600_000, countForWeek = true))
+
+        // Today: one set in kilograms, then back to pounds for the next.
+        val now = millis(tuesday, 18, 0)
+        state = StateChanges.apply(state, Action.StartWorkout(template.id, now))
+        w = requireNotNull(state.activeWorkout)
+        state = StateChanges.apply(state, Action.SetLoadUnit(w.id, w.exercises[0].id, LoadUnit.KG))
+        state = StateChanges.apply(state, Action.SaveSet(w.id, w.exercises[0].id, "n1", 25.0, 10, 2.0, false, now + 60_000, LoadUnit.KG))
+        state = StateChanges.apply(state, Action.SetLoadUnit(w.id, w.exercises[0].id, LoadUnit.LB))
+
+        val model = state.widgetModel(now + 70_000, utc, us) as WidgetModel.Resting
+        // The first pound set today meets last time's first pound set, as the ledger pairs them.
+        val last = requireNotNull(model.lastTimeSet)
+        assertEquals(LoadUnit.LB, last.loadUnit)
+        assertEquals(50.0, last.amount!!, 0.0)
+        assertEquals(10, last.reps)
     }
 
     @Test

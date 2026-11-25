@@ -52,6 +52,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28], application = Application::class)
@@ -133,6 +134,54 @@ class RebuildWidgetTest {
         ).apply(context, FrameLayout(context))
         assertEquals(View.VISIBLE, live.findViewById<View>(R.id.stopwatch_row).visibility)
         assertEquals(View.VISIBLE, live.findViewById<View>(R.id.header_resume).visibility)
+    }
+
+    @Test
+    fun anOlderReadNeverReplacesANewerPublish() {
+        val gate = WidgetPublishGate()
+        val shown = mutableListOf<String>()
+        val resizeRead = gate.markRead() // a resize reads a running rest...
+        val expiryRead = gate.markRead() // ...then the rest expires and that refresh reads the cleared state
+        assertTrue(gate.admit(7, expiryRead) { shown += "expired" })
+        assertFalse(gate.admit(7, resizeRead) { shown += "stale countdown" })
+        assertEquals(listOf("expired"), shown)
+        // Other widgets keep their own order, and a later read still publishes.
+        assertTrue(gate.admit(8, resizeRead) { shown += "other widget" })
+        assertTrue(gate.admit(7, gate.markRead()) { shown += "next" })
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun aShort2x2NeverCutsOffItsContent() {
+        val tuesday = LocalDate.of(2026, 9, 15)
+        val now = millis(tuesday, 18)
+        val base = StateChanges.apply(Seed.initialState(), Action.SelectPhase(Phase.INTRO_TWO))
+        val template = base.scheduledRoutines(Phase.INTRO_TWO).first { it.weekday == 2 }
+        val active = StateChanges.apply(base, Action.StartWorkout(template.id, now))
+        val w = requireNotNull(active.activeWorkout)
+        val resting = StateChanges.apply(active, Action.SaveSet(w.id, w.exercises[0].id, "s1", 40.0, 10, 3.0, false, now))
+        val skipped = StateChanges.apply(resting, Action.SkipRest)
+        val density = context.resources.displayMetrics.density
+        for ((width, height) in listOf(160 to 130, 160 to 186, 176 to 223)) {
+            for (model in listOf(skipped.widgetModel(now + 10_000, utc, us), resting.widgetModel(now + 10_000, utc, us),
+                base.widgetModel(millis(LocalDate.of(2026, 9, 16)), utc, us))) {
+                val view = RebuildWidgetRenderer.render(context, model, WidgetSize.COMPACT, now + 10_000, 100_000L,
+                    heightDp = height, widthDp = width).apply(context, FrameLayout(context))
+                val w = (width * density).toInt()
+                val h = (height * density).toInt()
+                view.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY))
+                view.layout(0, 0, w, h)
+                val content = view.findViewById<android.view.ViewGroup>(R.id.content)
+                val limit = content.height - content.paddingBottom
+                for (i in 0 until content.childCount) {
+                    val child = content.getChildAt(i)
+                    if (child.visibility != View.VISIBLE || child.height == 0) continue
+                    assertTrue("${model::class.simpleName} ${width}x$height: child $i ends at ${child.bottom} > $limit",
+                        child.bottom <= limit)
+                }
+            }
+        }
     }
 
     @Test
