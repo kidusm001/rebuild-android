@@ -64,6 +64,9 @@ class TipsDeviceTest {
         rule.waitUntil(5_000) { rule.onAllNodesWithTag("tip-rest-bar").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithTag("rest-bar").assertIsDisplayed()
         rule.onNodeWithTag("tip-rest-bar").assertIsDisplayed()
+        // The rest starts when the set saves, but taps are held off until that save's double-tap cooldown is over: a
+        // Skip in that half second does nothing, as the later Skip taps in this file already wait out.
+        rule.waitUntil(5_000) { rule.actionGuardOpen() }
         rule.onNodeWithContentDescription("Skip rest").performClick()
         rule.waitUntil(5_000) { repo.state.value.restTimer == null }
         assertTrue(Tip.REST_BAR in platform.tips.value.dismissed)
