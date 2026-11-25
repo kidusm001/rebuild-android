@@ -1225,13 +1225,13 @@ internal fun PillTab(
 }
 
 /**
- * One label style for a row of tabs sharing [width] px equally, each label [padding] in from both sides: titleSmall
+ * One label style for a row of tabs sharing [width] px equally, each label [padding] in from both sides: [base]
  * when every label fits its share, otherwise all stepped down together (to half at most) so each stays whole on one
  * line and the tabs still match. Line height scales with the size, so the row is as tall as the labels it holds.
  */
 @Composable
-internal fun fittedTabStyle(labels: List<String>, width: Int, padding: Dp): TextStyle {
-    val base = MaterialTheme.typography.titleSmall
+internal fun fittedTabStyle(labels: List<String>, width: Int, padding: Dp,
+    base: TextStyle = MaterialTheme.typography.titleSmall): TextStyle {
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
     val pad = with(androidx.compose.ui.platform.LocalDensity.current) { (padding * 2).roundToPx() }
     return remember(labels, width, base, pad) {

@@ -75,9 +75,9 @@ class LargeTextFitTest {
         labels.forEach { label ->
             val layout = layoutOf(label)
             assertEquals("$label on one line", 1, layout.lineCount)
-            // Centred one-line text reports a width "overflow" against its paragraph width even when it fits, so the
-            // check is on the glyphs: the line's ink fits the label's box across and down.
-            val ink = layout.getLineRight(0) - layout.getLineLeft(0)
+            // The label's natural one-line width against its box: a laid-out line is clamped to the box, so it can't
+            // show a clip, and centred text reports a width "overflow" even when it fits.
+            val ink = layout.multiParagraph.intrinsics.maxIntrinsicWidth
             assertTrue("$label fits across ($ink > ${layout.size.width})", ink <= layout.size.width + 1f) // a pixel of rounding
             assertTrue("$label fits down", layout.getLineBottom(0) <= layout.size.height + 0.5f)
             assertFalse("$label clipped in height", layout.didOverflowHeight)
@@ -92,6 +92,18 @@ class LargeTextFitTest {
     @Test fun atNormalTextTheTabsKeepTheirSize() {
         tabs(1f)
         labels.forEach { assertEquals(it, titleSmall.value, layoutOf(it).layoutInput.style.fontSize.value, 0.01f) }
+    }
+
+    /** The 1M–All row on the narrowest phone the app supports: 320 dp less the 16 dp page gutters. */
+    @Test fun atDoubleTextOnANarrowPhoneEveryRangeLabelFits() {
+        scaled(2f) { RangeChips(ChartRange.M3, {}, Modifier.width(288.dp)) }
+        ChartRange.entries.forEach { range ->
+            val layout = layoutOf(range.label)
+            // The label's natural one-line width, not the line as laid out (which a narrow box clamps).
+            val ink = layout.multiParagraph.intrinsics.maxIntrinsicWidth
+            assertEquals("${range.label} on one line", 1, layout.lineCount)
+            assertTrue("${range.label} fits across ($ink > ${layout.size.width})", ink <= layout.size.width + 1f)
+        }
     }
 
     private val start = LocalDate.parse("2026-09-07")

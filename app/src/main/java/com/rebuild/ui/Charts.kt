@@ -10,6 +10,14 @@ import androidx.compose.foundation.Canvas
 import com.rebuild.ui.theme.MotionCrossfade
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material3.ripple
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,7 +26,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -72,17 +79,40 @@ enum class ChartRange(val label: String, val months: Long?) {
         months?.let { today.minusMonths(it) }?.takeIf { it > first } ?: first
 }
 
-/** The five ranges share the row's width, so even at large text none of them sits cut off past the edge. */
+/**
+ * The five ranges as slim pills sharing the row's width. Their labels share one size, stepped down together when even
+ * one wouldn't fit its fifth (large text on a narrow phone), so none is ever cut off and they still match. Each pill
+ * takes a 48 dp tap and reads as one choice of five.
+ */
 @Composable
 internal fun RangeChips(selected: ChartRange, onSelect: (ChartRange) -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        ChartRange.entries.forEach { range ->
-            TonalChip(
-                selected = range == selected,
-                onClick = { onSelect(range) },
-                label = { Text(range.label, Modifier.fillMaxWidth(), textAlign = TextAlign.Center, maxLines = 1, softWrap = false) },
-                modifier = Modifier.weight(1f).testTag("range-${range.name}")
-            )
+    val gap = 6.dp
+    val ranges = ChartRange.entries
+    val colors = MaterialTheme.colorScheme
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val gaps = with(LocalDensity.current) { (gap * (ranges.size - 1)).roundToPx() }
+        val style = fittedTabStyle(ranges.map { it.label }, constraints.maxWidth - gaps, padding = 4.dp,
+            base = MaterialTheme.typography.labelLarge)
+        Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(gap)) {
+            ranges.forEach { range ->
+                val chosen = range == selected
+                val presses = remember { MutableInteractionSource() }
+                Box(
+                    Modifier.weight(1f).heightIn(min = 48.dp)
+                        .selectable(chosen, interactionSource = presses, indication = null, role = Role.RadioButton) {
+                            onSelect(range)
+                        }
+                        .testTag("range-${range.name}"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(range.label, style = style, maxLines = 1, softWrap = false, textAlign = TextAlign.Center,
+                        color = if (chosen) colors.onSecondaryContainer else colors.onSurface,
+                        modifier = Modifier.fillMaxWidth().clip(CircleShape)
+                            .background(if (chosen) colors.secondaryContainer else tonalFill())
+                            .indication(presses, ripple())
+                            .padding(horizontal = 4.dp, vertical = 6.dp))
+                }
+            }
         }
     }
 }
