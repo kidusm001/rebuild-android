@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Ink + Ember dark widget tokens, locked to ui/theme/Theme.kt and verified in ThemeTest. -->
+    <color name="widget_surface">#1D1B19</color>
+    <color name="widget_badge_pending">#34302C</color>
+    <color name="widget_on_surface">#EDE6DD</color>
+    <color name="widget_on_surface_variant">#CFC5B7</color>
+    <color name="widget_accent_text">#FFB224</color>
+    <color name="widget_primary_container">#EBA42A</color>
+    <color name="widget_on_primary_container">#231500</color>
+    <color name="widget_signal_amber">#FFB224</color>
+</resources>

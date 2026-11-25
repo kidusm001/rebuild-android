@@ -305,10 +305,7 @@ internal fun AppState.idUsed(id: String): Boolean = stopwatch?.id == id ||
 
 /** Where the workout opens: a set in progress, else the stopwatch's exercise, else the first one short of its target. */
 internal fun opensAt(state: AppState, workout: Workout): WorkoutExercise? =
-    workout.openGroupExercise()
-        ?: state.stopwatch?.takeIf { it.workoutId == workout.id }
-            ?.let { watch -> workout.exercises.find { it.id == watch.exerciseId } }
-        ?: workout.resumeExercise()
+    com.rebuild.domain.opensAt(state, workout)
 
 private fun measuredNoun(measure: Measure): String = when (measure) {
     Measure.TIMED -> "timed set"

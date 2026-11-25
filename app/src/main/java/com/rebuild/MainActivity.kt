@@ -47,7 +47,10 @@ import androidx.core.content.FileProvider
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import com.rebuild.domain.WidgetDestination
 import com.rebuild.platform.BackupViewModel
+import com.rebuild.platform.WidgetUpdater
+import com.rebuild.platform.parseWidgetDestination
 import com.rebuild.ui.PlatformActions
 import com.rebuild.ui.PlatformStatus
 import com.rebuild.ui.RestAlert
@@ -71,6 +74,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
     private val _status = MutableStateFlow(PlatformStatus(false, false, false))
     private var notificationRequestAttempted = false
     private val inPictureInPicture = MutableStateFlow(false)
+    private val pendingWidgetLink = MutableStateFlow<WidgetDestination?>(null)
     /** A rest is counting down, so leaving the app shrinks it to a picture-in-picture countdown. */
     private var restCounting = false
     override val status: StateFlow<PlatformStatus> = _status
@@ -89,6 +93,9 @@ class MainActivity : ComponentActivity(), PlatformActions {
         installLaunchSplash()
         super.onCreate(savedInstanceState)
         notificationRequestAttempted = savedInstanceState?.getBoolean("notificationRequestAttempted") ?: false
+        if (savedInstanceState == null) {
+            parseWidgetDestination(intent)?.let { pendingWidgetLink.value = it }
+        }
         enableEdgeToEdge()
         setContent {
             val repository by model.repository.collectAsStateWithLifecycle()
@@ -131,10 +138,16 @@ class MainActivity : ComponentActivity(), PlatformActions {
                         val appState by loaded.state.collectAsStateWithLifecycle()
                         val timer = appState.restTimer?.takeIf { it.workoutId == appState.activeWorkoutId }
                         val pip by inPictureInPicture.collectAsStateWithLifecycle()
+                        val widgetLink by pendingWidgetLink.collectAsStateWithLifecycle()
                         LaunchedEffect(timer?.id) { updateRestPip(timer != null) }
                         // The app stays composed underneath, so returning from the small window keeps every screen's state.
                         Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (instant) 1f else appIn.value }) {
-                            RebuildApp(loaded, this@MainActivity)
+                            RebuildApp(
+                                repository = loaded,
+                                platform = this@MainActivity,
+                                widgetDestination = widgetLink,
+                                onConsumeWidgetDestination = { pendingWidgetLink.value = null }
+                            )
                             if (pip) RestPip(timer, System::currentTimeMillis)
                         }
                     }
@@ -258,6 +271,12 @@ class MainActivity : ComponentActivity(), PlatformActions {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        parseWidgetDestination(intent)?.let { pendingWidgetLink.value = it }
+    }
+
     override fun onResume() {
         super.onResume()
         refreshStatus()
@@ -265,7 +284,12 @@ class MainActivity : ComponentActivity(), PlatformActions {
         app.alarms.stopRinging()
         lifecycleScope.launch {
             try {
-                model.repository.value?.let { app.alarms.reconcileCurrent(it) }
+                model.repository.value?.let { repository ->
+                    app.alarms.reconcileCurrent(repository)
+                    if (WidgetUpdater.hasWidgets(this@MainActivity)) {
+                        WidgetUpdater.refreshFromState(this@MainActivity, repository.state.value)
+                    }
+                }
             } catch (error: RuntimeException) {
                 Log.e("Rebuild", "Could not refresh background rest alert", error)
                 app.alarms.reportSchedulingFailure()
