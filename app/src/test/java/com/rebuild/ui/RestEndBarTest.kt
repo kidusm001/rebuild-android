@@ -83,7 +83,11 @@ class RestEndBarTest {
             if (ended && drawn) frames++
             if (ended && !drawn) return frames
         }
-        return frames
+        // Neither "ended" nor "gone" within the limit is a failure, never a count.
+        throw AssertionError(
+            if (timer.id !in announced || repo.state.value.restTimer != null) "the rest never ended on screen"
+            else "the bar was still drawn $frames frames after the rest ended"
+        )
     }
 
     @Test fun anEdgeLightLeavesTheBarToCollapse() {
