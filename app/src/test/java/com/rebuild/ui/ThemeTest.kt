@@ -87,6 +87,30 @@ class ThemeTest {
         }
     }
 
+    @Test
+    fun widgetSurfaceAndAccentPairsMeetContrastThresholds() {
+        // Light widget: a white card (surfaceContainerLowest) with surfaceContainer number badges.
+        with(Light) {
+            contrast(onSurface, surfaceContainerLowest, 4.5)
+            contrast(onSurfaceVariant, surfaceContainerLowest, 4.5)
+            contrast(accentTextFor(Light), surfaceContainerLowest, 4.5)
+            contrast(onSurface, surfaceContainer, 4.5)
+            contrast(onSurfaceVariant, surfaceContainerLowest, 3.0) // done badge outline
+            contrast(onPrimaryContainer, primaryContainer, 4.5)
+            contrast(onPrimaryContainer, SignalAmber, 4.5)
+        }
+        // Dark widget: a raised card (surfaceContainerLowest) with surfaceContainerHighest number badges.
+        with(Dark) {
+            contrast(onSurface, surfaceContainerLowest, 4.5)
+            contrast(onSurfaceVariant, surfaceContainerLowest, 4.5)
+            contrast(accentTextFor(Dark), surfaceContainerLowest, 4.5)
+            contrast(onSurface, surfaceContainerHighest, 4.5)
+            contrast(onSurfaceVariant, surfaceContainerLowest, 3.0)
+            contrast(onPrimaryContainer, primaryContainer, 4.5)
+            contrast(onPrimaryContainer, SignalAmber, 4.5)
+        }
+    }
+
     private fun contrast(text: Color, base: Color, minimum: Double) {
         val a = text.luminance().toDouble()
         val b = base.luminance().toDouble()

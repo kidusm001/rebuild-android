@@ -19,4 +19,21 @@
     <string name="rest_alarm_stop">Stop</string>
     <string name="rest_add_30">+30 s</string>
     <string name="rest_skip">Skip</string>
+    <string name="widget_label">Today</string>
+    <string name="widget_description">Today\'s scheduled workout, active session progress, or rest countdown.</string>
+    <string name="widget_loading">Opening Rebuild…</string>
+    <string name="widget_open_rebuild">Open Rebuild</string>
+    <string name="widget_resume">Resume</string>
+    <string name="widget_resume_workout">Resume workout</string>
+    <string name="widget_up_next">Up next</string>
+    <string name="widget_next">Next</string>
+    <string name="widget_preview_eyebrow">Mon 14 Sep · 4 exercises</string>
+    <string name="widget_preview_count">1 of 4 this week</string>
+    <string name="widget_preview_headline">Push</string>
+    <string name="widget_preview_ex1">Bench press</string>
+    <string name="widget_preview_t1">3 × 6–8</string>
+    <string name="widget_preview_ex2">Seated cable row</string>
+    <string name="widget_preview_t2">3 × 8–12</string>
+    <string name="widget_preview_ex3">Shoulder press</string>
+    <string name="widget_preview_t3">2 × 8–12</string>
 </resources>

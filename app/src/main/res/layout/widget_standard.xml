@@ -1,0 +1,878 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated shape; see RebuildWidgetRenderer for binding. Colors resolve in the launcher, so theme switches apply live. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:minHeight="48dp">
+
+    <LinearLayout
+        android:id="@+id/content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="14dp">
+
+        <!-- Header: routine or workout name, a quiet line under it, and the week tally or Resume on the right. -->
+        <LinearLayout
+            android:id="@+id/list_header"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:minHeight="40dp"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:id="@+id/header_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:adjustViewBounds="true"
+                    android:scaleType="fitStart"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface" />
+
+                <ImageView
+                    android:id="@+id/header_kicker"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:adjustViewBounds="true"
+                    android:scaleType="fitStart"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface_variant" />
+
+                <ImageView
+                    android:id="@+id/header_kicker_accent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    android:adjustViewBounds="true"
+                    android:scaleType="fitStart"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_accent_text" />
+            </LinearLayout>
+
+            <ImageView
+                android:id="@+id/header_meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:visibility="gone"
+                android:adjustViewBounds="true"
+                android:scaleType="fitStart"
+                android:importantForAccessibility="no"
+                android:tint="@color/widget_on_surface_variant" />
+
+            <ImageView
+                android:id="@+id/header_resume"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:visibility="gone"
+                android:background="@drawable/widget_pill_amber"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="8dp"
+                android:adjustViewBounds="true"
+                android:scaleType="fitStart"
+                android:importantForAccessibility="no"
+                android:tint="@color/widget_on_primary_container" />
+        </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/rest_spacer_top"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:visibility="gone" />
+
+        <!-- Rest: a large countdown beside what comes next and last time's set. -->
+        <LinearLayout
+            android:id="@+id/rest_hero"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:id="@+id/rest_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:adjustViewBounds="true"
+                    android:scaleType="fitStart"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_accent_text" />
+
+                <Chronometer
+                    android:id="@+id/rest_chronometer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-condensed"
+                    android:fontFeatureSettings="tnum"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:textColor="@color/widget_on_surface"
+                    android:textSize="64sp"
+                    android:textStyle="bold" />
+
+                <ImageView
+                    android:id="@+id/rest_static_time"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:visibility="gone"
+                    android:adjustViewBounds="true"
+                    android:scaleType="fitStart"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="18dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:id="@+id/rest_next_eyebrow"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:adjustViewBounds="true"
+                    android:scaleType="fitStart"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface_variant" />
+
+                <ImageView
+                    android:id="@+id/rest_next_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:adjustViewBounds="true"
+                    android:scaleType="fitStart"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface" />
+
+                <ImageView
+                    android:id="@+id/rest_set_line"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:adjustViewBounds="true"
+                    android:scaleType="fitStart"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface" />
+
+                <ImageView
+                    android:id="@+id/rest_last"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    android:adjustViewBounds="true"
+                    android:scaleType="fitStart"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface_variant" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/stopwatch_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <Chronometer
+                android:id="@+id/stopwatch_chronometer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-condensed"
+                android:fontFeatureSettings="tnum"
+                android:maxLines="1"
+                android:textColor="@color/widget_accent_text"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <ImageView
+                android:id="@+id/stopwatch_name"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:scaleType="matrix"
+                android:importantForAccessibility="no"
+                android:tint="@color/widget_on_surface" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/rows"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:id="@+id/row_0"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:minHeight="28dp"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <FrameLayout
+                    android:id="@+id/row_0_mark"
+                    android:layout_width="34dp"
+                    android:layout_height="wrap_content">
+
+                    <ImageView
+                        android:id="@+id/row_0_num"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:visibility="gone"
+                        android:background="@drawable/widget_badge_pending"
+                        android:scaleType="center"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_surface" />
+
+                    <ImageView
+                        android:id="@+id/row_0_cur"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:visibility="gone"
+                        android:background="@drawable/widget_badge_current"
+                        android:scaleType="center"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_primary_container" />
+
+                    <ImageView
+                        android:id="@+id/row_0_done"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:background="@drawable/widget_badge_done"
+                        android:contentDescription="@null"
+                        android:importantForAccessibility="no"
+                        android:padding="4dp"
+                        android:src="@drawable/ic_check"
+                        android:tint="@color/widget_on_surface_variant"
+                        android:visibility="gone" />
+
+                    <ImageView
+                        android:id="@+id/row_0_day"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical|start"
+                        android:visibility="gone"
+                        android:adjustViewBounds="true"
+                        android:scaleType="fitStart"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_surface_variant" />
+                </FrameLayout>
+
+                <ImageView
+                    android:id="@+id/row_0_name"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:scaleType="matrix"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface" />
+
+                <ImageView
+                    android:id="@+id/row_0_name_muted"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:visibility="gone"
+                    android:scaleType="matrix"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface_variant" />
+                <ImageView
+                    android:id="@+id/row_0_trail"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:adjustViewBounds="true"
+                    android:scaleType="fitStart"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface_variant" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/row_1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:minHeight="28dp"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <FrameLayout
+                    android:id="@+id/row_1_mark"
+                    android:layout_width="34dp"
+                    android:layout_height="wrap_content">
+
+                    <ImageView
+                        android:id="@+id/row_1_num"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:visibility="gone"
+                        android:background="@drawable/widget_badge_pending"
+                        android:scaleType="center"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_surface" />
+
+                    <ImageView
+                        android:id="@+id/row_1_cur"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:visibility="gone"
+                        android:background="@drawable/widget_badge_current"
+                        android:scaleType="center"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_primary_container" />
+
+                    <ImageView
+                        android:id="@+id/row_1_done"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:background="@drawable/widget_badge_done"
+                        android:contentDescription="@null"
+                        android:importantForAccessibility="no"
+                        android:padding="4dp"
+                        android:src="@drawable/ic_check"
+                        android:tint="@color/widget_on_surface_variant"
+                        android:visibility="gone" />
+
+                    <ImageView
+                        android:id="@+id/row_1_day"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical|start"
+                        android:visibility="gone"
+                        android:adjustViewBounds="true"
+                        android:scaleType="fitStart"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_surface_variant" />
+                </FrameLayout>
+
+                <ImageView
+                    android:id="@+id/row_1_name"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:scaleType="matrix"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface" />
+
+                <ImageView
+                    android:id="@+id/row_1_name_muted"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:visibility="gone"
+                    android:scaleType="matrix"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface_variant" />
+                <ImageView
+                    android:id="@+id/row_1_trail"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:adjustViewBounds="true"
+                    android:scaleType="fitStart"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface_variant" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/row_2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:minHeight="28dp"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <FrameLayout
+                    android:id="@+id/row_2_mark"
+                    android:layout_width="34dp"
+                    android:layout_height="wrap_content">
+
+                    <ImageView
+                        android:id="@+id/row_2_num"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:visibility="gone"
+                        android:background="@drawable/widget_badge_pending"
+                        android:scaleType="center"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_surface" />
+
+                    <ImageView
+                        android:id="@+id/row_2_cur"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:visibility="gone"
+                        android:background="@drawable/widget_badge_current"
+                        android:scaleType="center"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_primary_container" />
+
+                    <ImageView
+                        android:id="@+id/row_2_done"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:background="@drawable/widget_badge_done"
+                        android:contentDescription="@null"
+                        android:importantForAccessibility="no"
+                        android:padding="4dp"
+                        android:src="@drawable/ic_check"
+                        android:tint="@color/widget_on_surface_variant"
+                        android:visibility="gone" />
+
+                    <ImageView
+                        android:id="@+id/row_2_day"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical|start"
+                        android:visibility="gone"
+                        android:adjustViewBounds="true"
+                        android:scaleType="fitStart"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_surface_variant" />
+                </FrameLayout>
+
+                <ImageView
+                    android:id="@+id/row_2_name"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:scaleType="matrix"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface" />
+
+                <ImageView
+                    android:id="@+id/row_2_name_muted"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:visibility="gone"
+                    android:scaleType="matrix"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface_variant" />
+                <ImageView
+                    android:id="@+id/row_2_trail"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:adjustViewBounds="true"
+                    android:scaleType="fitStart"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface_variant" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/row_3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:minHeight="28dp"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <FrameLayout
+                    android:id="@+id/row_3_mark"
+                    android:layout_width="34dp"
+                    android:layout_height="wrap_content">
+
+                    <ImageView
+                        android:id="@+id/row_3_num"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:visibility="gone"
+                        android:background="@drawable/widget_badge_pending"
+                        android:scaleType="center"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_surface" />
+
+                    <ImageView
+                        android:id="@+id/row_3_cur"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:visibility="gone"
+                        android:background="@drawable/widget_badge_current"
+                        android:scaleType="center"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_primary_container" />
+
+                    <ImageView
+                        android:id="@+id/row_3_done"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:background="@drawable/widget_badge_done"
+                        android:contentDescription="@null"
+                        android:importantForAccessibility="no"
+                        android:padding="4dp"
+                        android:src="@drawable/ic_check"
+                        android:tint="@color/widget_on_surface_variant"
+                        android:visibility="gone" />
+
+                    <ImageView
+                        android:id="@+id/row_3_day"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical|start"
+                        android:visibility="gone"
+                        android:adjustViewBounds="true"
+                        android:scaleType="fitStart"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_surface_variant" />
+                </FrameLayout>
+
+                <ImageView
+                    android:id="@+id/row_3_name"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:scaleType="matrix"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface" />
+
+                <ImageView
+                    android:id="@+id/row_3_name_muted"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:visibility="gone"
+                    android:scaleType="matrix"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface_variant" />
+                <ImageView
+                    android:id="@+id/row_3_trail"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:adjustViewBounds="true"
+                    android:scaleType="fitStart"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface_variant" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/row_4"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:minHeight="28dp"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <FrameLayout
+                    android:id="@+id/row_4_mark"
+                    android:layout_width="34dp"
+                    android:layout_height="wrap_content">
+
+                    <ImageView
+                        android:id="@+id/row_4_num"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:visibility="gone"
+                        android:background="@drawable/widget_badge_pending"
+                        android:scaleType="center"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_surface" />
+
+                    <ImageView
+                        android:id="@+id/row_4_cur"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:visibility="gone"
+                        android:background="@drawable/widget_badge_current"
+                        android:scaleType="center"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_primary_container" />
+
+                    <ImageView
+                        android:id="@+id/row_4_done"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:background="@drawable/widget_badge_done"
+                        android:contentDescription="@null"
+                        android:importantForAccessibility="no"
+                        android:padding="4dp"
+                        android:src="@drawable/ic_check"
+                        android:tint="@color/widget_on_surface_variant"
+                        android:visibility="gone" />
+
+                    <ImageView
+                        android:id="@+id/row_4_day"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical|start"
+                        android:visibility="gone"
+                        android:adjustViewBounds="true"
+                        android:scaleType="fitStart"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_surface_variant" />
+                </FrameLayout>
+
+                <ImageView
+                    android:id="@+id/row_4_name"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:scaleType="matrix"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface" />
+
+                <ImageView
+                    android:id="@+id/row_4_name_muted"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:visibility="gone"
+                    android:scaleType="matrix"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface_variant" />
+                <ImageView
+                    android:id="@+id/row_4_trail"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:adjustViewBounds="true"
+                    android:scaleType="fitStart"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface_variant" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/row_5"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:minHeight="28dp"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <FrameLayout
+                    android:id="@+id/row_5_mark"
+                    android:layout_width="34dp"
+                    android:layout_height="wrap_content">
+
+                    <ImageView
+                        android:id="@+id/row_5_num"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:visibility="gone"
+                        android:background="@drawable/widget_badge_pending"
+                        android:scaleType="center"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_surface" />
+
+                    <ImageView
+                        android:id="@+id/row_5_cur"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:visibility="gone"
+                        android:background="@drawable/widget_badge_current"
+                        android:scaleType="center"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_primary_container" />
+
+                    <ImageView
+                        android:id="@+id/row_5_done"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:background="@drawable/widget_badge_done"
+                        android:contentDescription="@null"
+                        android:importantForAccessibility="no"
+                        android:padding="4dp"
+                        android:src="@drawable/ic_check"
+                        android:tint="@color/widget_on_surface_variant"
+                        android:visibility="gone" />
+
+                    <ImageView
+                        android:id="@+id/row_5_day"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical|start"
+                        android:visibility="gone"
+                        android:adjustViewBounds="true"
+                        android:scaleType="fitStart"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_surface_variant" />
+                </FrameLayout>
+
+                <ImageView
+                    android:id="@+id/row_5_name"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:scaleType="matrix"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface" />
+
+                <ImageView
+                    android:id="@+id/row_5_name_muted"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:visibility="gone"
+                    android:scaleType="matrix"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface_variant" />
+                <ImageView
+                    android:id="@+id/row_5_trail"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:adjustViewBounds="true"
+                    android:scaleType="fitStart"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface_variant" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/row_6"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:minHeight="28dp"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <FrameLayout
+                    android:id="@+id/row_6_mark"
+                    android:layout_width="34dp"
+                    android:layout_height="wrap_content">
+
+                    <ImageView
+                        android:id="@+id/row_6_num"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:visibility="gone"
+                        android:background="@drawable/widget_badge_pending"
+                        android:scaleType="center"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_surface" />
+
+                    <ImageView
+                        android:id="@+id/row_6_cur"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:visibility="gone"
+                        android:background="@drawable/widget_badge_current"
+                        android:scaleType="center"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_primary_container" />
+
+                    <ImageView
+                        android:id="@+id/row_6_done"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:background="@drawable/widget_badge_done"
+                        android:contentDescription="@null"
+                        android:importantForAccessibility="no"
+                        android:padding="4dp"
+                        android:src="@drawable/ic_check"
+                        android:tint="@color/widget_on_surface_variant"
+                        android:visibility="gone" />
+
+                    <ImageView
+                        android:id="@+id/row_6_day"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical|start"
+                        android:visibility="gone"
+                        android:adjustViewBounds="true"
+                        android:scaleType="fitStart"
+                        android:importantForAccessibility="no"
+                        android:tint="@color/widget_on_surface_variant" />
+                </FrameLayout>
+
+                <ImageView
+                    android:id="@+id/row_6_name"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:scaleType="matrix"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface" />
+
+                <ImageView
+                    android:id="@+id/row_6_name_muted"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:visibility="gone"
+                    android:scaleType="matrix"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface_variant" />
+                <ImageView
+                    android:id="@+id/row_6_trail"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:adjustViewBounds="true"
+                    android:scaleType="fitStart"
+                    android:importantForAccessibility="no"
+                    android:tint="@color/widget_on_surface_variant" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/list_more"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="34dp"
+            android:visibility="gone"
+            android:adjustViewBounds="true"
+            android:scaleType="fitStart"
+            android:importantForAccessibility="no"
+            android:tint="@color/widget_on_surface_variant" />
+
+        <FrameLayout
+            android:id="@+id/list_spacer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <ImageView
+            android:id="@+id/footer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:adjustViewBounds="true"
+            android:scaleType="fitStart"
+            android:importantForAccessibility="no"
+            android:tint="@color/widget_on_surface_variant" />
+    </LinearLayout>
+</FrameLayout>

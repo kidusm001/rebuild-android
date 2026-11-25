@@ -51,7 +51,18 @@ class RestAlarmReceiver : BroadcastReceiver() {
                 Log.e("Rebuild", "Rest alarm could not read/commit saved state", error)
                 app.alarms.reportSchedulingFailure()
             } finally {
-                pending.finish()
+                // Always refresh any home screen widget when a rest alarm fires so a counting-down Chronometer clears
+                // even if the timer was already consumed or skipped. pending.finish() always runs even on cancellation.
+                try {
+                    if (action == RestAlarmScheduler.ACTION_EXPIRE) {
+                        WidgetUpdater.refreshFromRepository(context)
+                    }
+                } catch (error: Exception) {
+                    if (error is CancellationException) throw error
+                    Log.w("Rebuild", "Widget refresh after rest expiry failed", error)
+                } finally {
+                    pending.finish()
+                }
             }
         }
     }

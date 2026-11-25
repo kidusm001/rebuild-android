@@ -406,3 +406,36 @@ Utility icons share the same family and keep their existing accessible names
 and 48 dp interactive parents (distinct from Material's 40 dp visual button).
 The launcher and splash use the same barbell in Android's adaptive-icon safe zone.
 See `docs/icons.md` for pinned provenance and packaged licensing.
+
+**Home screen widget.** One adaptive, read-only widget ("Today") on the home
+screen, built with native `RemoteViews` XML. It is a small copy of Today's own
+card: the routine or workout name, one quiet line, then numbered rows.
+On a scheduled day the rows are today's exercises with their plan targets
+("2 × 8–12"); on a rest day, a finished day or a complete week they are the
+week's routines by weekday ("Done", "Partial", "Not done" for a day gone, nothing
+for a day still to come). The room under a short week previews the next workout
+("Up next · Upper B · 7 exercises" and its first planned exercises), or on a
+complete week recaps the last one ("Last workout · Thu 26 Nov · Upper B", then
+"14 working sets · 48 min"; no best set or comparison). It shows whole or not at
+all, past days give way to make it fit, and when it can't the subtitle names
+what's next instead. Idle has no amber;
+during a workout they are its exercises with their counts ("1/2"), the current
+one an amber badge and bold, finished ones a ring check and muted, and an amber
+Resume pill beside the name. While resting it becomes one large countdown
+beside what comes next ("Next · Incline dumbbell press · Set 2 of 2") and last
+time's set at that position as it was lifted ("Last time 22.5 lb/DB × 9"),
+never presented as a target. The card is opaque `#FFFFFF` (light) or `#1D1B19`
+(dark) with no borders; amber is only the current badge, Resume and the accent
+"Rest" label, never a full fill. Rows are sized from the cell the launcher
+actually gives (4×2 is anywhere from about 160 to 230 dp tall), from one to
+seven, so the card fills its height; a short week sits centred instead.
+Larger text trades rows for legibility and never clips. Text is set in the app's
+own Archivo and Archivo Numerals: launchers ignore app fonts in widget layouts, so
+the app draws each string as a white mask at the cell's exact width and the layout
+tints it with the theme's colour resource, which keeps light and dark switching
+live. The live rest countdown and stopwatch are the exception: the launcher ticks
+them itself, so they stay in the system condensed face. Tapping opens
+`Routes.WORKOUT` while a workout is active and Today otherwise, without
+changing state. Live countdowns run only when exact alarms are available (the
+platform `Chronometer` shows zero-padded `02:55`) and fall back to a static
+"Until HH:mm". See `design-council/home-widget/decision.md`.

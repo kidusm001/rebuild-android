@@ -24,6 +24,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.animation.core.Animatable
 import com.rebuild.domain.RestTimer
 import com.rebuild.domain.Stopwatch
+import com.rebuild.domain.WidgetDestination
 import com.rebuild.ui.theme.FadeInOver
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -198,6 +199,30 @@ internal class Navigator(initial: List<String>) {
     }
 }
 
+/** Applies a home screen widget tap safely: never pops an unsaved editor, setup flow, or workout receipt. */
+internal fun applyWidgetDestination(
+    nav: Navigator,
+    destination: WidgetDestination,
+    activeWorkoutId: String?,
+    setupShown: Boolean,
+    receiptShown: Boolean
+) {
+    if (setupShown || receiptShown || Routes.isEditor(nav.current)) return
+    when (destination) {
+        WidgetDestination.WORKOUT -> {
+            if (activeWorkoutId != null) {
+                if (nav.current != Routes.WORKOUT) {
+                    nav.select(Tab.HOME)
+                    nav.push(Routes.WORKOUT)
+                }
+            } else {
+                nav.select(Tab.HOME)
+            }
+        }
+        WidgetDestination.TODAY -> nav.select(Tab.HOME)
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class, ExperimentalComposeUiApi::class)
 @Composable
 fun RebuildApp(
@@ -206,7 +231,9 @@ fun RebuildApp(
     modifier: Modifier = Modifier,
     clock: () -> Long = System::currentTimeMillis,
     /** The monotonic clock the stopwatch measures with; tests pass their own. */
-    monotonic: (() -> Monotonic)? = null
+    monotonic: (() -> Monotonic)? = null,
+    widgetDestination: WidgetDestination? = null,
+    onConsumeWidgetDestination: () -> Unit = {}
 ) {
     RebuildTheme {
         val state by repository.state.collectAsStateWithLifecycle()
@@ -315,6 +342,11 @@ fun RebuildApp(
         }
         val setupShown = state.phase == null || setupRestStep
         val route = if (setupShown) SETUP_ROUTE else renderStack.last()
+        LaunchedEffect(widgetDestination, state.activeWorkoutId, setupShown, receiptFor != null) {
+            val dest = widgetDestination ?: return@LaunchedEffect
+            applyWidgetDestination(nav, dest, state.activeWorkoutId, setupShown, receiptFor != null)
+            onConsumeWidgetDestination()
+        }
         // Wide windows (landscape phones, tablets) put the destinations in a rail so content keeps its height.
         val wide = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.width.toDp() } >= 600.dp
 

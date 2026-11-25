@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pre-API 31 picker preview: header, three numbered exercise rows and their targets. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="100dp"
+    android:viewportWidth="320"
+    android:viewportHeight="160">
+    <path android:fillColor="#FFFFFF" android:pathData="M20,0H300A20,20 0 0 1 320,20V140A20,20 0 0 1 300,160H20A20,20 0 0 1 0,140V20A20,20 0 0 1 20,0Z" />
+    <path android:fillColor="#1C1915" android:pathData="M20,18H92A4,4 0 0 1 96,22V32A4,4 0 0 1 92,36H20A4,4 0 0 1 16,32V22A4,4 0 0 1 20,18Z" />
+    <path android:fillColor="#4F483F" android:pathData="M19,42H120A3,3 0 0 1 123,45V49A3,3 0 0 1 120,52H19A3,3 0 0 1 16,49V45A3,3 0 0 1 19,42Z" />
+    <path android:fillColor="#4F483F" android:pathData="M226,24H301A3,3 0 0 1 304,27V31A3,3 0 0 1 301,34H226A3,3 0 0 1 223,31V27A3,3 0 0 1 226,24Z" />
+    <path android:fillColor="#ECE6DE" android:pathData="M26,78m-10,0a10,10 0 1,0 20,0a10,10 0 1,0 -20,0" />
+    <path android:fillColor="#ECE6DE" android:pathData="M26,108m-10,0a10,10 0 1,0 20,0a10,10 0 1,0 -20,0" />
+    <path android:fillColor="#ECE6DE" android:pathData="M26,138m-10,0a10,10 0 1,0 20,0a10,10 0 1,0 -20,0" />
+    <path android:fillColor="#1C1915" android:pathData="M50,74H150V82H50Z" />
+    <path android:fillColor="#1C1915" android:pathData="M50,104H170V112H50Z" />
+    <path android:fillColor="#1C1915" android:pathData="M50,134H140V142H50Z" />
+    <path android:fillColor="#4F483F" android:pathData="M262,74H304V82H262Z" />
+    <path android:fillColor="#4F483F" android:pathData="M256,104H304V112H256Z" />
+    <path android:fillColor="#4F483F" android:pathData="M256,134H304V142H256Z" />
+</vector>

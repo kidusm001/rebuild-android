@@ -280,19 +280,20 @@ internal fun RestPip(timer: RestTimer?, clock: () -> Long, modifier: Modifier = 
         }
     }
     val remaining = timer?.let { (((it.deadline - now).coerceAtLeast(0) + 999) / 1000).toInt() } ?: 0
-    Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = modifier.fillMaxSize().testTag("rest-pip")) {
+    // The rest sheet's own amber and ink, label and numerals, so the window reads as the same countdown.
+    Surface(
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        modifier = modifier.fillMaxSize().testTag("rest-pip")
+    ) {
         Box(contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    if (timer?.shortPause == true) "Pause" else "Rest",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
+                Text(if (timer?.shortPause == true) "Pause" else "Rest", style = overlineStyle(), maxLines = 1)
                 Text(
                     if (remaining > 0) formatRest(remaining) else "Done",
-                    style = MaterialTheme.typography.displayMedium.copy(fontFeatureSettings = "tnum", fontSize = 44.sp),
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                    style = MaterialTheme.typography.displayMedium,
+                    maxLines = 1,
+                    softWrap = false
                 )
             }
         }
