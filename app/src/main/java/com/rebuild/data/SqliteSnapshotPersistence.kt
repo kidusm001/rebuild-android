@@ -97,7 +97,10 @@ internal class SqliteSnapshotPersistence(
     }
 
     private companion object {
-        // At most 64 KiB UTF-8 (or 64 KiB UTF-16) per CursorWindow row, including astral characters.
-        const val READ_CHUNK_CODE_POINTS = 16 * 1024
+        // At most 1 MiB UTF-8 per chunk even if every character is astral, half of Android's 2 MiB CursorWindow.
+        // Each chunk's substr makes SQLite walk the whole value from its start, so reading costs chunks × size:
+        // 16 Ki code points made a full 10 MiB snapshot 640 walks (about 4 s on a desktop JVM, past 30 s on a slow
+        // emulator); 256 Ki makes it 40 (about 0.3 s).
+        const val READ_CHUNK_CODE_POINTS = 256 * 1024
     }
 }

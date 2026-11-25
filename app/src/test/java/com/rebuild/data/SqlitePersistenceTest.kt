@@ -125,6 +125,15 @@ class SqlitePersistenceTest {
         assertEquals(note, reopened.state.value.workouts.last().notes)
     }
 
+    @Test fun astralCharactersSplitAcrossLargeReadChunksComeBackWhole() = runBlocking {
+        val store = store()
+        // Over two read chunks of code points, with surrogate pairs and multibyte text on every boundary.
+        val text = "🙂漢é".repeat(200_000)
+        store.writableDatabase.execSQL("UPDATE snapshot SET payload = ? WHERE id = 1", arrayOf(text))
+        assertTrue(text.codePointCount(0, text.length) > 2 * 256 * 1024)
+        assertEquals(text, store.read())
+    }
+
     @Test fun payloadAtFullTenMiBLimitRemainsReadable() = runBlocking {
         val store = store()
         val base = SnapshotCodec.encode(Seed.initialState())
