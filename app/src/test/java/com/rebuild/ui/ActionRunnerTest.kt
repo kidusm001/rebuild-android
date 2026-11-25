@@ -53,7 +53,7 @@ class ActionRunnerTest {
         advanceTimeBy(2_000)
         runCurrent()
         // The first window would have ended by now; the newer skip keeps its own.
-        assertEquals(second, runner.skippedRest)
+        assertEquals(second, runner.skippedRest?.timer)
         advanceTimeBy(2_001)
         runCurrent()
         assertEquals(null, runner.skippedRest)

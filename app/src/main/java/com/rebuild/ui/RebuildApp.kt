@@ -329,7 +329,7 @@ fun RebuildApp(
         val ringing = ringingSince?.takeIf { timer == null && !setupShown }
         // A rest skipped a moment ago keeps the bar, showing Undo where Skip was, until its window ends.
         val skipped = runner.skippedRest?.takeIf {
-            timer == null && ringing == null && !setupShown && it.workoutId == state.activeWorkoutId
+            timer == null && ringing == null && !setupShown && it.timer.workoutId == state.activeWorkoutId
         }
         LaunchedEffect(state.restTimer != null) { if (state.restTimer != null) runner.endUndoSkip() }
         // The shared bars come and go by Expand / Collapse (opaque bar): each is kept, with what it last showed, while
@@ -339,7 +339,7 @@ fun RebuildApp(
         val restFace: BarFace? = when {
             timer != null -> BarFace.Rest(timer)
             ringing != null -> BarFace.Alarm(ringing)
-            skipped != null -> BarFace.Skipped(skipped)
+            skipped != null -> BarFace.Skipped(skipped.timer, skipped.heightPx)
             else -> null
         }
         val lastRestFace = remember { arrayOfNulls<BarFace>(1) }
@@ -452,7 +452,8 @@ fun RebuildApp(
                                 is BarFace.Rest -> Box(Modifier.onGloballyPositioned {
                                     restBarTop = it.boundsInRoot().top
                                 }) { RestBar(env, shown.timer) }
-                                is BarFace.Skipped -> SkippedRestBar(env, shown.timer)
+                                is BarFace.Skipped -> SkippedRestBar(env, shown.timer,
+                                    minHeight = with(LocalDensity.current) { shown.heightPx.toDp() })
                                 is BarFace.Alarm -> RestAlarmBar(shown.since, clock, onStop = platform::stopRestAlarm)
                             }
                         }
@@ -1137,7 +1138,7 @@ private sealed interface BarFace {
     data class Rest(val timer: RestTimer) : BarFace
     data class Alarm(val since: Long) : BarFace
     /** A rest skipped a moment ago: the bar stays to offer Undo. */
-    data class Skipped(val timer: RestTimer) : BarFace
+    data class Skipped(val timer: RestTimer, val heightPx: Int) : BarFace
 }
 
 /**

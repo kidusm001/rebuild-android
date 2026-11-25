@@ -34,6 +34,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -42,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -52,6 +54,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rebuild.domain.Action
@@ -82,6 +85,7 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
     val pause = timer.shortPause
     val total = we?.restSeconds?.takeIf { it > 0 && !pause }
     var editing by rememberSaveable(timer.id) { mutableStateOf(false) }
+    var barHeight by remember { mutableIntStateOf(0) }
     val undoWindow = LocalAccessibilityManager.current?.calculateRecommendedTimeoutMillis(
         ActionRunner.UNDO_SKIP_MS, containsIcons = false, containsText = true, containsControls = true
     ) ?: ActionRunner.UNDO_SKIP_MS
@@ -132,7 +136,7 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
     // A floating signal-amber pill above the navigation, with a thin ink progress line along its foot. Decorative; the
     // countdown is what's spoken.
     // A full-width amber sheet docked above the navigation: rounded top corners, square bottom, edge to edge.
-    Box(Modifier.fillMaxWidth()) {
+    Box(Modifier.fillMaxWidth().onSizeChanged { barHeight = it.height }) {
         Surface(
             color = colors.primaryContainer, // fill: softened on dark
             contentColor = colors.onPrimaryContainer,
@@ -213,12 +217,14 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                 // Skipping ends this rest for good, so it's a labelled button rather than a bare icon beside Options.
                 FilledTonalButton(
                     onClick = {
+                        // Read before the tip goes: the bar offering Undo keeps the height it has now.
+                        val heldHeight = barHeight
                         if (tipSeenOnTimer) env.platform.dismissTip(Tip.REST_BAR)
                         // A skip with time left can be undone for a few seconds, from the bar itself; dismissing a
                         // finished (or all but finished) rest has nothing worth bringing back.
                         val skipped = timer.takeIf { it.deadline - env.clock() > UNDO_MIN_LEFT_MS }
                         env.runner.run(Action.SkipRest, onSaved = {
-                            if (skipped != null) env.runner.offerUndoSkip(skipped, undoWindow)
+                            if (skipped != null) env.runner.offerUndoSkip(skipped, undoWindow, heldHeight)
                         })
                     },
                     enabled = !env.runner.looksBusy(),
@@ -283,7 +289,7 @@ private const val UNDO_MIN_LEFT_MS = 5_000L
  * where the countdown was and Undo where Skip was. It collapses when the undo window ends.
  */
 @Composable
-internal fun SkippedRestBar(env: AppEnv, timer: RestTimer) {
+internal fun SkippedRestBar(env: AppEnv, timer: RestTimer, minHeight: Dp = 0.dp) {
     val colors = MaterialTheme.colorScheme
     val compact = compactLandscapeInput() || shortLandscapeWindow() || LocalDensity.current.fontScale > 1.3f
     val word = if (timer.shortPause) "Pause" else "Rest"
@@ -291,7 +297,8 @@ internal fun SkippedRestBar(env: AppEnv, timer: RestTimer) {
         color = colors.primaryContainer,
         contentColor = colors.onPrimaryContainer,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        modifier = Modifier.fillMaxWidth().testTag("rest-skipped")
+        // At least as tall as the bar it replaced (which may have carried a tip), so nothing above it moves.
+        modifier = Modifier.fillMaxWidth().heightIn(min = minHeight).testTag("rest-skipped")
     ) { InkPress {
         Row(
             Modifier.padding(start = 20.dp, end = 8.dp, top = if (compact) 2.dp else 12.dp,

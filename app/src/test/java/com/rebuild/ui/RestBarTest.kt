@@ -47,7 +47,7 @@ class RestBarTest {
         override val restAlert = MutableStateFlow(RestAlert())
         override fun setRestAlert(alert: RestAlert) { restAlert.value = alert }
         override val tips = MutableStateFlow(TipsState(enabled = false))
-        override fun dismissTip(tip: Tip) = Unit
+        override fun dismissTip(tip: Tip) { tips.value = tips.value.dismiss(tip) }
         override fun setTipsEnabled(enabled: Boolean) = Unit
         override fun resetTips() = Unit
         override fun previewRestAlert() = Unit
@@ -83,6 +83,17 @@ class RestBarTest {
         assertEquals(timer, repo.state.value.restTimer)
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("rest-skipped").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithTag("rest-bar").assertExists()
+    }
+
+    @Test fun skipKeepsTheHeightOfABarThatCarriedATip() {
+        platform.tips.value = TipsState(enabled = true)
+        val repo = resting()
+        compose.setContent { RebuildApp(repo, platform, clock = { now }) }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("tip-rest-bar").fetchSemanticsNodes().isNotEmpty() }
+        val restHeight = height("rest-bar")
+        compose.onNodeWithContentDescription("Skip rest").performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("rest-skipped").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(restHeight.value, height("rest-skipped").value, 0.5f)
     }
 
     @Test fun skippingTheLastSecondsOffersNoUndo() {

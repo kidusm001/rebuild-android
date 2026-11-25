@@ -119,17 +119,19 @@ class ActionRunner(
      * A rest just skipped from the rest bar, which keeps its place showing Undo until [offerUndoSkip]'s window ends;
      * null otherwise. Not saved: Undo is only for the moment after the tap.
      */
-    var skippedRest by mutableStateOf<RestTimer?>(null)
+    var skippedRest by mutableStateOf<SkippedRest?>(null)
         private set
     private var skipWindow: Job? = null
 
-    fun offerUndoSkip(timer: RestTimer, windowMs: Long) {
-        skippedRest = timer
+    /** [heightPx] is the rest bar's height when Skip was pressed, which the bar keeps while it offers Undo. */
+    fun offerUndoSkip(timer: RestTimer, windowMs: Long, heightPx: Int = 0) {
+        val offer = SkippedRest(timer, heightPx)
+        skippedRest = offer
         skipWindow?.cancel()
         // Wall clock, like the busy look: the window never follows the animator duration scale.
         skipWindow = viewModelScope.launch {
             delay(windowMs)
-            if (skippedRest == timer) skippedRest = null
+            if (skippedRest === offer) skippedRest = null
         }
     }
 
@@ -207,6 +209,9 @@ class ActionRunner(
         private const val RECEIPT_KEY = "receipt-pending"
     }
 }
+
+/** A rest skipped a moment ago, and how tall its bar was then. */
+data class SkippedRest(val timer: RestTimer, val heightPx: Int)
 
 /**
  * The busy look ([ActionRunner.showsBusy], or for [tag] only) for a control on the layer being composed. A hidden kept
