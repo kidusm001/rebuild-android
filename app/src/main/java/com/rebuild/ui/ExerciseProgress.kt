@@ -227,10 +227,10 @@ internal fun TopSetChart(
     ChartCard(modifier.testTag("top-set-card")) {
         Text("Heaviest set · $title", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
         val perLeg = all.map { it.perLeg }
-        Text("Your heaviest set each workout. Higher is more weight; " + when {
-            perLeg.all { it } -> "×8 is its reps per leg."
-            perLeg.any { it } -> "×8 is its reps, per leg where the readout says so."
-            else -> "×8 is its reps."
+        Text("Your heaviest set each workout. " + when {
+            perLeg.all { it } -> "×8 = reps per leg."
+            perLeg.any { it } -> "×8 = reps, per leg where the readout says so."
+            else -> "×8 = reps."
         },
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (choosable || splittable) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -465,7 +465,7 @@ private fun WorkoutKey(names: List<String>, color: androidx.compose.ui.graphics.
 
 /** Start, middle and end dates under a date-spaced chart, so a week in between can be read off it. */
 @Composable
-private fun DateAxis(from: LocalDate, to: LocalDate, days: Long, today: LocalDate, start: Dp) {
+internal fun DateAxis(from: LocalDate, to: LocalDate, days: Long, today: LocalDate, start: Dp) {
     val style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum", fontWeight = FontWeight.Normal)
     val color = MaterialTheme.colorScheme.onSurfaceVariant
     // The year only when the dates aren't all this year's.

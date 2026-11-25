@@ -67,8 +67,8 @@ import kotlinx.coroutines.delay
 enum class RestSound(val title: String, val detail: String) {
     BUZZ("Buzz", "A short double vibration"),
     LONG_BUZZ("Long buzz", "Vibrates for about five seconds"),
-    CHIME("Chime", "Your notification sound and a buzz. Silent mode mutes it."),
-    ALARM("Alarm", "Rings with your alarm sound until you tap Stop or open Rebuild, 5 minutes at most. It plays in silent mode, and through Do Not Disturb only if that allows alarms. Short pauses buzz instead."),
+    CHIME("Chime", "Notification sound and a buzz, muted in silent mode"),
+    ALARM("Alarm", "Rings until you stop it, up to 5 minutes. Plays in silent mode; short rests buzz instead."),
     SILENT("Silent", "Only the notification, with no sound or vibration")
 }
 

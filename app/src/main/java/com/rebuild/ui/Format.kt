@@ -162,13 +162,13 @@ internal fun weekdayName(weekday: Int, style: TextStyle = TextStyle.FULL): Strin
 internal fun AppState.phasePrescription(phase: Phase): String {
     val days = availableTemplates(phase).size
     val sets = when (phase) {
-        Phase.INTRO_ONE -> "1 working set per exercise"
-        Phase.INTRO_TWO, Phase.FIVE_TWO -> "2 working sets per exercise"
-        Phase.BASELINE -> "baseline sets (${weeklyBaselineSets()} weekly)"
+        Phase.INTRO_ONE -> "1 set per exercise"
+        Phase.INTRO_TWO, Phase.FIVE_TWO -> "2 sets per exercise"
+        Phase.BASELINE -> "${weeklyBaselineSets()} sets a week"
     }
     // A split sets the days; only the original plan's days follow the phase, so only there are they named here.
     val dayPart = if (activeSplitId == ORIGINAL_SPLIT) "${countLabel(days, "day")} a week · " else ""
-    return "$dayPart$sets · about ${phase.targetRir} reps in reserve"
+    return "$dayPart$sets · ${phase.targetRir} RIR"
 }
 
 /** The split's full weekly volume at Baseline, counting only the exercises its gear keeps. */
@@ -176,11 +176,11 @@ internal fun AppState.weeklyBaselineSets(): Int = availableTemplates(Phase.BASEL
     .flatMap { it.slots }.filter { it.exerciseFor(gear) != null }.sumOf { it.baselineSets }
 
 internal fun AppState.phaseGuidance(phase: Phase): String = when (phase) {
-    Phase.INTRO_ONE -> "Choose this after a long break or if you are unsure. Every set should feel comfortably submaximal."
-    Phase.INTRO_TWO -> "Choose this once single sets feel easy and you recover well between sessions."
-    Phase.FIVE_TWO -> if (activeSplitId == ORIGINAL_SPLIT) "Choose this when four days are routine and you are ready for the fifth day."
-        else "Choose this when two sets feel routine and you recover well between sessions."
-    Phase.BASELINE -> "Choose this only after gradually adding 2–4 weekly sets at a time toward the baseline."
+    Phase.INTRO_ONE -> "After a long break, or if unsure. Keep every set comfortable."
+    Phase.INTRO_TWO -> "Once single sets feel easy."
+    Phase.FIVE_TWO -> if (activeSplitId == ORIGINAL_SPLIT) "Once four days feel routine."
+        else "Once two sets feel routine."
+    Phase.BASELINE -> "After building up 2–4 weekly sets at a time."
 }
 
 internal fun phaseShort(phase: Phase): String = when (phase) {

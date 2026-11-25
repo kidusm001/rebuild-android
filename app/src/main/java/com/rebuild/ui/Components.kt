@@ -1024,8 +1024,8 @@ internal fun ledgerValueStyle(): TextStyle = MaterialTheme.typography.displaySma
 
 /**
  * A ledger value on one line: at [style] when it fits, otherwise a step smaller, down to [minScale] of its size. Only
- * if even that won't fit does it wrap, so nothing is ever cut off. "6 plates × 15" in a half-width cell at a larger
- * font size reads as one value instead of breaking across two big lines.
+ * if even that won't fit does it wrap, so nothing is ever cut off. "42.5 kg/DB × 10" in a half-width cell, or at a
+ * larger font size, reads as one value instead of breaking into "42.5 kg/DB" over "× 10".
  */
 @Composable
 internal fun FitText(
@@ -1034,7 +1034,17 @@ internal fun FitText(
     modifier: Modifier = Modifier,
     fontWeight: FontWeight? = null,
     color: Color = Color.Unspecified,
-    minScale: Float = 0.75f
+    minScale: Float = 0.6f
+) = FitText(androidx.compose.ui.text.AnnotatedString(text), style, modifier, fontWeight, color, minScale)
+
+@Composable
+internal fun FitText(
+    text: androidx.compose.ui.text.AnnotatedString,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    fontWeight: FontWeight? = null,
+    color: Color = Color.Unspecified,
+    minScale: Float = 0.6f
 ) {
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
     val styled = if (fontWeight != null) style.copy(fontWeight = fontWeight) else style
@@ -1177,7 +1187,9 @@ internal fun PillTab(
     role: Role = Role.Tab,
     enabled: Boolean = true,
     /** More than one line only where the label may wrap (large text in a narrow segment). */
-    maxLines: Int = 1
+    maxLines: Int = 1,
+    /** At large text, a label too wide for its share of a fixed row steps its size down to fit, to half at most. */
+    shrinkToFit: Boolean = false
 ) {
     val presses = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val pressed by presses.collectIsPressedAsState()
@@ -1202,10 +1214,17 @@ internal fun PillTab(
                 .indication(presses, androidx.compose.material3.ripple(
                     color = if (selected) selectedContentColor else Color.Unspecified))
         )
-        Text(label, style = MaterialTheme.typography.titleSmall, maxLines = maxLines, softWrap = maxLines > 1,
+        val style = MaterialTheme.typography.titleSmall
+        // Auto-size finds the fit by wrapping: one line allowed, so a second line means "too big, step down".
+        val fit = shrinkToFit && androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f
+        Text(label, style = style, maxLines = maxLines, softWrap = fit || maxLines > 1,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             color = if (selected) selectedContentColor else unselectedContentColor,
-            modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale }.padding(horizontal = 16.dp, vertical = 8.dp))
+            // Both bounds are in sp, which large text scales alike, so the floor is half of whatever size it starts at.
+            autoSize = if (fit) androidx.compose.foundation.text.TextAutoSize.StepBased(
+                minFontSize = style.fontSize * 0.5f, maxFontSize = style.fontSize) else null,
+            modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale }
+                .padding(horizontal = if (fit) 8.dp else 16.dp, vertical = 8.dp))
     }
 }
 

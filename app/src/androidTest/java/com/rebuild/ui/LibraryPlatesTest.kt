@@ -133,7 +133,7 @@ class LibraryPlatesTest {
         rule.onNodeWithText("More").performClick()
         rule.onNodeWithText("Exercises", substring = false).performClick()
         rule.onNodeWithTag("library-search").performTextReplacement("new custom name zzz")
-        rule.onNodeWithText("Add custom exercise").performScrollTo().performClick()
+        rule.onNodeWithText("New exercise").performScrollTo().performClick()
         rule.onNodeWithText("Name", substring = false).performTextInput("My cable row")
         rule.onNodeWithText("Equipment: ${Equipment.UNKNOWN.title}").performScrollTo().performClick()
         rule.onNodeWithText(Equipment.CABLE.title, substring = false).performClick()

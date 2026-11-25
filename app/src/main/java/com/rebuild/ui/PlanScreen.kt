@@ -124,7 +124,8 @@ internal fun PlanScreen(env: AppEnv, onNavigate: (String) -> Unit) {
                     SecondaryButton(
                         onClick = { onNavigate(Routes.PHASE) },
                         modifier = Modifier.heightIn(min = 48.dp).testTag("plan-change-phase")
-                    ) { Text("Change phase") }
+                            .semantics { contentDescription = "Change phase" }
+                    ) { Text("Change") }
                 }
                 Text(viewPhase.title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
                 Text(state.phasePrescription(viewPhase), style = MaterialTheme.typography.bodyMedium,
@@ -557,7 +558,7 @@ private fun YourPlanCard(state: com.rebuild.domain.AppState, onChange: () -> Uni
                 onClick = onChange,
                 modifier = Modifier.heightIn(min = 48.dp).testTag("plan-change-split")
                     .semantics { contentDescription = "Change split" }
-            ) { Text("Change split") }
+            ) { Text("Change") }
         }
         Text(split?.name ?: "Your plan", style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.semantics { heading() }.testTag("plan-split-name"))

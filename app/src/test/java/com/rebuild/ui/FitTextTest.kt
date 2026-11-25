@@ -55,13 +55,13 @@ class FitTextTest {
         val layout = layoutIn((full * 0.9f / density).toInt(), "6 plates × 15")
         val size = layout.layoutInput.style.fontSize.value
         assertTrue("shrank below 24 sp ($size)", size < 24f)
-        assertTrue("never below 75% ($size)", size >= 18f - 0.01f)
+        assertTrue("never below 60% ($size)", size >= 14.4f - 0.01f)
         assertEquals(1, layout.lineCount)
     }
 
     @Test fun textTooLongEvenAtTheSmallestSizeWrapsInsteadOfClipping() {
-        val layout = layoutIn(80, "12 plates × 15")
-        assertEquals(18f, layout.layoutInput.style.fontSize.value, 0.01f)
+        val layout = layoutIn(60, "12 plates × 15")
+        assertEquals(14.4f, layout.layoutInput.style.fontSize.value, 0.01f)
         assertTrue("wraps (${layout.lineCount} lines)", layout.lineCount > 1)
         assertTrue("nothing hidden", !layout.hasVisualOverflow)
     }

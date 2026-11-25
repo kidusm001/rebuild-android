@@ -483,7 +483,7 @@ internal fun TargetEditorFields(
     }
     if (swapLocked == null) {
         OutlinedButton(onClick = { browsing = true }) { Text("All exercises") }
-        TextButton(onClick = { addingCustom = true }) { Text("Add custom exercise") }
+        TextButton(onClick = { addingCustom = true }) { Text("New exercise") }
     }
     HorizontalDivider()
     // Cardio has a total time or distance instead of sets.

@@ -176,7 +176,7 @@ internal fun WeeklyMuscleSets(env: AppEnv) {
                     textAlign = TextAlign.End)
             }
         }
-        if (rows.isNotEmpty()) Text("Normal working sets · warm-ups excluded · primary muscle only",
+        if (rows.isNotEmpty()) Text("Working sets, main muscle only",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
