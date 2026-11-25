@@ -396,11 +396,13 @@ chip or pill in the accessibility provider.
 Native emulator geometry and semantics checks are evidence, not a claim of
 physical-device or TalkBack speech certification.
 
-Icons use the curated Lucide rounded-outline family: a 24 dp optical box,
-2-unit stroke and round caps/joins. Workout, history, plan and settings use
-dumbbell, history-clock, clipboard-list and sliders glyphs. Keep the visible tab
+Icons use the curated Phosphor Bold family: a 24 dp optical box with a rounded
+outline about 2.25 dp thick, matching the semibold label weight and holding up
+in dark mode, on the amber rest bar and beside 200% text. Workout, history, plan
+and settings use barbell, clock-counter-clockwise, clipboard-text and sliders
+glyphs. Don't mix in another family or another Phosphor weight. Keep the visible tab
 labels and selected pill/color; selection never depends on an icon alone.
 Utility icons share the same family and keep their existing accessible names
 and 48 dp interactive parents (distinct from Material's 40 dp visual button).
-The launcher uses the same dumbbell in Android's adaptive-icon safe zone.
+The launcher and splash use the same barbell in Android's adaptive-icon safe zone.
 See `docs/icons.md` for pinned provenance and packaged licensing.

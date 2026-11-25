@@ -1,21 +1,4 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-    <path android:fillColor="@android:color/transparent" android:strokeColor="#1F1B16"
-        android:strokeWidth="2" android:strokeLineCap="round" android:strokeLineJoin="round"
-        android:pathData="M9.0,2.0 H15.0 A1.0,1.0 0,0 1,16.0,3.0 V5.0 A1.0,1.0 0,0 1,15.0,6.0 H9.0 A1.0,1.0 0,0 1,8.0,5.0 V3.0 A1.0,1.0 0,0 1,9.0,2.0 Z" />
-    <path android:fillColor="@android:color/transparent" android:strokeColor="#1F1B16"
-        android:strokeWidth="2" android:strokeLineCap="round" android:strokeLineJoin="round"
-        android:pathData="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-    <path android:fillColor="@android:color/transparent" android:strokeColor="#1F1B16"
-        android:strokeWidth="2" android:strokeLineCap="round" android:strokeLineJoin="round"
-        android:pathData="M12 11h4" />
-    <path android:fillColor="@android:color/transparent" android:strokeColor="#1F1B16"
-        android:strokeWidth="2" android:strokeLineCap="round" android:strokeLineJoin="round"
-        android:pathData="M12 16h4" />
-    <path android:fillColor="@android:color/transparent" android:strokeColor="#1F1B16"
-        android:strokeWidth="2" android:strokeLineCap="round" android:strokeLineJoin="round"
-        android:pathData="M8 11h.01" />
-    <path android:fillColor="@android:color/transparent" android:strokeColor="#1F1B16"
-        android:strokeWidth="2" android:strokeLineCap="round" android:strokeLineJoin="round"
-        android:pathData="M8 16h.01" />
+    android:width="24dp" android:height="24dp" android:viewportWidth="256" android:viewportHeight="256">
+    <path android:fillColor="#1F1B16" android:pathData="M172,164a12,12,0,0,1-12,12H96a12,12,0,0,1,0-24h64A12,12,0,0,1,172,164Zm-12-52H96a12,12,0,0,0,0,24h64a12,12,0,0,0,0-24Zm60-64V216a20,20,0,0,1-20,20H56a20,20,0,0,1-20-20V48A20,20,0,0,1,56,28H90.53a51.88,51.88,0,0,1,74.94,0H200A20,20,0,0,1,220,48ZM100.29,60h55.42a28,28,0,0,0-55.42,0ZM196,52H178.59A52.13,52.13,0,0,1,180,64v8a12,12,0,0,1-12,12H88A12,12,0,0,1,76,72V64a52.13,52.13,0,0,1,1.41-12H60V212H196Z" />
 </vector>

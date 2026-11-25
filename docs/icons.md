@@ -1,69 +1,71 @@
 # Native icon assets
 
-Rebuild uses a curated subset of **Lucide 0.468.0**, pinned to official repository
-commit `f12b0de177fbc2a6795e99be065887e72b237123`:
-https://github.com/lucide-icons/lucide/tree/f12b0de177fbc2a6795e99be065887e72b237123/icons
+Rebuild uses a curated subset of **Phosphor Icons 2.1.1, Bold weight**, taken from
+the published `@phosphor-icons/core@2.1.1` package (`assets/bold/*-bold.svg`):
+https://github.com/phosphor-icons/core/tree/v2.1.1/assets/bold
 
 The SVG paths are converted to Android VectorDrawable without redrawing their
-geometry: 24-unit viewport, 2-unit stroke, round caps and joins, transparent fill.
-SVG lines, circles, polygons and rounded rectangles are equivalent path geometry.
-Compose supplies the current Material content tint. Back, Next, Undo skip and the
-row chevron mirror in RTL. Arrow-right, play, search, archive-restore, book-open and
-both chevrons (added in 0.1.6), arrow-up, arrow-down and undo-2 (added in
-0.1.8), library, calendar, calendar-plus and refresh-cw (added in 0.1.9), and pause
-and square (added in 0.1.10), were compared path-for-path with the pinned upstream
-SVGs. Calendar's, pause's and square's rounded rectangles are written as their
-equivalent paths.
+geometry: 256-unit viewport rendered in a 24 dp box, one filled path per glyph
+(Phosphor draws its outlines as filled shapes, not strokes). Bold's outline is
+24 units on the 256 grid, about 2.25 dp at 24 dp, so the icons sit at the weight
+of the app's semibold labels. Compose supplies the current Material content tint.
+Back, Next, Undo skip and the row chevron mirror in RTL (`autoMirrored`).
 
-| Purpose | Upstream SVG |
-| --- | --- |
-| Today/workout | dumbbell |
-| History | history |
-| Plan / target details | clipboard-list |
-| More/settings | sliders-horizontal |
-| Back | arrow-left |
-| Next exercise | arrow-right |
-| Correction/plan edit | pencil |
-| Workout note | notebook-pen |
-| Rest extension | alarm-clock-plus |
-| Skip rest / dismiss expiry | skip-forward / x |
-| Options | ellipsis-vertical |
-| Completed target | check |
-| Set target adjustment | minus / plus |
-| Android rest notification | timer |
-| Start / resume workout | play |
-| Library search / Browse exercises | search |
-| Backup and restore | archive-restore |
-| Training guidance | book-open |
-| Grouped More rows | chevron-right |
-| Library filter menus | chevron-down |
-| Move exercise up / down (this workout only) | arrow-up / arrow-down |
-| Undo skip | undo-2 |
-| Add exercise / Start empty workout | plus |
-| Skip today | skip-forward |
-| Remove added exercise / dismiss notice | x |
-| Save to plan | clipboard-list |
-| Your routines / Save as routine | library |
-| Add a routine to a weekly plan | calendar-plus |
-| Change a routine's day | calendar |
-| Update a copy from the library | refresh-cw |
-| Stopwatch / cardio Start rest / stopwatch strip | timer |
-| Pause stopwatch | pause |
-| Stop stopwatch | square |
-| Resume stopwatch | play |
-| Discard a stopwatch effort | x |
+Phosphor replaced Lucide 0.468 after 0.4.1. Resource names were kept so no call
+site changed; the table maps each resource to its upstream Phosphor icon.
+
+| Resource | Purpose | Phosphor icon |
+| --- | --- | --- |
+| `ic_dumbbell` | Today/workout, Exercises | barbell |
+| `ic_history` | History | clock-counter-clockwise |
+| `ic_clipboard_list` | Plan / target details / Save to plan | clipboard-text |
+| `ic_sliders_horizontal` | More/settings, training phase | sliders-horizontal |
+| `ic_arrow_left` | Back | arrow-left |
+| `ic_arrow_right` | Next exercise | arrow-right |
+| `ic_arrow_up` / `ic_arrow_down` | Move exercise up / down | arrow-up / arrow-down |
+| `ic_pencil` | Correction/plan edit | pencil-simple |
+| `ic_notebook_pen` | Workout and exercise note | note-pencil |
+| `ic_alarm_clock_plus` | (unused) rest extension | alarm |
+| `ic_skip_forward` | Skip rest / skip today | skip-forward |
+| `ic_x` | Dismiss, remove, discard | x |
+| `ic_ellipsis_vertical` | Options | dots-three-vertical |
+| `ic_check` | Completed target | check |
+| `ic_minus` / `ic_plus` | Set target adjustment, add exercise | minus / plus |
+| `ic_rest` | Rest notification, stopwatch | timer |
+| `ic_play` | Start / resume workout or stopwatch | play |
+| `ic_pause` | Pause stopwatch | pause |
+| `ic_square` | Stop stopwatch | stop |
+| `ic_search` | Library search / Browse exercises | magnifying-glass |
+| `ic_archive_restore` | Backup and restore | box-arrow-up |
+| `ic_book_open` | Training guidance | book-open |
+| `ic_chevron_right` | Grouped More rows | caret-right |
+| `ic_chevron_down` / `ic_chevron_up` | Filter menus, expanders | caret-down / caret-up |
+| `ic_undo_2` | Undo skip | arrow-u-up-left |
+| `ic_library` | Your routines / Save as routine | books |
+| `ic_calendar` | Change a routine's day | calendar-blank |
+| `ic_calendar_plus` | Add a routine to a weekly plan | calendar-plus |
+| `ic_refresh_cw` | Update a copy from the library | arrows-clockwise |
+| `ic_building` | Setup: gym | building |
+| `ic_person_standing` | Setup: bodyweight | person-simple |
+| `ic_smartphone` | Setup: stays on this phone | device-mobile |
+| `ic_lock` | Setup: no pressure | lock |
+| `ic_bell` | Setup: rest alerts | bell |
+
+`calendar-blank` is used instead of Phosphor's `calendar`, which prints a fixed
+"12" inside the grid.
 
 The existing labeled tabs, selected pill/color and 48 dp interactive parents are
-unchanged. Symbols render at 24 dp regardless of font scaling. No new icon font,
-network access or runtime icon dependency is used; the unused extended Material
-icon dependency was removed.
+unchanged. Symbols render at 24 dp regardless of font scaling. No icon font,
+network access or runtime icon dependency is used.
 
-The adaptive launcher uses the same dumbbell paths centered within Android's safe
-zone on the existing warm-amber background. Its foreground is separate from the
-background; the rest notification remains a monochrome transparent small icon.
-The pre-26 fallback is also a vector, although the app's minimum SDK is 26.
+The adaptive launcher and splash icon use the same barbell path, scaled from the
+256 grid into a 54.4 dp square centered on the 108 dp canvas (the glyph itself is
+about 51 x 34 dp, inside Android's 66 dp safe circle) on the existing warm-amber
+background. The foreground is separate from the background;
+the rest notification remains a monochrome transparent small icon. The pre-26
+fallback is also a vector, although the app's minimum SDK is 26.
 
-Lucide is ISC licensed, with portions derived from Feather (MIT). The upstream
-copyright and permission notice is included verbatim in
-`app/src/main/res/raw/lucide_license.txt`, packaged in the APK. Only the listed
-assets are included, not an unreviewed icon bundle.
+Phosphor Icons is MIT licensed. Its copyright and permission notice is included
+verbatim in `app/src/main/assets/licenses/Phosphor-MIT.txt`, packaged in the APK
+(assets are not removed by `shrinkResources`, unlike unreferenced `res/raw` files).
+Only the listed assets are included, not an unreviewed icon bundle.
