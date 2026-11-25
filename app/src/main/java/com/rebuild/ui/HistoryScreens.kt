@@ -20,6 +20,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -132,13 +133,13 @@ internal fun HistoryScreen(
     val finished = env.state.workouts.filter { it.finishedAt != null }.sortedByDescending { it.startedAt }
     ScreenScaffold(title = "History") {
         val tab = pager.currentPage
-        val tabs = @Composable {
+        val tabs = @Composable { style: androidx.compose.ui.text.TextStyle ->
             val selected = MaterialTheme.colorScheme.onSecondaryContainer
             val unselected = MaterialTheme.colorScheme.onSurfaceVariant
             HISTORY_TABS.forEachIndexed { i, label ->
                 PillTab(selected = tab == i, onClick = { scope.launch { pager.animateScrollToPage(i, animationSpec = Motion.pageSpec()) } }, label = label,
                     selectedContentColor = selected, unselectedContentColor = unselected,
-                    shrinkToFit = true, modifier = Modifier.testTag("history-tab-$i"))
+                    style = style, labelPadding = 8.dp, modifier = Modifier.testTag("history-tab-$i"))
             }
         }
         // The indicator slides with the finger, between the page it leaves and the one it's heading to.
@@ -161,12 +162,14 @@ internal fun HistoryScreen(
                 )
             }
         }
-        // All three tabs always show: at large text a label too wide for its third steps its size down rather than
+        // All three tabs always show: at large text the labels step down together to fit their thirds, rather than
         // the row scrolling a tab half out of view.
-        val track = Modifier.readableWidth().padding(horizontal = 20.dp, vertical = 4.dp).clip(CircleShape)
         val trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        TabRow(selectedTabIndex = tab, modifier = track, indicator = indicator, divider = {},
-            containerColor = trackColor) { tabs() }
+        BoxWithConstraints(Modifier.readableWidth().padding(horizontal = 20.dp, vertical = 4.dp)) {
+            val style = fittedTabStyle(HISTORY_TABS, constraints.maxWidth, padding = 8.dp)
+            TabRow(selectedTabIndex = tab, modifier = Modifier.fillMaxWidth().clip(CircleShape), indicator = indicator,
+                divider = {}, containerColor = trackColor) { tabs(style) }
+        }
         // A horizontal drag on a chart reads the chart; anywhere else on a page it turns the page.
         // Every page stays composed, so a tap two tabs over moves through a built page instead of stalling on it.
         HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth().testTag("history-pager"), key = { it },

@@ -140,8 +140,9 @@ Happy Scale, Libra, Strong and Hevy:
   and gives a light tick as the selection moves. A readout above the chart
   names it: "83.7 kg average · Mon 31 Aug – Sun 6 Sep · 3 days", or
   "27.5 kg/DB × 2 · 15 Sep 2026 · 2 sets". Until the first touch it shows the
-  latest point and a small "Touch to read". The readout keeps its height, so
-  touching never moves the chart, and vertical drags still scroll the page.
+  latest point and a small "Touch to read" beside the value, so the line under
+  them has the card's full width (two lines at large text). The readout keeps
+  its height, so touching never moves the chart, and vertical drags still scroll the page.
   Screen readers use the chart like a slider: swiping up or down steps through
   the points and reads each one.
 
@@ -327,7 +328,7 @@ their row supplies the words. History groups workouts by month with factual
 working-set counts; its detail is a read-first set table with explicit corrections.
 A finished workout's detail states whether it counts for its week. A partial one
 with working sets on any exercise, added ones included, offers the explicit
-"Count as … done for its week" checkbox, which never adds sets; an extra workout
+"Count toward the week of …" checkbox, which never adds sets; an extra workout
 says it is outside the plan. A workout of only warm-ups lists them beside its
 0 working sets, so saved work never looks empty.
 Exercise charts plot normal working sets only. When there are drop or rest-pause
@@ -336,7 +337,7 @@ listed with their stages.
 Exercise progress leads with the latest logged session and draws older sessions at
 lower emphasis. Plan shows weekly working sets as a small ledger (this phase,
 established baseline, advisory upper) before numbered day slots. The library keeps
-search, filters, result count and Add custom exercise above its open list; More
+search, filters, result count and New exercise above its open list; More
 groups Training, Your data and Rest alerts, ending with the installed version.
 
 The visual council drew pattern inspiration from the aligned previous/current

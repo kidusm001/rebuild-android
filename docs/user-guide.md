@@ -90,7 +90,7 @@ A finished workout counts by itself when it met every working target and
 A finished drop or rest-pause set counts as one set. Empty, warm-up-only and
 discarded workouts never count. A finished partial workout with real working sets
 or efforts, on any of its exercises, shows **Partial · not counted** until you choose
-**Count as … done for its week**, either when finishing or later in History. That
+**Count toward the week of …**, either when finishing or later in History. That
 choice never adds or changes sets, and you can undo it. Repeating a done workout is
 allowed and never counts twice.
 
@@ -125,7 +125,7 @@ workout actions) appends an exercise from the shared library picker. It is
 **optional today**: it never blocks finishing, never counts toward the routine's
 own targets and has no target unless you give it an optional goal. Its working
 sets are real effort, so if they are all a partial workout has, you can still
-choose Count as … done for its week; it never makes the routine done by itself.
+choose Count toward the week of …; it never makes the routine done by itself.
 Choosing an exercise that is already in the workout opens that entry instead of
 adding a copy. **Reorder exercises** moves exercises up or down for this workout
 only; the plan keeps its own order. **Remove from this workout** takes an added
@@ -391,7 +391,7 @@ converted, and Last time, records and gains compare only sets of the same unit. 
 new and unpinned exercises.
 
 **Bodyweight.** Log a weigh-in from Today, the finish receipt or History › Body, in kg or lb, with an optional note.
-History › Body › Trend and weigh-ins shows every reading as a hollow dot and the weekly average as a line. The average
+History › Body › Weigh-ins shows every reading as a hollow dot and the weekly average as a line. The average
 gives each day equal weight, and the line breaks over a missed week instead of bridging it. The summary leads with
 this week once it has three weigh-ins, otherwise with last week, and shows the change over four weeks only when both
 weeks have readings.

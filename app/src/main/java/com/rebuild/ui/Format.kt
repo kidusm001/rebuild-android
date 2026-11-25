@@ -162,9 +162,9 @@ internal fun weekdayName(weekday: Int, style: TextStyle = TextStyle.FULL): Strin
 internal fun AppState.phasePrescription(phase: Phase): String {
     val days = availableTemplates(phase).size
     val sets = when (phase) {
-        Phase.INTRO_ONE -> "1 set per exercise"
-        Phase.INTRO_TWO, Phase.FIVE_TWO -> "2 sets per exercise"
-        Phase.BASELINE -> "${weeklyBaselineSets()} sets a week"
+        Phase.INTRO_ONE -> "1 working set per exercise"
+        Phase.INTRO_TWO, Phase.FIVE_TWO -> "2 working sets per exercise"
+        Phase.BASELINE -> "${weeklyBaselineSets()} working sets a week"
     }
     // A split sets the days; only the original plan's days follow the phase, so only there are they named here.
     val dayPart = if (activeSplitId == ORIGINAL_SPLIT) "${countLabel(days, "day")} a week · " else ""

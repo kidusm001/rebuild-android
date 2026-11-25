@@ -30,6 +30,6 @@ Preconditions:
 
 ## Gotchas
 
-- A fresh install has no previous sets to prefill from; with history seeded, the fields start filled ("prefilled from last time"), and `log-set` replaces them.
+- A fresh install has no previous sets to prefill from; with history seeded, the fields start filled from last time's sets (the label just says "Set 1 of 2"; other sources, such as "prefilled from this workout", are named), and `log-set` replaces them.
 - The rest's alert (sound, edge light, Up next) depends on More › Rest alert; see rest-alerts.
 - `set-rest` takes only the quick values: 30, 60, 90, 120, 180, 300.

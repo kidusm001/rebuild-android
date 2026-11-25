@@ -102,6 +102,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 
@@ -1188,8 +1189,9 @@ internal fun PillTab(
     enabled: Boolean = true,
     /** More than one line only where the label may wrap (large text in a narrow segment). */
     maxLines: Int = 1,
-    /** At large text, a label too wide for its share of a fixed row steps its size down to fit, to half at most. */
-    shrinkToFit: Boolean = false
+    /** The label's style: [fittedTabStyle] for a row whose labels must all fit on one line. */
+    style: TextStyle = MaterialTheme.typography.titleSmall,
+    labelPadding: Dp = 16.dp
 ) {
     val presses = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val pressed by presses.collectIsPressedAsState()
@@ -1214,17 +1216,32 @@ internal fun PillTab(
                 .indication(presses, androidx.compose.material3.ripple(
                     color = if (selected) selectedContentColor else Color.Unspecified))
         )
-        val style = MaterialTheme.typography.titleSmall
-        // Auto-size finds the fit by wrapping: one line allowed, so a second line means "too big, step down".
-        val fit = shrinkToFit && androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f
-        Text(label, style = style, maxLines = maxLines, softWrap = fit || maxLines > 1,
+        Text(label, style = style, maxLines = maxLines, softWrap = maxLines > 1,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             color = if (selected) selectedContentColor else unselectedContentColor,
-            // Both bounds are in sp, which large text scales alike, so the floor is half of whatever size it starts at.
-            autoSize = if (fit) androidx.compose.foundation.text.TextAutoSize.StepBased(
-                minFontSize = style.fontSize * 0.5f, maxFontSize = style.fontSize) else null,
             modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale }
-                .padding(horizontal = if (fit) 8.dp else 16.dp, vertical = 8.dp))
+                .padding(horizontal = labelPadding, vertical = 8.dp))
+    }
+}
+
+/**
+ * One label style for a row of tabs sharing [width] px equally, each label [padding] in from both sides: titleSmall
+ * when every label fits its share, otherwise all stepped down together (to half at most) so each stays whole on one
+ * line and the tabs still match. Line height scales with the size, so the row is as tall as the labels it holds.
+ */
+@Composable
+internal fun fittedTabStyle(labels: List<String>, width: Int, padding: Dp): TextStyle {
+    val base = MaterialTheme.typography.titleSmall
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val pad = with(androidx.compose.ui.platform.LocalDensity.current) { (padding * 2).roundToPx() }
+    return remember(labels, width, base, pad) {
+        val room = width / labels.size - pad
+        fun widest(scale: Float) = labels.maxOf {
+            measurer.measure(it, base.scaled(scale), maxLines = 1, softWrap = false).size.width
+        }
+        var scale = 1f
+        while (scale > 0.5f && widest(scale) > room) scale -= 0.05f
+        base.scaled(scale.coerceAtLeast(0.5f))
     }
 }
 
