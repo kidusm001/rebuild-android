@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.platform.testTag
@@ -86,6 +87,7 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
     val total = we?.restSeconds?.takeIf { it > 0 && !pause }
     var editing by rememberSaveable(timer.id) { mutableStateOf(false) }
     var barHeight by remember { mutableIntStateOf(0) }
+    val window = barWindow()
     val undoWindow = LocalAccessibilityManager.current?.calculateRecommendedTimeoutMillis(
         ActionRunner.UNDO_SKIP_MS, containsIcons = false, containsText = true, containsControls = true
     ) ?: ActionRunner.UNDO_SKIP_MS
@@ -224,7 +226,7 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                         // finished (or all but finished) rest has nothing worth bringing back.
                         val skipped = timer.takeIf { it.deadline - env.clock() > UNDO_MIN_LEFT_MS }
                         env.runner.run(Action.SkipRest, onSaved = {
-                            if (skipped != null) env.runner.offerUndoSkip(skipped, undoWindow, heldHeight)
+                            if (skipped != null) env.runner.offerUndoSkip(skipped, undoWindow, heldHeight, window)
                         })
                     },
                     enabled = !env.runner.looksBusy(),
@@ -279,6 +281,12 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
             }
         )
     }
+}
+
+/** What the rest bar's height depends on: the window's size and orientation and the text scale. */
+@Composable
+internal fun barWindow(): String = LocalConfiguration.current.let {
+    "${it.orientation}:${it.screenWidthDp}x${it.screenHeightDp}@${it.fontScale}"
 }
 
 /** Below this much time left, a skip just ends the rest: Undo would bring back a rest that's already over. */

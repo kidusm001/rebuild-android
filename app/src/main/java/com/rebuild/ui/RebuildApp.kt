@@ -339,7 +339,8 @@ fun RebuildApp(
         val restFace: BarFace? = when {
             timer != null -> BarFace.Rest(timer)
             ringing != null -> BarFace.Alarm(ringing)
-            skipped != null -> BarFace.Skipped(skipped.timer, skipped.heightPx)
+            // The held height only fits the window it was measured in; after a rotation the bar sizes itself.
+            skipped != null -> BarFace.Skipped(skipped.timer, if (skipped.heldIn == barWindow()) skipped.heightPx else 0)
             else -> null
         }
         val lastRestFace = remember { arrayOfNulls<BarFace>(1) }

@@ -96,6 +96,23 @@ class RestBarTest {
         assertEquals(restHeight.value, height("rest-skipped").value, 0.5f)
     }
 
+    @Test fun aHeldHeightFromAnotherWindowIsDropped() {
+        platform.tips.value = TipsState(enabled = true)
+        val repo = resting()
+        compose.setContent { RebuildApp(repo, platform, clock = { now }) }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("tip-rest-bar").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("Skip rest").performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("rest-skipped").fetchSemanticsNodes().isNotEmpty() }
+        val held = height("rest-skipped")
+        // As if the phone had been rotated: the same skip, measured in some other window.
+        val runner = compose.activity.viewModelStore.keys().map { compose.activity.viewModelStore[it] }
+            .filterIsInstance<ActionRunner>().single()
+        val offer = requireNotNull(runner.skippedRest)
+        compose.runOnUiThread { runner.offerUndoSkip(offer.timer, 60_000, offer.heightPx, heldIn = "elsewhere") }
+        compose.waitForIdle()
+        assert(height("rest-skipped") < held) { "the bar kept the old window's height" }
+    }
+
     @Test fun skippingTheLastSecondsOffersNoUndo() {
         val repo = resting()
         val timer = requireNotNull(repo.state.value.restTimer)
