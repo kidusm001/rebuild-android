@@ -79,11 +79,13 @@ class RestAlertDeviceTest {
         val repo = FakeRepository(seedState(Phase.INTRO_ONE))
         runBlocking { repo.execute(Action.StartWorkout("upper-a", FIXED_NOW)) }
         val workout = repo.state.value.activeWorkout!!
-        val ends = System.currentTimeMillis() + 1_000
+        // A fixed wall clock: with the real one, a slow launch on CI made the rest look long over before the screen
+        // was up, so it was never announced and the flash never came.
+        val ends = FIXED_NOW + 1_000
         repo.replace(repo.state.value.copy(restTimer = RestTimer("t1", workout.id, workout.exercises.first().id, ends)))
         // Time is stepped by hand, so the check sees the flash while it lasts rather than racing a fast clock.
         rule.mainClock.autoAdvance = false
-        rule.setContent { RebuildApp(repo, platform) }
+        rule.setContent { RebuildApp(repo, platform, clock = { FIXED_NOW }) }
         rule.mainClock.advanceTimeBy(1_500)
         rule.onNodeWithTag("rest-end-overlay").assertExists()
         assertTrue("announce" in platform.calls)
