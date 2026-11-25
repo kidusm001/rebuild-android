@@ -10,8 +10,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rebuild.domain.Action
 import com.rebuild.domain.AppRepository
+import com.rebuild.domain.RestTimer
 import com.rebuild.ui.theme.Motion
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -113,6 +115,34 @@ class ActionRunner(
     private val errorChannel = Channel<String>(Channel.BUFFERED)
     val errors = errorChannel.receiveAsFlow()
 
+    /**
+     * A rest just skipped from the rest bar, which keeps its place showing Undo until [offerUndoSkip]'s window ends;
+     * null otherwise. Not saved: Undo is only for the moment after the tap.
+     */
+    var skippedRest by mutableStateOf<SkippedRest?>(null)
+        private set
+    private var skipWindow: Job? = null
+
+    /**
+     * [heightPx] is the rest bar's height when Skip was pressed, measured in the window described by [heldIn]; the bar
+     * keeps it while it offers Undo, unless the window has changed since (a rotation, say).
+     */
+    fun offerUndoSkip(timer: RestTimer, windowMs: Long, heightPx: Int = 0, heldIn: String = "") {
+        val offer = SkippedRest(timer, heightPx, heldIn)
+        skippedRest = offer
+        skipWindow?.cancel()
+        // Wall clock, like the busy look: the window never follows the animator duration scale.
+        skipWindow = viewModelScope.launch {
+            delay(windowMs)
+            if (skippedRest === offer) skippedRest = null
+        }
+    }
+
+    fun endUndoSkip() {
+        skipWindow?.cancel()
+        skippedRest = null
+    }
+
     /** Whether the control tagged [tag] should show its busy look ("Saving…") now. */
     fun showsBusy(tag: String): Boolean = showsBusy && busyTag == tag
 
@@ -175,11 +205,16 @@ class ActionRunner(
     }
 
     companion object {
+        /** How long a skipped rest offers Undo; screen readers stretch it to the user's own timeout. */
+        const val UNDO_SKIP_MS = 4_000L
         /** Guard kept after logging a new set; long enough to swallow a double tap, short enough to go unnoticed. */
         const val NEW_SET_COOLDOWN_MS = 500L
         private const val RECEIPT_KEY = "receipt-pending"
     }
 }
+
+/** A rest skipped a moment ago, how tall its bar was then, and the window it was measured in ([barWindow]). */
+data class SkippedRest(val timer: RestTimer, val heightPx: Int, val heldIn: String = "")
 
 /**
  * The busy look ([ActionRunner.showsBusy], or for [tag] only) for a control on the layer being composed. A hidden kept

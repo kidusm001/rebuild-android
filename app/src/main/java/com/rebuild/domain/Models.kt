@@ -880,6 +880,11 @@ sealed interface Action {
     data object SkipRest : Action
     /** Ends this rest if it is still the running one; a rest started since is left alone. */
     data class SkipRestOf(val timerId: String) : Action
+    /**
+     * Undoes a Skip: brings [timer] back with its original deadline. Nothing changes when another rest is already
+     * running or [timer] would have ended by [now].
+     */
+    data class RestoreRest(val timer: RestTimer, val now: Long) : Action
     data class MarkBackup(val revision: Long, val now: Long) : Action
 }
 

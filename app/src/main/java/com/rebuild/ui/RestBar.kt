@@ -34,6 +34,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -42,6 +43,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -49,7 +53,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rebuild.domain.Action
@@ -80,9 +86,13 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
     val pause = timer.shortPause
     val total = we?.restSeconds?.takeIf { it > 0 && !pause }
     var editing by rememberSaveable(timer.id) { mutableStateOf(false) }
+    var barHeight by remember { mutableIntStateOf(0) }
+    val window = barWindow()
+    val undoWindow = LocalAccessibilityManager.current?.calculateRecommendedTimeoutMillis(
+        ActionRunner.UNDO_SKIP_MS, containsIcons = false, containsText = true, containsControls = true
+    ) ?: ActionRunner.UNDO_SKIP_MS
     var options by rememberSaveable(timer.id) { mutableStateOf(false) }
-    val compactLandscape = compactLandscapeInput()
-    val compact = compactLandscape || LocalDensity.current.fontScale > 1.3f
+    val compact = compactLandscapeInput() || shortLandscapeWindow() || LocalDensity.current.fontScale > 1.3f
 
     fun adjust(deltaMs: Long) {
         env.runner.run(restChange(timer, timer.deadline + deltaMs, env.clock()))
@@ -128,7 +138,7 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
     // A floating signal-amber pill above the navigation, with a thin ink progress line along its foot. Decorative; the
     // countdown is what's spoken.
     // A full-width amber sheet docked above the navigation: rounded top corners, square bottom, edge to edge.
-    Box(Modifier.fillMaxWidth()) {
+    Box(Modifier.fillMaxWidth().onSizeChanged { barHeight = it.height }) {
         Surface(
             color = colors.primaryContainer, // fill: softened on dark
             contentColor = colors.onPrimaryContainer,
@@ -166,14 +176,20 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                     val word = if (pause) "Pause" else "Rest"
                     val note = limitation?.let { " · $it" } ?: ""
                     val time = if (remaining > 0) formatRest(remaining) else "Done"
-                    // Short windows and large text keep the bar to one line, so it never squeezes the entry: the
-                    // countdown stays whole and the alert limitation moves to Options (and to TalkBack).
-                    // Compact: the countdown alone, in numerals, so it is never the part that gets squeezed out.
-                    if (compact) Text("$word $time", style = MaterialTheme.typography.titleLarge.copy(fontFamily = Numerals),
-                        maxLines = 1, softWrap = false,
-                        modifier = Modifier.semantics {
-                            contentDescription = "$word $time" + (limitation?.let { ", $it" } ?: "")
-                        })
+                    // Short windows and large text keep the bar to one line, so it never squeezes the entry. The
+                    // countdown stays whole; an alert limitation follows it and is the part that gets cut short.
+                    // The time keeps its text in the merged status (tests and TalkBack read it there); its description
+                    // already carries the limitation, so the visible note is not read a second time.
+                    if (compact) Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("$word $time", style = MaterialTheme.typography.titleLarge.copy(fontFamily = Numerals),
+                            maxLines = 1, softWrap = false,
+                            modifier = Modifier.semantics {
+                                contentDescription = "$word $time" + (limitation?.let { ", $it" } ?: "")
+                            })
+                        if (note.isNotEmpty()) Text(note, style = MaterialTheme.typography.labelLarge, maxLines = 1,
+                            softWrap = false, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false).clearAndSetSemantics {})
+                    }
                     else {
                         Text(word + note, style = overlineStyle())
                         Text(time, style = MaterialTheme.typography.displayMedium)
@@ -195,14 +211,23 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
                         enabled = !env.runner.looksBusy(),
                         colors = quiet,
                         contentPadding = PaddingValues(horizontal = if (compact) 10.dp else 14.dp),
-                        modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Add 30 seconds" }
+                        // Twice the usual gap before Skip, so a thumb aiming for +30 s doesn't end the rest.
+                        modifier = Modifier.padding(end = 6.dp).heightIn(min = 48.dp)
+                            .semantics { contentDescription = "Add 30 seconds" }
                     ) { Text(if (compact) "+30" else "+30 s", maxLines = 1, softWrap = false) }
                 }
                 // Skipping ends this rest for good, so it's a labelled button rather than a bare icon beside Options.
                 FilledTonalButton(
                     onClick = {
+                        // Read before the tip goes: the bar offering Undo keeps the height it has now.
+                        val heldHeight = barHeight
                         if (tipSeenOnTimer) env.platform.dismissTip(Tip.REST_BAR)
-                        env.runner.run(Action.SkipRest)
+                        // A skip with time left can be undone for a few seconds, from the bar itself; dismissing a
+                        // finished (or all but finished) rest has nothing worth bringing back.
+                        val skipped = timer.takeIf { it.deadline - env.clock() > UNDO_MIN_LEFT_MS }
+                        env.runner.run(Action.SkipRest, onSaved = {
+                            if (skipped != null) env.runner.offerUndoSkip(skipped, undoWindow, heldHeight, window)
+                        })
                     },
                     enabled = !env.runner.looksBusy(),
                     colors = strong,
@@ -256,6 +281,67 @@ internal fun RestBar(env: AppEnv, timer: RestTimer) {
             }
         )
     }
+}
+
+/** What the rest bar's height depends on: the window's size and orientation and the text scale. */
+@Composable
+internal fun barWindow(): String = LocalConfiguration.current.let {
+    "${it.orientation}:${it.screenWidthDp}x${it.screenHeightDp}@${it.fontScale}"
+}
+
+/** Below this much time left, a skip just ends the rest: Undo would bring back a rest that's already over. */
+private const val UNDO_MIN_LEFT_MS = 5_000L
+
+/**
+ * The rest bar a moment after Skip: the same amber sheet, the same height (so the dock doesn't move), with "Skipped"
+ * where the countdown was and Undo where Skip was. It collapses when the undo window ends.
+ */
+@Composable
+internal fun SkippedRestBar(env: AppEnv, timer: RestTimer, minHeight: Dp = 0.dp) {
+    val colors = MaterialTheme.colorScheme
+    val compact = compactLandscapeInput() || shortLandscapeWindow() || LocalDensity.current.fontScale > 1.3f
+    val word = if (timer.shortPause) "Pause" else "Rest"
+    Surface(
+        color = colors.primaryContainer,
+        contentColor = colors.onPrimaryContainer,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        // At least as tall as the bar it replaced (which may have carried a tip), so nothing above it moves.
+        modifier = Modifier.fillMaxWidth().heightIn(min = minHeight).testTag("rest-skipped")
+    ) { InkPress {
+        Row(
+            Modifier.padding(start = 20.dp, end = 8.dp, top = if (compact) 2.dp else 12.dp,
+                bottom = if (compact) 2.dp else 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Column(Modifier.weight(1f).semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }) {
+                if (compact) Text("$word skipped", style = MaterialTheme.typography.titleLarge, maxLines = 1,
+                    softWrap = false, overflow = TextOverflow.Ellipsis)
+                else {
+                    Text(word, style = overlineStyle())
+                    Text("Skipped", style = MaterialTheme.typography.displayMedium, maxLines = 1, softWrap = false,
+                        overflow = TextOverflow.Ellipsis)
+                }
+            }
+            FilledTonalButton(
+                onClick = {
+                    env.runner.run(Action.RestoreRest(timer, env.clock()), onSaved = { env.runner.endUndoSkip() })
+                },
+                enabled = !env.runner.looksBusy(),
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = colors.onPrimaryContainer,
+                    contentColor = colors.primaryContainer
+                ),
+                contentPadding = PaddingValues(horizontal = 14.dp),
+                modifier = Modifier.heightIn(min = 48.dp).semantics {
+                    contentDescription = if (timer.shortPause) "Undo skip, bring the pause back"
+                        else "Undo skip, bring the rest back"
+                }
+            ) { Text("Undo", maxLines = 1) }
+            // Where Options sat, so Undo lands under the thumb that just pressed Skip.
+            Box(Modifier.size(48.dp))
+        }
+    } }
 }
 
 /**

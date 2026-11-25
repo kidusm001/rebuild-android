@@ -97,10 +97,15 @@ read the set by its own first stage; drops are never plotted. The set's editor l
 The rest bar is a full-width signal-amber sheet docked above the navigation (rounded
 top, square bottom): a small "Rest" label over a large condensed countdown, a tonal
 "+30 s", an ink Skip pill and Options, with a thin progress line along its foot.
-−30 s and Set time (minute and second wheels) live in Options.
+Skip sits a wider gap from +30 s. Skipping a rest with more than five seconds left
+keeps the bar in place for four seconds (longer if TalkBack asks for it), showing
+"Skipped" where the countdown was and Undo where Skip was; Undo brings back the same
+deadline, then the bar collapses as usual. −30 s and Set time (minute and second
+wheels) live in Options.
 Leaving the app during a rest shows a picture-in-picture countdown and an ongoing
-countdown notification. At text above 130% or in a short landscape window the bar
-folds into one line ("Rest 2:30 · alerts off") so it never takes the workspace.
+countdown notification. At text above 130% or in a short landscape window (under
+480 dp tall, keyboard or not) the bar folds into one line ("Rest 2:30 · alerts off")
+so it never takes the workspace; the time stays whole and the note is cut first.
 
 **Units.** Each exercise records in kg, lb, or plates per stack where the plan
 defines a stack; More › Units sets the default for new and unpinned exercises.
