@@ -4,6 +4,12 @@ Every version installs over the one before it with the same signing key and keep
 on, release APKs are built and published by [GitHub Actions](.github/workflows/release.yml); notes for each are in
 [docs/releases](docs/releases/).
 
+## 0.5.1 (version code 26)
+- Large text: a logged set such as "42.5 kg/DB × 10" stays on one line, History's tabs and the 1M–All ranges always
+  fit, chart dates no longer run together, and a chart's readout is never cut off.
+- Shorter labels: Measure, Weigh-ins, New exercise and Change; phases read "2 RIR" like the rest of the app.
+- A partial workout offers "Count toward the week of …" in both the finish dialog and History.
+
 ## 0.5.0 (version code 25)
 - New installs open on a short guided setup that builds a weekly plan from your experience, days and equipment.
   Plan gains Change split, with new splits including Power and hypertrophy, Torso and limbs, Bro and Arnold.
