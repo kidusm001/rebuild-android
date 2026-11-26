@@ -4,6 +4,10 @@ Every version installs over the one before it with the same signing key and keep
 on, release APKs are built and published by [GitHub Actions](.github/workflows/release.yml); notes for each are in
 [docs/releases](docs/releases/).
 
+## 0.5.2 (version code 27)
+- A new app icon: the Rebuild R in amber on ink, also on the launch screen and the welcome page. With themed icons
+  on (Android 13+), the home screen shows a tinted R instead of a blank tile.
+
 ## 0.5.1 (version code 26)
 - Large text: a logged set such as "42.5 kg/DB × 10" stays on one line, History's tabs and the 1M–All ranges always
   fit, chart dates no longer run together, and a chart's readout is never cut off.
