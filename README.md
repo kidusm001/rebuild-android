@@ -9,25 +9,30 @@ snapshot on the phone.
 
 <p>
   <img src="docs/images/today.png" width="160" alt="Today: the scheduled workout and this week's checklist">
-  <img src="docs/images/workout.png" width="160" alt="A workout: last time beside today for every set, with a drop listed under its set">
+  <img src="docs/images/workout.png" width="160" alt="A workout: last time beside today for every set, with a drop listed under its set and the rest timer below">
   <img src="docs/images/history.png" width="160" alt="History in dark mode: a month calendar and working sets by muscle">
+  <img src="docs/images/exercise.png" width="160" alt="An exercise's progress in dark mode: the heaviest set each workout with its reps, and records by rep count">
   <img src="docs/images/bodyweight.png" width="160" alt="Bodyweight: weekly averages over every weigh-in, with a touched point read out">
-  <img src="docs/images/waist.png" width="160" alt="Waist measurements in dark mode, with a touched point read out">
-  <img src="docs/images/plan.png" width="160" alt="Plan: phases, weekly working sets and the routines in a week">
+  <img src="docs/images/plan.png" width="160" alt="Plan: your plan, the current phase and weekly working sets">
 </p>
 
 ## What it does
 
 - **Set-by-set logging.** Every set sits beside the same set last time, in the same unit. Drops are part of their
   set, and rest-pause sets are one set. Loads can be kg, lb or plates per stack, and are never converted.
-- **A weekly plan.** Phases and routines on a Monday-to-Sunday checklist, with your own routine library, flexible
-  extra workouts, and timed, distance and cardio exercises with a stopwatch that survives process death.
+- **A weekly plan.** A short guided setup builds a plan from your experience, days and equipment, with splits from
+  full body to Bro and Arnold. Phases and routines sit on a Monday-to-Sunday checklist, with your own routine
+  library, flexible extra workouts, and timed, distance and cardio exercises with a stopwatch that survives process
+  death.
 - **Rest between sets.** The countdown survives leaving the app, as a countdown notification and a
-  picture-in-picture timer.
-- **Progress you can trust.** Records are sets actually lifted, never an estimated max. Bodyweight shows honest
+  picture-in-picture timer. Skip can be undone for a few seconds.
+- **A home screen widget.** "Today" shows the day's workout, live progress, the rest countdown and what's next.
+- **Progress you can trust.** Each exercise charts its heaviest set every workout, with the reps on each point.
+  Records are sets actually lifted at each rep count, never an estimated max. Bodyweight shows honest
   weekly averages that break over missed weeks. Weekly circumference checks are kept per site. Every chart can be
   touched to read any point.
 - **Backups.** Versioned JSON files through Android's file picker, validated and previewed before any restore.
+- **Learn as you go.** First-time tips explain each part of the app in place, and can be turned back on in More.
 
 The full manual is in [docs/user-guide.md](docs/user-guide.md), and why each screen looks the way it does is in
 [DESIGN.md](DESIGN.md).
@@ -50,12 +55,12 @@ The full manual is in [docs/user-guide.md](docs/user-guide.md), and why each scr
 - **Accessible by default:**
   - Every control is at least 48 dp, and contrast is checked at WCAG AA in tests.
   - Charts are sliders for TalkBack.
-  - Values never wrap apart at 200% text.
+  - Values never wrap apart at 200% text, and tabs, ranges and chart readouts always fit.
   - Layouts adapt to landscape and to tablets with a navigation rail.
 - **Tested at three levels:**
-  - About 340 JVM tests, covering the domain, the codec, migrations and Robolectric UI.
+  - About 520 JVM tests, covering the domain, the codec, migrations and Robolectric UI.
   - A Robolectric screenshot tour of every main screen in light, dark, 200% text and landscape.
-  - About 130 instrumented tests, on API 33 and 34 emulators in CI, with real input, the keyboard, rotation, process
+  - About 170 instrumented tests, on API 33 and 34 emulators in CI, with real input, the keyboard, rotation, process
     recreation and the accessibility tree; on API 34 they add AccessibilityValidator checks.
 
 | Package | What's in it |
