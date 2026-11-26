@@ -488,7 +488,7 @@ class RoutinesDeviceTest {
         rule.onNodeWithTag("plan-taken-off-lower-a").assertDoesNotExist()
 
         // An original routine has no copy actions; taking it off leaves the same-named Saturday routine.
-        rule.onNodeWithTag("plan-options-intro-upper").performScrollTo().performClick()
+        rule.onNodeWithTag("plan-options-intro-upper").performScrollClearOfHeader(rule).performClick()
         rule.onNodeWithTag("plan-menu-edit").assertDoesNotExist()
         rule.onNodeWithTag("plan-menu-move").assertDoesNotExist()
         rule.onNodeWithTag("plan-menu-take-off").performClick()

@@ -174,7 +174,7 @@ internal fun ScreenScaffold(
                 Column(Modifier.fillMaxWidth().onPlaced { inset.column = it }.recordsPageFor(inset), content = content)
             }
             // The header lines up with the centered, width-capped body on wide windows.
-            if (!compactLandscape) Box(Modifier.fillMaxWidth().then(CoversThePageBeneath), contentAlignment = Alignment.TopCenter) {
+            if (!compactLandscape) Box(Modifier.fillMaxWidth().then(CoversThePageBeneath).testTag("screen-header"), contentAlignment = Alignment.TopCenter) {
                 HeaderGlass(page, inset, large = density.fontScale > 1.3f, modifier = Modifier.matchParentSize())
                 CollapsingHeader(
                     collapse, topLevel = onBack == null, actionsBelow = actionsBelow,
