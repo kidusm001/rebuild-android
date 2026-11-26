@@ -601,6 +601,11 @@ private fun ExerciseRail(
                         }
                         var fingerStart = 0f
                         var pillStart = 0f
+                        // Whether this pill's hold was recognised. The detector reports a cancel whenever its
+                        // coroutine stops, even with no finger down: a pill scrolled out of the strip is disposed or
+                        // reused for another exercise, and that cancel must neither open its menu nor end another
+                        // pill's drag.
+                        var held = false
                         fun endDrag() {
                             dragMoved = false
                             // The pill settles from under the finger into its slot as it loses its lift, then the
@@ -633,6 +638,7 @@ private fun ExerciseRail(
                         }
                         detectDragGesturesAfterLongPress(
                             onDragStart = { at ->
+                                held = true
                                 travelled = 0f
                                 dragMoved = false
                                 heldTap = true
@@ -662,6 +668,7 @@ private fun ExerciseRail(
                                 retarget(ex.id)
                             },
                             onDragEnd = {
+                                held = false
                                 val moved = travelled > viewConfiguration.touchSlop
                                 if (moved) retarget(ex.id)
                                 val to = order.indexOf(ex.id)
@@ -678,12 +685,15 @@ private fun ExerciseRail(
                                 endDrag()
                             },
                             onDragCancel = {
-                                // A hold released in place ends here too (the pill's tap handling takes the finger
-                                // up), so a hold that never moved still opens the menu.
-                                val held = travelled <= viewConfiguration.touchSlop
-                                order = currentSaved
-                                if (held) menuFor = ex.id
-                                endDrag()
+                                if (held) {
+                                    held = false
+                                    // A hold released in place ends here too (the pill's tap handling takes the finger
+                                    // up), so a hold that never moved still opens the menu.
+                                    val still = travelled <= viewConfiguration.touchSlop
+                                    order = currentSaved
+                                    if (still) menuFor = ex.id
+                                    endDrag()
+                                }
                             }
                         )
                     }
