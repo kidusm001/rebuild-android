@@ -105,6 +105,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.layoutId
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onPlaced
+import com.rebuild.ui.theme.Motion
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -147,55 +152,82 @@ internal fun ScreenScaffold(
     compactNow: Boolean = false,
     /** A single icon action stays beside the title even at large text instead of taking a row of its own. */
     iconOnlyActions: Boolean = false,
+    /** The header gives its room to the body as the body scrolls (see [HeaderCollapse]). */
+    collapsesOnScroll: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit
 ) {
     val compactLandscape = compactWhenKeyboard && compactLandscapeInput()
-    Column(modifier.fillMaxSize()) {
-        // The header lines up with the centered, width-capped body on wide windows.
-        if (!compactLandscape) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) { Column(
-            Modifier.widthIn(max = MAX_CONTENT_WIDTH).fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)
-                .padding(start = if (onBack == null) 0.dp else 0.dp)
-        ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                if (onBack != null) {
-                    IconButton(onClick = onBack) {
-                        RebuildIcon(R.drawable.ic_arrow_left, contentDescription = "Back")
+    val collapse = remember { HeaderCollapse() }
+    val typography = MaterialTheme.typography
+    val density = LocalDensity.current
+    // At large text the actions take a row of their own, unless they're a single icon.
+    val actionsBelow = !iconOnlyActions && density.fontScale > 1.3f
+    val inset = remember { HeaderInset() }
+    inset.page = androidx.compose.ui.graphics.rememberGraphicsLayer()
+    val page = MaterialTheme.colorScheme.surface
+    // The header is drawn over the page: the body that sits first under it reaches up beneath the glass.
+    Layout(
+        modifier = modifier.fillMaxSize().then(if (collapsesOnScroll) Modifier.nestedScroll(collapse.connection) else Modifier),
+        content = {
+            CompositionLocalProvider(LocalHeaderInset provides inset) {
+                Column(Modifier.fillMaxWidth().onPlaced { inset.column = it }.recordsPageFor(inset), content = content)
+            }
+            // The header lines up with the centered, width-capped body on wide windows.
+            if (!compactLandscape) Box(Modifier.fillMaxWidth().then(CoversThePageBeneath).testTag("screen-header"), contentAlignment = Alignment.TopCenter) {
+                HeaderGlass(page, inset, large = density.fontScale > 1.3f, modifier = Modifier.matchParentSize())
+                CollapsingHeader(
+                    collapse, topLevel = onBack == null, actionsBelow = actionsBelow,
+                    compactScale = with(density) { typography.titleLarge.fontSize.toPx() / typography.headlineLarge.fontSize.toPx() },
+                    modifier = Modifier.widthIn(max = MAX_CONTENT_WIDTH).fillMaxWidth()
+                ) {
+                    // Painted first: as it folds away it passes beneath the title.
+                    // Typing gives the subtitle's line to the fields: it collapses as the keyboard starts to open and comes
+                    // back by Expand once the keyboard has finished closing, never popping in a frame.
+                    if (subtitle != null) androidx.compose.animation.AnimatedVisibility(
+                        visible = !compactWhenKeyboard || !(compactNow || keyboardOpenOrMoving()),
+                        enter = Motion.expand(),
+                        exit = Motion.collapse(),
+                        modifier = Modifier.layoutId(HeaderSlot.SUBTITLE)
+                    ) {
+                        Text(
+                            subtitle, style = typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 4.dp).testTag("screen-subtitle")
+                        )
+                    }
+                    if (onBack != null) {
+                        Box(Modifier.layoutId(HeaderSlot.NAV)) {
+                            IconButton(onClick = onBack) {
+                                RebuildIcon(R.drawable.ic_arrow_left, contentDescription = "Back")
+                            }
+                        }
+                    }
+                    // A top-level destination names itself large; a pushed screen keeps a compact title beside Back.
+                    Text(
+                        title,
+                        style = if (onBack == null) typography.headlineLarge else typography.titleLarge,
+                        modifier = Modifier.layoutId(HeaderSlot.TITLE).semantics { heading() }
+                    )
+                    if (!actionsBelow || !compactWhenKeyboard || !WindowInsets.isImeVisible) {
+                        Row(Modifier.layoutId(HeaderSlot.ACTIONS), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically, content = actions)
                     }
                 }
-                // A top-level destination names itself large; a pushed screen keeps a compact title beside Back.
-                Text(
-                    title,
-                    style = if (onBack == null) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.weight(1f).padding(start = if (onBack == null) 12.dp else 8.dp, end = 8.dp,
-                        top = if (onBack == null) 16.dp else 0.dp, bottom = if (onBack == null) 4.dp else 0.dp)
-                        .semantics { heading() }
-                )
-                if (iconOnlyActions || LocalDensity.current.fontScale <= 1.3f) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
-                        content = actions)
-                }
             }
-            if (!iconOnlyActions && LocalDensity.current.fontScale > 1.3f &&
-                (!compactWhenKeyboard || !WindowInsets.isImeVisible)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                    verticalAlignment = Alignment.CenterVertically, content = actions)
-            }
-            // Typing gives the subtitle's line to the fields: it collapses as the keyboard starts to open and comes
-            // back by Expand once the keyboard has finished closing, never popping in a frame.
-            if (subtitle != null) androidx.compose.animation.AnimatedVisibility(
-                visible = !compactWhenKeyboard || !(compactNow || keyboardOpenOrMoving()),
-                enter = com.rebuild.ui.theme.Motion.expand(),
-                exit = com.rebuild.ui.theme.Motion.collapse()
-            ) {
-                Text(
-                    subtitle, style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 4.dp).testTag("screen-subtitle")
-                )
-            }
-        } }
-        content()
+        }
+    ) { measurables, constraints ->
+        val width = constraints.maxWidth
+        val height = constraints.maxHeight
+        val header = measurables.getOrNull(1)?.measure(constraints.copy(minWidth = width, minHeight = 0))
+        val top = header?.height ?: 0
+        if (inset.height != top) inset.height = top
+        val body = measurables[0].measure(androidx.compose.ui.unit.Constraints.fixed(width, (height - top).coerceAtLeast(0)))
+        layout(width, height) {
+            // Placement order is drawing order: the header over the body.
+            body.place(0, top)
+            header?.place(0, 0)
+        }
     }
 }
 
@@ -219,24 +251,27 @@ internal fun Modifier.readableWidth(): Modifier =
 @Composable
 internal fun ColumnScope.ScrollBody(content: @Composable ColumnScope.() -> Unit) {
     val scroll = rememberScrollState()
-    Column(
+    val under = rememberUnderHeader()
+    under.scrolled = remember(scroll) { { scroll.canScrollBackward } }
+    ProvideUnderHeaderBringIntoView(under) { inside -> Column(
         Modifier
             .weight(1f)
             .fillMaxWidth()
             .yieldsToFixedControls()
-            .fadingEdges(scroll, if (LocalDensity.current.fontScale > 1.3f) 48.dp else 32.dp)
+            .reachUnderHeader(under)
+            .fadingEdges(scroll, if (LocalDensity.current.fontScale > 1.3f) 48.dp else 32.dp, under = under)
             .verticalScroll(scroll),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Column(
             Modifier
+                .padUnderHeader(under)
                 .widthIn(max = MAX_CONTENT_WIDTH)
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            content = content
-        )
-    }
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) { inside { content() } }
+    } }
 }
 
 @Composable
@@ -871,13 +906,17 @@ internal fun Modifier.fadingEdges(
     scroll: androidx.compose.foundation.ScrollState,
     edge: androidx.compose.ui.unit.Dp = 32.dp,
     /** What the content sits on; a dialog passes its own container colour. */
-    background: Color? = null
+    background: Color? = null,
+    /** A body reaching under the header's glass has no top fade while it does. */
+    under: UnderHeader? = null
 ): Modifier = composed {
     // Painted over the content in the page colour, with no offscreen layer, so accessibility still sees every row.
     val page = background ?: MaterialTheme.colorScheme.surface
     drawWithContent {
         drawContent()
-        val top = if (scroll.canScrollBackward) edge.toPx().coerceAtMost(size.height / 4) else 0f
+        // Under the header the glass's feathered edge is the top edge; the fade would only sit hidden behind it.
+        val top = if (scroll.canScrollBackward && (under == null || under.px == 0))
+            edge.toPx().coerceAtMost(size.height / 4) else 0f
         val bottom = if (scroll.canScrollForward) edge.toPx().coerceAtMost(size.height / 4) else 0f
         if (top > 0f) drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(
             listOf(page, page.copy(alpha = 0f)), startY = 0f, endY = top), size = size.copy(height = top))

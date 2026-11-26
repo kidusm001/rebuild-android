@@ -18,10 +18,15 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsNode
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasScrollToNodeAction
@@ -103,6 +108,75 @@ class ScreenshotHarness {
     @Test fun landscape() {
         RuntimeEnvironment.setQualifiers("w914dp-h411dp-land-night")
         tour("land")
+    }
+
+    /**
+     * The header as a page scrolls under it: each screen shot mid-drag at several distances, after the finger lifts,
+     * deep in the page, mid-pull back and at the top again.
+     */
+    @Test fun headerScroll() = headerTour("light")
+
+    @Test fun headerScrollDark() {
+        RuntimeEnvironment.setQualifiers("+night")
+        headerTour("dark")
+    }
+
+    @Test fun headerScrollLarge() {
+        RuntimeEnvironment.setQualifiers("+night")
+        RuntimeEnvironment.setFontScale(2f)
+        headerTour("large")
+    }
+
+    private fun headerTour(mode: String) {
+        val repo = runBlocking { seeded() }
+        compose.setContent { RebuildApp(repo, platform, clock = { now }) }
+        val p = "header-$mode"
+        scrollFrames("$p-a-today")
+        tap("History")
+        scrollFrames("$p-b-history")
+        tap("Push")
+        scrollFrames("$p-c-detail")
+        back()
+        tap("More")
+        scrollFrames("$p-d-more")
+        tap("History")
+        tapTag("history-tab-2")
+        tapTag("body-weight-trend")
+        compose.waitForIdle()
+        scrollFrames("$p-e-bodyweight")
+    }
+
+    /** Drags the page up in steps (shot at each), lets go, flings deep, then drags back down to the top. */
+    private fun scrollFrames(name: String) {
+        compose.waitForIdle()
+        shot("$name-0")
+        val root = compose.onRoot()
+        val slop = android.view.ViewConfiguration.get(compose.activity).scaledTouchSlop.toFloat()
+        root.performTouchInput { down(Offset(centerX, height * 0.55f)); moveBy(Offset(0f, -slop - 1f)) }
+        var at = 0f
+        listOf(24, 56, 96).forEach { dp ->
+            val px = dp * compose.density.density
+            root.performTouchInput { moveBy(Offset(0f, -(px - at))) }
+            at = px
+            compose.waitForIdle()
+            shot("$name-1-drag$dp")
+        }
+        // Hold still, then lift: no fling, so what shows is the header settling on its own.
+        root.performTouchInput { repeat(6) { moveBy(Offset.Zero, delayMillis = 50) }; up() }
+        compose.waitForIdle()
+        shot("$name-2-lifted")
+        root.performTouchInput { swipeUp(startY = height * 0.8f, endY = height * 0.3f, durationMillis = 300) }
+        compose.waitForIdle()
+        shot("$name-3-deep")
+        // A short pull toward the top: the header stays as it is until the body is back at its top.
+        root.performTouchInput { down(Offset(centerX, height * 0.4f)); moveBy(Offset(0f, slop + 1f)) }
+        root.performTouchInput { moveBy(Offset(0f, 40 * compose.density.density)) }
+        compose.waitForIdle()
+        shot("$name-4-pull")
+        root.performTouchInput { repeat(6) { moveBy(Offset.Zero, delayMillis = 50) }; up() }
+        repeat(3) { root.performTouchInput { swipeDown(startY = height * 0.3f, endY = height * 0.85f, durationMillis = 250) } }
+        compose.waitForIdle()
+        shot("$name-5-top")
     }
 
     private fun tour(mode: String) {
@@ -274,7 +348,24 @@ class ScreenshotHarness {
     private fun tapTag(tag: String) {
         val node = compose.onAllNodes(hasTestTag(tag)).onFirst()
         runCatching { node.performScrollTo() }
+        scrollClearOfHeader(node.fetchSemanticsNode())
         node.performClick()
+        compose.waitForIdle()
+    }
+
+    /**
+     * performScrollTo() lines a row up with the top of its scroll area, which sits under the glass header on a body
+     * that scrolls beneath it, and the header takes a tap there. Scrolls the row on until it clears the header.
+     */
+    private fun scrollClearOfHeader(node: SemanticsNode) {
+        compose.waitForIdle()
+        val header = compose.onAllNodes(hasTestTag("screen-header")).fetchSemanticsNodes().firstOrNull()?.boundsInRoot ?: return
+        val overlap = header.bottom - node.boundsInRoot.top
+        if (overlap <= 0f) return
+        var scrollable: SemanticsNode? = node.parent
+        while (scrollable != null && scrollable.config.getOrNull(SemanticsActions.ScrollBy) == null) scrollable = scrollable.parent
+        val scrollBy = scrollable?.config?.getOrNull(SemanticsActions.ScrollBy)?.action ?: return
+        compose.runOnIdle { scrollBy(0f, -overlap) }
         compose.waitForIdle()
     }
 

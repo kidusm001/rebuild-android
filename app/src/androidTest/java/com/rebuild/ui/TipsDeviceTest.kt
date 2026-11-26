@@ -136,7 +136,7 @@ class TipsDeviceTest {
         }
 
         // Switching to bodyweight hides all four weighted-only splits while keeping the 6 bodyweight-ready splits.
-        rule.onNodeWithTag("split-gear-bodyweight").performScrollTo().performClick()
+        rule.onNodeWithTag("split-gear-bodyweight").performScrollClearOfHeader(rule).performClick()
         for (id in weightedOnly) {
             rule.onNodeWithTag("split-pick-$id").assertDoesNotExist()
         }

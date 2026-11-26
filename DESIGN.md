@@ -41,6 +41,22 @@ Everything visual comes from `ui/theme/Theme.kt` and the shared components in
 - **Spacing.** A 4/8/12/16/20/24 dp grid; a 20 dp gutter; 16 dp between sections.
   Content is a centered column capped at 640 dp on wide windows. Scrolling pages
   fade at an edge only when there is content beyond it.
+- **Headers.** A screen's header gives its room to the page as the page scrolls,
+  1:1 with the finger, and opens again only once the page is back at its top. A
+  top-level title shrinks into a compact row that hugs it (titleLarge size) and
+  the subtitle folds away under it; a pushed screen keeps Back, its title and its
+  actions in a 48 dp row and folds only its subtitle. At large text the actions'
+  own row moves up beside the compact title when they fit. A finger lifted part
+  way settles it with `Motion.settle()`, the way it was heading. The workout keeps
+  its header still. The header is frosted glass: the page beneath it blurred
+  (Android 12+) under the page colour at 91%. Once the page has scrolled under it,
+  the frosted pane fades out over 24 dp below the header's edge (40 dp at large
+  text), so rows go from blurred to sharp gradually and the title keeps a calm band
+  beneath it. The scrolling body that sits first under it passes beneath
+  (it pads itself by the header's height, so at rest nothing moves); a body with
+  fixed controls above it, like History's tabs, stays below them. Under the glass
+  that feathered edge replaces the page's top fade. Grey text never sits on the
+  glass: the subtitle is gone before anything scrolls under it.
 - **Motion.** Only state changes move. State changes take 150–220 ms; navigation
   and sheets up to 300 ms, readable by 150 ms; exits are faster than entrances.
   Travel that comes with a fade stays visible; sideways means sequence, counts
@@ -396,9 +412,12 @@ buttons in Android's accessibility provider. History and saved notes are read-fi
 correction/Add/Edit actions. Unsaved notes still use the durable navigation guard.
 Library rows carry their name and metadata as one label, so a row clipped to a
 sliver at a scroll edge is never exported as an unlabeled control. Scrolling
-bodies sit beneath the fixed header, phase chips and exercise rail stacked above
+bodies sit beneath the header, phase chips and exercise rail stacked above
 them, so a row scrolled partly under the top edge never takes the lower part of a
-chip or pill in the accessibility provider.
+chip or pill in the accessibility provider. A body that passes under the header's
+glass is covered there: the header is a traversal group that takes every tap on
+its empty space, and bringing a row into view counts the strip under the header
+as hidden (for that body's own scrolling only, never for what is inside it).
 Native emulator geometry and semantics checks are evidence, not a claim of
 physical-device or TalkBack speech certification.
 

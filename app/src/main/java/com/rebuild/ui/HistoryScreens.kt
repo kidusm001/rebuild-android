@@ -924,16 +924,21 @@ internal fun ColumnScope.LazyBody(
     modifier: Modifier = Modifier,
     content: LazyListScope.() -> Unit
 ) {
-    LazyColumn(
+    val under = rememberUnderHeader()
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    under.scrolled = remember(state) { { state.canScrollBackward } }
+    ProvideUnderHeaderBringIntoView(under) { inside -> LazyColumn(
         modifier
             .weight(1f)
-            .readableWidth()
-            .yieldsToFixedControls(),
+            .yieldsToFixedControls()
+            .reachUnderHeader(under)
+            .readableWidth(),
         state = state,
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(spacing),
-        content = content
-    )
+        contentPadding = remember(under, density) {
+            UnderHeaderPadding(PaddingValues(horizontal = 20.dp, vertical = 8.dp), under, density)
+        },
+        verticalArrangement = Arrangement.spacedBy(spacing)
+    ) { InsideScope(this, inside).content() } }
 }
 
 private const val LEAVE_BACK_ROUTE = "__back__"
