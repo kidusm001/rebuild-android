@@ -7,6 +7,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.togetherWith
 import com.rebuild.ui.theme.Motion
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -47,6 +49,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -306,12 +310,16 @@ private fun Welcome(onStart: () -> Unit, onRestore: () -> Unit) {
                 .testTag("setup-restore")) { Text("I have a backup") }
         }) {
         Spacer(Modifier.height(8.dp))
+        // The launcher icon itself: its 108 dp foreground canvas behind a 72 dp tile, cropped the way a launcher crops it.
+        // The hairline keeps the ink tile's edge visible on the dark theme's near-black surface.
+        val tile = RoundedCornerShape(22.dp)
         Box(
-            Modifier.size(72.dp).clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.primaryContainer),
+            Modifier.size(72.dp).clip(tile).background(colorResource(R.color.launcher_background))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, tile).testTag("setup-app-icon"),
             contentAlignment = Alignment.Center
         ) {
-            RebuildIcon(R.drawable.ic_dumbbell, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(36.dp))
+            Image(painterResource(R.drawable.ic_rebuild_foreground), contentDescription = null,
+                modifier = Modifier.requiredSize(108.dp))
         }
         Text("Rebuild", style = overlineStyle(), color = accentText(), modifier = Modifier.padding(top = 8.dp))
         Text("Your training, written down.", style = MaterialTheme.typography.displaySmall,
