@@ -1,0 +1,14 @@
+<!-- The R mark for Android 13+ themed icons: the launcher foreground's shapes at 88% of the size, so its farthest
+     point sits about 26.5 dp from centre and the tinted R matches the weight of other apps' themed glyphs, with room
+     around it on the plain disc. The launcher tints it; the colour here is ignored. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.0594" android:scaleY="0.0594" android:translateX="16.87" android:translateY="16.96">
+        <path android:fillColor="#FFFFFF" android:pathData="M318,647.5a37.5,37.5 0,0 1,75 0v190a37.5,37.5 0,0 1,-75 0z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M428,592.5a37.5,37.5 0,0 1,75 0v285a37.5,37.5 0,0 1,-75 0z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M538,544a41,41 0,0 1,82 0v380a41,41 0,0 1,-82 0z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M398,279H695A237,237 0,0 1,807.7 724.7L922.4,918.2A33,33 0,0 1,865.6 951.8L708.2,686.3A171,171 0,0 0,695 345H398A33,33 0,0 1,398 279Z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M657,684.7L795.4,918.2A33,33 0,0 1,738.6 951.8L657,814Z" />
+        <path android:strokeColor="#FFFFFF" android:strokeWidth="66" android:strokeLineCap="round" android:pathData="M473,416H695A100,100 0,0 1,695 616H688" />
+    </group>
+</vector>
