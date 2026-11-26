@@ -25,6 +25,9 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.unit.height
 import com.rebuild.ui.theme.RebuildTheme
 import org.junit.Assert.assertEquals
@@ -47,7 +50,8 @@ import org.robolectric.annotation.Config
 class HeaderCollapseTest {
     @get:Rule val compose = createComposeRule()
 
-    private fun screen(topLevel: Boolean, action: Boolean = false) = compose.setContent {
+    private fun screen(topLevel: Boolean, action: Boolean = false, rtl: Boolean = false) = compose.setContent {
+        CompositionLocalProvider(LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr) {
         RebuildTheme {
             ScreenScaffold(
                 title = if (topLevel) "History" else "Bodyweight",
@@ -60,6 +64,7 @@ class HeaderCollapseTest {
                     Spacer(Modifier.height(3000.dp))
                 }
             }
+        }
         }
     }
 
@@ -113,6 +118,30 @@ class HeaderCollapseTest {
         val title = compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.Heading), useUnmergedTree = true)
             .fetchSemanticsNodes().single().boundsInRoot
         assertTrue("Log sits in the title's row, not a row below it", compose.density.run { log.top.toPx() } < title.bottom)
+    }
+
+    private fun titleBounds() = compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.Heading), useUnmergedTree = true)
+        .fetchSemanticsNodes().single().boundsInRoot
+
+    @Test fun aRightToLeftHeaderMirrorsBackAndItsActions() {
+        screen(topLevel = false, action = true, rtl = true)
+        for (collapsed in listOf(false, true)) {
+            if (collapsed) scrollDeep()
+            val title = titleBounds()
+            val back = compose.onNode(hasContentDescription("Back") and hasClickAction()).fetchSemanticsNode().boundsInRoot
+            val log = compose.onNodeWithTag("log").fetchSemanticsNode().boundsInRoot
+            assertTrue("Back sits at the start, on the right (collapsed=$collapsed)", back.left >= title.right)
+            assertTrue("the action sits at the end, on the left (collapsed=$collapsed)", log.right <= title.left)
+        }
+    }
+
+    @Test fun aRightToLeftTitleShrinksTowardItsStartEdge() {
+        screen(topLevel = true, rtl = true)
+        val full = titleBounds()
+        scrollDeep()
+        val compact = titleBounds()
+        assertTrue("the title shrinks", compact.width < full.width * 0.9f)
+        assertEquals("it keeps its right-hand (start) edge", full.right, compact.right, 1f)
     }
 
     /** History's shape: a fixed tab row, then a list inside a page of its own. The list must stay below the tabs. */

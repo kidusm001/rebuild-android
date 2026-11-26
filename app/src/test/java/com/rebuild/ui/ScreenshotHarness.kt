@@ -25,6 +25,8 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsNode
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasScrollToNodeAction
@@ -346,7 +348,24 @@ class ScreenshotHarness {
     private fun tapTag(tag: String) {
         val node = compose.onAllNodes(hasTestTag(tag)).onFirst()
         runCatching { node.performScrollTo() }
+        scrollClearOfHeader(node.fetchSemanticsNode())
         node.performClick()
+        compose.waitForIdle()
+    }
+
+    /**
+     * performScrollTo() lines a row up with the top of its scroll area, which sits under the glass header on a body
+     * that scrolls beneath it, and the header takes a tap there. Scrolls the row on until it clears the header.
+     */
+    private fun scrollClearOfHeader(node: SemanticsNode) {
+        compose.waitForIdle()
+        val header = compose.onAllNodes(hasTestTag("screen-header")).fetchSemanticsNodes().firstOrNull()?.boundsInRoot ?: return
+        val overlap = header.bottom - node.boundsInRoot.top
+        if (overlap <= 0f) return
+        var scrollable: SemanticsNode? = node.parent
+        while (scrollable != null && scrollable.config.getOrNull(SemanticsActions.ScrollBy) == null) scrollable = scrollable.parent
+        val scrollBy = scrollable?.config?.getOrNull(SemanticsActions.ScrollBy)?.action ?: return
+        compose.runOnIdle { scrollBy(0f, -overlap) }
         compose.waitForIdle()
     }
 

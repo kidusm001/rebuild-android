@@ -50,6 +50,7 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.rebuild.ui.theme.Motion
 import kotlinx.coroutines.Job
@@ -213,22 +214,24 @@ internal fun CollapsingHeader(
             val subtitleAlpha = (1f - 3f * f).coerceIn(0f, 1f)
             if (subtitle != null && subtitleAlpha > 0f) {
                 val y = belowY + (if (actionsBelow && !actionsJoin) actionsH.toFloat() else lerp(belowH.toFloat(), 0f))
-                subtitle.placeWithLayer(x0, (y - subtitleH * f).roundToInt()) { alpha = subtitleAlpha }
+                subtitle.placeRelativeWithLayer(x0, (y - subtitleH * f).roundToInt()) { alpha = subtitleAlpha }
             }
-            nav?.place(x0, lerp(rowTop + (rowH - navH) / 2f, cy - navH / 2f).roundToInt())
+            nav?.placeRelative(x0, lerp(rowTop + (rowH - navH) / 2f, cy - navH / 2f).roundToInt())
             val scale = lerp(1f, shrink)
-            title.placeWithLayer(x0 + navW + titleStart, lerp(fullTitleY, cy - compactTitleH / 2f).roundToInt()) {
+            // Scales toward its start edge, beside Back, which is on the right in a right-to-left layout.
+            val startEdge = if (layoutDirection == LayoutDirection.Rtl) 1f else 0f
+            title.placeRelativeWithLayer(x0 + navW + titleStart, lerp(fullTitleY, cy - compactTitleH / 2f).roundToInt()) {
                 scaleX = scale
                 scaleY = scale
-                transformOrigin = TransformOrigin(0f, 0f)
+                transformOrigin = TransformOrigin(startEdge, 0f)
             }
             if (actions != null) {
                 val endX = (x0 + inner - actionsW).toFloat()
                 if (actionsBelow && !actionsJoin) {
-                    actions.place(endX.roundToInt(), belowY.roundToInt())
+                    actions.placeRelative(endX.roundToInt(), belowY.roundToInt())
                 } else {
                     val fullY = if (actionsBelow) rowTop + rowH else rowTop + (rowH - actionsH) / 2f
-                    actions.place(endX.roundToInt(), lerp(fullY, cy - actionsH / 2f).roundToInt())
+                    actions.placeRelative(endX.roundToInt(), lerp(fullY, cy - actionsH / 2f).roundToInt())
                 }
             }
         }
