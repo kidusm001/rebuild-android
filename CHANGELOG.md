@@ -9,6 +9,7 @@ on, release APKs are built and published by [GitHub Actions](.github/workflows/r
   fit, chart dates no longer run together, and a chart's readout is never cut off.
 - Shorter labels: Measure, Weigh-ins, New exercise and Change; phases read "2 RIR" like the rest of the app.
 - A partial workout offers "Count toward the week of …" in both the finish dialog and History.
+- A large history opens faster: the saved data is read in bigger pieces, about 12 times quicker for a full one.
 
 ## 0.5.0 (version code 25)
 - New installs open on a short guided setup that builds a weekly plan from your experience, days and equipment.
