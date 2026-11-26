@@ -220,6 +220,8 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
         onBack = { guarded(LEAVE_BACK, onBack) },
         compactWhenKeyboard = true,
         compactNow = railHidden,
+        // The workout's body is the exercise in focus over a fixed dock, not a page: its header never gives way.
+        collapsesOnScroll = false,
         actions = {
             SecondaryButton(onClick = { guarded(LEAVE_FINISH) { finishing = true } }, enabled = !env.runner.looksBusy()) { Text("Finish") }
             IconButton(onClick = { menuOpen = true }) {
