@@ -11,6 +11,7 @@ import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.rebuild.domain.Action
@@ -127,6 +128,27 @@ class HoldToReorderDeviceTest {
         rule.waitForIdle()
         assertEquals("dropped just past the third pill", 2, names(repo).indexOf(first))
         assertEquals(1, repo.actions.count { it is Action.MoveWorkoutExercise })
+    }
+
+    @Test fun scrollingAPillOutOfTheStripAndBackNeverOpensItsMenu() {
+        val repo = longWorkout()
+        val picker = rule.onNodeWithTag("exercise-picker")
+        // A swipe that starts on the first pill wakes its hold detector without ever becoming a hold.
+        rule.onNodeWithTag("exercise-chip-0").performTouchInput {
+            down(center)
+            repeat(5) { moveBy(androidx.compose.ui.geometry.Offset(-width / 10f, 0f)) }
+            up()
+        }
+        rule.waitForIdle()
+        rule.onNodeWithTag("exercise-hold-menu").assertDoesNotExist()
+        // Scrolled far enough to leave the strip, the pill's detector stops; that is not a hold let go, so coming
+        // back into view it shows no menu.
+        picker.performScrollToIndex(repo.state.value.activeWorkout!!.exercises.size)
+        rule.waitForIdle()
+        picker.performScrollToIndex(0)
+        rule.waitForIdle()
+        rule.onNodeWithTag("exercise-hold-menu").assertDoesNotExist()
+        assertTrue(repo.actions.none { it is Action.MoveWorkoutExercise || it is Action.SetSkipped })
     }
 
     @Test fun removingAPlannedExerciseSkipsItForTodayAndItCanComeBack() {
