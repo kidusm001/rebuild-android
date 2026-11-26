@@ -71,9 +71,9 @@ class IconAssetsTest {
         }
     }
 
-    @Test fun launcherGlyphStaysInsideTheSafeZone() {
-        // 108 dp canvas rendered at 1 px per dp; the safe zone is the centred 66 dp circle.
-        val bitmap = render(drawable(R.drawable.ic_rebuild_foreground), 108, null)
+    /** Renders a 108 dp icon layer at 1 px per dp and returns its inked pixel count and farthest reach from centre. */
+    private fun reach(id: Int): Pair<Int, Double> {
+        val bitmap = render(drawable(id), 108, null)
         var inked = 0
         var farthest = 0.0
         for (x in 0 until 108) for (y in 0 until 108) {
@@ -82,7 +82,22 @@ class IconAssetsTest {
                 farthest = maxOf(farthest, hypot(x + 0.5 - 54, y + 0.5 - 54))
             }
         }
+        return inked to farthest
+    }
+
+    @Test fun launcherGlyphStaysInsideTheSafeZone() {
+        // The safe zone is the centred 66 dp circle.
+        val (inked, farthest) = reach(R.drawable.ic_rebuild_foreground)
         assertTrue("launcher draws a glyph", inked > 300)
         assertTrue("launcher glyph reaches $farthest dp from centre, beyond the 33 dp safe radius", farthest <= 33.0)
+    }
+
+    @Test fun themedIconSitsAtTheSizeOfOtherThemedGlyphs() {
+        // Themed icons (Android 13+) tint the monochrome layer on a plain disc; a full-size mark crowds the disc, so the
+        // R is drawn a little smaller, inside a 28 dp radius, while staying clearly visible.
+        val (inked, farthest) = reach(R.drawable.ic_rebuild_monochrome)
+        assertTrue("themed icon draws a glyph ($inked px)", inked > 200)
+        assertTrue("themed glyph reaches $farthest dp from centre, beyond 28 dp", farthest <= 28.0)
+        assertTrue("themed glyph shrank to $farthest dp, too small to read", farthest >= 22.0)
     }
 }
