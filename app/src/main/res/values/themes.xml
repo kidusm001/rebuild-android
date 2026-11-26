@@ -5,8 +5,8 @@
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:windowBackground">#F3EFE9</item>
     </style>
-    <!-- The launch splash: the canvas with the launcher icon on its own disc (cream strokes on the canvas alone would
-         be invisible). It hands over to Theme.Rebuild once the first screen can draw. -->
+    <!-- The launch splash: the canvas with the launcher icon on its own disc (amber strokes on the cream canvas alone would
+         wash out). It hands over to Theme.Rebuild once the first screen can draw. -->
     <style name="Theme.Rebuild.Starting" parent="Theme.SplashScreen.IconBackground">
         <item name="windowSplashScreenBackground">#F3EFE9</item>
         <item name="windowSplashScreenIconBackgroundColor">@color/launcher_background</item>
