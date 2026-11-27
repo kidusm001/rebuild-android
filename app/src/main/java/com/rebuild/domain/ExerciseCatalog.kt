@@ -208,6 +208,142 @@ object ExerciseCatalog {
     )
 
     val exercises: List<Exercise> = revisionOne + revisionTwo + revisionThree
+
+    /**
+     * Code-side movement pattern for every built-in exercise, used to group swap suggestions (for example, keeping
+     * lateral raises separate from overhead presses and rear-delt work). Stored snapshots never carry this tag; custom
+     * exercises return null and match on primary muscle instead.
+     */
+    internal val movements: Map<String, Movement> = mapOf(
+        // Chest
+        "incline-db" to Movement.HORIZONTAL_PRESS,
+        "incline-machine" to Movement.HORIZONTAL_PRESS,
+        "incline-barbell" to Movement.HORIZONTAL_PRESS,
+        "bench-db" to Movement.HORIZONTAL_PRESS,
+        "bench-barbell" to Movement.HORIZONTAL_PRESS,
+        "chest-machine" to Movement.HORIZONTAL_PRESS,
+        "pushup" to Movement.HORIZONTAL_PRESS,
+        "pushup-incline" to Movement.HORIZONTAL_PRESS,
+        "chest-fly-cable" to Movement.CHEST_FLY,
+        // Shoulders
+        "shoulder-db" to Movement.VERTICAL_PRESS,
+        "shoulder-machine" to Movement.VERTICAL_PRESS,
+        "shoulder-barbell" to Movement.VERTICAL_PRESS,
+        "pike-pushup" to Movement.VERTICAL_PRESS,
+        "lateral-cable" to Movement.LATERAL_RAISE,
+        "lateral-db" to Movement.LATERAL_RAISE,
+        "front-raise-db" to Movement.FRONT_RAISE,
+        "rear-delt-cable" to Movement.REAR_DELT,
+        "reverse-fly-db" to Movement.REAR_DELT,
+        "face-pull" to Movement.REAR_DELT,
+        "reverse-pec-deck" to Movement.REAR_DELT,
+        // Back
+        "pullup" to Movement.VERTICAL_PULL,
+        "pullup-assisted" to Movement.VERTICAL_PULL,
+        "pullup-negative" to Movement.VERTICAL_PULL,
+        "chinup" to Movement.VERTICAL_PULL,
+        "pulldown" to Movement.VERTICAL_PULL,
+        "pulldown-neutral" to Movement.VERTICAL_PULL,
+        "pullover-cable" to Movement.PULLOVER,
+        "row-chest-supported" to Movement.ROW,
+        "row-cable" to Movement.ROW,
+        "row-barbell" to Movement.ROW,
+        "row-db" to Movement.ROW,
+        "row-db-chest-supported" to Movement.ROW,
+        "row-stack" to Movement.ROW,
+        "inverted-row" to Movement.ROW,
+        "dead-hang" to Movement.HANG,
+        // Biceps
+        "curl-cable" to Movement.BICEPS_CURL,
+        "curl-db" to Movement.BICEPS_CURL,
+        "curl-hammer" to Movement.BICEPS_CURL,
+        "curl-preacher" to Movement.BICEPS_CURL,
+        "curl-incline-db" to Movement.BICEPS_CURL,
+        // Triceps
+        "triceps-overhead" to Movement.TRICEPS_EXTENSION,
+        "triceps-overhead-db" to Movement.TRICEPS_EXTENSION,
+        "pushdown" to Movement.TRICEPS_EXTENSION,
+        "triceps-rope" to Movement.TRICEPS_EXTENSION,
+        "triceps-skullcrusher" to Movement.TRICEPS_EXTENSION,
+        "bench-close-grip" to Movement.TRICEPS_PRESS,
+        "dip" to Movement.TRICEPS_PRESS,
+        "pushup-close" to Movement.TRICEPS_PRESS,
+        // Quads
+        "leg-press" to Movement.KNEE_DOMINANT,
+        "squat-hack" to Movement.KNEE_DOMINANT,
+        "squat-back" to Movement.KNEE_DOMINANT,
+        "squat-front" to Movement.KNEE_DOMINANT,
+        "squat-goblet" to Movement.KNEE_DOMINANT,
+        "squat-bodyweight" to Movement.KNEE_DOMINANT,
+        "split-squat" to Movement.UNILATERAL_LEG,
+        "lunge-db" to Movement.UNILATERAL_LEG,
+        "split-squat-bodyweight" to Movement.UNILATERAL_LEG,
+        "leg-extension" to Movement.KNEE_EXTENSION,
+        "wall-sit" to Movement.ISOMETRIC_LEG,
+        // Hamstrings & glutes
+        "curl-seated" to Movement.LEG_CURL,
+        "curl-lying" to Movement.LEG_CURL,
+        "curl-standing" to Movement.LEG_CURL,
+        "leg-curl-slider" to Movement.LEG_CURL,
+        "rdl" to Movement.HIP_HINGE,
+        "rdl-db" to Movement.HIP_HINGE,
+        "deadlift" to Movement.HIP_HINGE,
+        "hip-thrust" to Movement.HIP_EXTENSION,
+        "glute-bridge" to Movement.HIP_EXTENSION,
+        // Calves
+        "calf-seated" to Movement.CALF_RAISE,
+        "calf-standing" to Movement.CALF_RAISE,
+        "calf-leg-press" to Movement.CALF_RAISE,
+        "calf-raise-bodyweight" to Movement.CALF_RAISE,
+        // Core & carries
+        "crunch-cable" to Movement.TRUNK_FLEXION,
+        "crunch" to Movement.TRUNK_FLEXION,
+        "knee-raise" to Movement.TRUNK_FLEXION,
+        "plank" to Movement.CORE_HOLD,
+        "side-plank" to Movement.CORE_HOLD,
+        "plank-weighted" to Movement.CORE_HOLD,
+        "farmers-carry" to Movement.LOADED_CARRY,
+        "suitcase-carry" to Movement.LOADED_CARRY,
+        // Cardio
+        "treadmill" to Movement.CARDIO,
+        "stationary-bike" to Movement.CARDIO,
+        "rowing-machine" to Movement.CARDIO,
+        "elliptical" to Movement.CARDIO,
+        "stair-climber" to Movement.CARDIO,
+        "walking" to Movement.CARDIO,
+        "running" to Movement.CARDIO
+    )
+
+    fun movementOf(exerciseId: String): Movement? = movements[exerciseId]
+}
+
+/** Code-only movement pattern used to rank same-movement swap suggestions ahead of broader same-muscle matches. */
+enum class Movement(val label: String) {
+    HORIZONTAL_PRESS("Chest press"),
+    CHEST_FLY("Chest fly"),
+    VERTICAL_PRESS("Overhead press"),
+    LATERAL_RAISE("Lateral raise"),
+    FRONT_RAISE("Front raise"),
+    REAR_DELT("Rear delt"),
+    VERTICAL_PULL("Vertical pull"),
+    PULLOVER("Lat isolation"),
+    ROW("Row"),
+    HANG("Hang"),
+    BICEPS_CURL("Biceps curl"),
+    TRICEPS_EXTENSION("Triceps extension"),
+    TRICEPS_PRESS("Triceps press"),
+    KNEE_DOMINANT("Squat & leg press"),
+    UNILATERAL_LEG("Single-leg squat"),
+    KNEE_EXTENSION("Leg extension"),
+    ISOMETRIC_LEG("Leg hold"),
+    LEG_CURL("Leg curl"),
+    HIP_HINGE("Hip hinge"),
+    HIP_EXTENSION("Glute bridge & thrust"),
+    CALF_RAISE("Calf raise"),
+    TRUNK_FLEXION("Core"),
+    CORE_HOLD("Core hold"),
+    LOADED_CARRY("Loaded carry"),
+    CARDIO("Cardio")
 }
 
 fun searchExercises(

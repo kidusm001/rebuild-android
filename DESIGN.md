@@ -387,10 +387,14 @@ reps only, with textual equivalents and separate exercise/loading/unit identitie
 
 The exercise library is an open, searchable native list reached from Plan or More,
 not another root tab or workout builder. Type (All types, Sets of reps, Timed,
-Distance, Cardio), equipment and muscle filters have explicit reset and empty states. The same full-height picker serves today's substitution
-and future-plan editing without broadening the prescribed alternatives, and adds
-exercises to a workout, a routine or a History correction. An exercise already
-there is marked "in this workout" or "in this routine"; choosing it again opens it.
+Distance, Cardio), equipment and muscle filters have explicit reset and empty states.
+Swapping an exercise lists the slot's plan alternatives first and clearly labelled,
+then same-movement and same-muscle suggestions from the library (filtered to the
+plan's equipment and measurement type, never applied automatically), with the same
+full-height picker one tap away — starting filtered to that muscle when opened from
+a swap — and also adds exercises to a workout, a routine or a History correction. An
+exercise already there is marked "in this workout" or "in this routine"; choosing it
+again opens it.
 
 Cable load units are visible near entry, with a labeled native selector on request.
 Plates always means whole physical plates per stack, on the same machine. Never
