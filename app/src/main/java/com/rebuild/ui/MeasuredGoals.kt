@@ -256,7 +256,7 @@ internal fun DistanceField(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun DistanceUnitChoice(unit: DistanceUnit, onUnit: (DistanceUnit) -> Unit, enabled: Boolean = true) {
-    SingleChoiceSegmentedButtonRow {
+    com.rebuild.ui.theme.NoPressFlash { SingleChoiceSegmentedButtonRow {
         DistanceUnit.entries.forEachIndexed { index, option ->
             SegmentedButton(
                 selected = unit == option,
@@ -273,4 +273,5 @@ internal fun DistanceUnitChoice(unit: DistanceUnit, onUnit: (DistanceUnit) -> Un
             )
         }
     }
+}
 }

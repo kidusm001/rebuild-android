@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -498,13 +499,13 @@ internal fun PlanAdditionDialog(
             }
             ErrorText(error)
             if (existing != null) {
-                HorizontalDivider()
+                Spacer(Modifier.height(8.dp))
                 TextButton(
                     onClick = { confirmingRemove = true },
                     enabled = !env.runner.busy,
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                     modifier = Modifier.heightIn(min = 48.dp).testTag("plan-remove-addition")
-                ) { Text("Remove from future ${phaseShort(phase)} workouts") }
+                ) { Text("Remove from plan") }
             }
         },
         confirmButton = {

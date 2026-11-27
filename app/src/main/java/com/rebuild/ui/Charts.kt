@@ -10,13 +10,10 @@ import androidx.compose.foundation.Canvas
 import com.rebuild.ui.theme.MotionCrossfade
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.indication
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material3.ripple
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -96,10 +93,10 @@ internal fun RangeChips(selected: ChartRange, onSelect: (ChartRange) -> Unit, mo
         Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(gap)) {
             ranges.forEach { range ->
                 val chosen = range == selected
-                val presses = remember { MutableInteractionSource() }
                 Box(
                     Modifier.weight(1f).heightIn(min = 48.dp)
-                        .selectable(chosen, interactionSource = presses, indication = null, role = Role.RadioButton) {
+                        .selectable(chosen, interactionSource = null, indication = com.rebuild.ui.theme.FocusHighlight,
+                            role = Role.RadioButton) {
                             onSelect(range)
                         }
                         .testTag("range-${range.name}"),
@@ -109,7 +106,6 @@ internal fun RangeChips(selected: ChartRange, onSelect: (ChartRange) -> Unit, mo
                         color = if (chosen) colors.onSecondaryContainer else colors.onSurface,
                         modifier = Modifier.fillMaxWidth().clip(CircleShape)
                             .background(if (chosen) colors.secondaryContainer else tonalFill())
-                            .indication(presses, ripple())
                             .padding(horizontal = 4.dp, vertical = 6.dp))
                 }
             }

@@ -37,7 +37,11 @@ Everything visual comes from `ui/theme/Theme.kt` and the shared components in
 - **Buttons.** Main actions are signal-amber pills (`Button`). Secondary actions
   are tonal pills (`SecondaryButton`). Destructive actions are red. In dialogs the
   confirm action is an amber (or red) pill and dismiss is a tonal pill; plain text
-  buttons appear only outside dialogs for quiet links.
+  buttons appear only outside dialogs for quiet links. A destructive action inside a
+  dialog that opens its own confirmation (Remove from plan, Delete set) is an
+  outlined pill with red text and a red edge; only the final confirm is filled red.
+  Selection pills (chips, tabs, unit and range choices) show no press flash: the
+  selected fill is the feedback.
 - **Spacing.** A 4/8/12/16/20/24 dp grid; a 20 dp gutter; 16 dp between sections.
   Content is a centered column capped at 640 dp on wide windows. Scrolling pages
   fade at an edge only when there is content beyond it.

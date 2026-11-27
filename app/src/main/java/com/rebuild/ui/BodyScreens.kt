@@ -606,7 +606,7 @@ private fun MeasurementDialog(env: AppEnv, entry: BodyMeasurement, onDismiss: ()
             NumberField(text, { text = it; error = null }, "${entry.site.title} (${unit.symbol})", Modifier.fillMaxWidth(),
                 isError = error != null, supportingText = error, imeAction = ImeAction.Done)
             LengthUnitChips(unit) { unit = it }
-            TextButton(onClick = { deleting = true },
+            TextButton(onClick = { deleting = true }, enabled = !env.runner.busy,
                 colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 modifier = Modifier.heightIn(min = 48.dp)) { Text("Delete measurement") }
         },

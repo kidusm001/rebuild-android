@@ -86,7 +86,6 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.annotation.DrawableRes
 import androidx.compose.ui.Alignment
-import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -879,7 +878,7 @@ internal fun TonalChip(
     leadingIcon: (@Composable () -> Unit)? = null,
     trailingIcon: (@Composable () -> Unit)? = null
 ) {
-    androidx.compose.material3.FilterChip(
+    com.rebuild.ui.theme.NoPressFlash { androidx.compose.material3.FilterChip(
         selected = selected,
         onClick = onClick,
         label = label,
@@ -895,7 +894,7 @@ internal fun TonalChip(
             selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
             selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
         )
-    )
+    ) }
 }
 
 /**
@@ -1140,7 +1139,9 @@ internal val LocalDialogSlot = androidx.compose.runtime.staticCompositionLocalOf
 /**
  * The app's text button. On screens it is Material's text button. In a dialog the confirm action is a filled amber
  * pill (red when the caller colours it as an error), and dismiss and in-dialog actions are tonal pills, so every
- * modal uses the same button language as the screens.
+ * modal uses the same button language as the screens. A red action that isn't the confirm (Delete set, Remove from
+ * plan) is an outlined pill with red text: it opens a confirmation, so it stays quiet beside the amber Save instead
+ * of being a second, muddy-red fill.
  */
 @Composable
 internal fun TextButton(
@@ -1165,12 +1166,23 @@ internal fun TextButton(
             colors = if (destructive) ButtonDefaults.buttonColors(containerColor = scheme.error, contentColor = scheme.onError)
                 else signalButtonColors(),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), content = content) }
-        DialogSlot.DISMISS, DialogSlot.BODY -> FilledTonalButton(
+        DialogSlot.DISMISS, DialogSlot.BODY -> if (destructive) androidx.compose.material3.OutlinedButton(
+            onClick = onClick, modifier = modifier.heightIn(min = 48.dp), enabled = enabled,
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = scheme.error),
+            // Full red: a softened edge fell under 3:1 on the light dialog surface, and it's what shows the target.
+            border = androidx.compose.foundation.BorderStroke(1.dp,
+                if (enabled) scheme.error else scheme.onSurface.copy(alpha = 0.12f)),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)
+        ) {
+            // A label that wraps at large text stays centred in the pill.
+            androidx.compose.material3.ProvideTextStyle(androidx.compose.material3.LocalTextStyle.current.copy(
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center)) { content() }
+        } else FilledTonalButton(
             onClick = onClick, modifier = modifier.heightIn(min = 48.dp), enabled = enabled,
             colors = ButtonDefaults.filledTonalButtonColors(
                 // One step above the dialog's own surfaceContainerHigh, so the pill is visible on it.
-                containerColor = if (destructive) scheme.errorContainer else scheme.surfaceContainerHighest,
-                contentColor = if (destructive) scheme.onErrorContainer else scheme.onSurface),
+                containerColor = scheme.surfaceContainerHighest,
+                contentColor = scheme.onSurface),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), content = content)
     }
 }
@@ -1242,19 +1254,10 @@ internal fun PillTab(
         modifier
             .heightIn(min = 48.dp)
             .selectable(selected = selected, onClick = onClick, enabled = enabled, role = role,
-                interactionSource = presses, indication = null),
+                interactionSource = presses, indication = com.rebuild.ui.theme.FocusHighlight),
         contentAlignment = Alignment.Center
     ) {
-        Box(
-            Modifier
-                .matchParentSize()
-                .padding(4.dp) // the selection pill's inset, so press and selection are the same shape
-                .graphicsLayer { scaleX = scale; scaleY = scale }
-                .clip(CircleShape)
-                // On the selected (amber) pill an ember press would vanish, so it presses in the pill's label colour.
-                .indication(presses, androidx.compose.material3.ripple(
-                    color = if (selected) selectedContentColor else Color.Unspecified))
-        )
+        // No press flash: the selection pill already shows the choice; the squish is the only feedback.
         Text(label, style = style, maxLines = maxLines, softWrap = maxLines > 1,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             color = if (selected) selectedContentColor else unselectedContentColor,
