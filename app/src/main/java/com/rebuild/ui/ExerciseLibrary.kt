@@ -224,21 +224,26 @@ private fun ExerciseLibraryContent(
     var chosenMeasure by rememberSaveable { mutableStateOf<Measure?>(null) }
     // Where only one kind of exercise fits (swapping a planned one), the others are never offered.
     val measure = fixedMeasure ?: chosenMeasure
+    // Older custom exercises still missing a muscle or equipment; in a picker, only those it could offer.
+    var unfinishedOnly by rememberSaveable { mutableStateOf(false) }
+    val needing = exercises.filter { !it.hasMetadata && (fixedMeasure == null || it.measure == fixedMeasure) }
+    val unfinished = needing.size
     val noMuscle = exercises.count { it.primaryMuscle == MuscleGroup.UNKNOWN }
-    val unfinished = exercises.count { !it.hasMetadata }
+    if (unfinishedOnly && unfinished == 0) LaunchedEffect(Unit) { unfinishedOnly = false }
     // A "not set" filter goes away with its last exercise, so the list never strands on an option that's gone.
     if (muscle == MuscleGroup.UNKNOWN && noMuscle == 0) LaunchedEffect(Unit) { muscle = null }
     if (equipment == Equipment.UNKNOWN && exercises.none { it.equipment == Equipment.UNKNOWN }) {
         LaunchedEffect(Unit) { equipment = null }
     }
-    val results = searchExercises(exercises, query, muscle, equipment, measure)
+    val results = if (unfinishedOnly) needing.sortedBy { it.name.lowercase() }
+    else searchExercises(exercises, query, muscle, equipment, measure)
     LazyColumn(Modifier.fillMaxHeight().readableWidth().yieldsToFixedControls().testTag("library-results"),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
         item {
             // A filled search pill, like the app's other fields, rather than a lone outlined box.
             val fill = tonalFill()
             androidx.compose.material3.TextField(
-                query, { query = it },
+                query, { query = it; unfinishedOnly = false },
                 placeholder = { Text("Search exercises") },
                 shape = androidx.compose.foundation.shape.CircleShape,
                 colors = androidx.compose.material3.TextFieldDefaults.colors(
@@ -258,20 +263,24 @@ private fun ExerciseLibraryContent(
             )
         }
         // Older custom exercises made before muscle and equipment were required: one quiet line until they're set.
-        if (unfinished > 0 && muscle == null && equipment == null) item {
+        // Show lists every one of them, whichever field it lacks, clearing the search and filters that could hide one.
+        if (unfinished > 0 && (unfinishedOnly || muscle == null && equipment == null)) item {
             Row(
                 Modifier.padding(top = 8.dp).fillMaxWidth().heightIn(min = 56.dp).clip(MaterialTheme.shapes.large)
-                    .background(tonalFill())
-                    .clickable(role = Role.Button, onClickLabel = "Show them") {
-                        if (noMuscle > 0) muscle = MuscleGroup.UNKNOWN else equipment = Equipment.UNKNOWN
+                    .background(if (unfinishedOnly) MaterialTheme.colorScheme.secondaryContainer else tonalFill())
+                    .clickable(role = Role.Button, onClickLabel = if (unfinishedOnly) "Show all exercises" else "Show them") {
+                        if (!unfinishedOnly) {
+                            query = ""; muscle = null; equipment = null; chosenMeasure = null
+                        }
+                        unfinishedOnly = !unfinishedOnly
                     }
                     .padding(horizontal = 16.dp, vertical = 10.dp)
                     .testTag("library-unfinished"),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 val missing = when {
-                    exercises.all { it.hasMetadata || it.equipment != Equipment.UNKNOWN } -> "a muscle"
-                    noMuscle == 0 -> "equipment"
+                    needing.all { it.equipment != Equipment.UNKNOWN } -> "a muscle"
+                    needing.all { it.primaryMuscle != MuscleGroup.UNKNOWN } -> "equipment"
                     else -> "a muscle or equipment"
                 }
                 Text(
@@ -279,7 +288,7 @@ private fun ExerciseLibraryContent(
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
-                Text("Show", style = MaterialTheme.typography.labelLarge, color = accentText(),
+                Text(if (unfinishedOnly) "Show all" else "Show", style = MaterialTheme.typography.labelLarge, color = accentText(),
                     modifier = Modifier.padding(start = 12.dp))
             }
         }
@@ -289,14 +298,14 @@ private fun ExerciseLibraryContent(
                 FilterDropdown(muscle, "Muscle", listOf(null) + knownMuscles +
                     listOfNotNull(MuscleGroup.UNKNOWN.takeIf { exercises.any { it.primaryMuscle == MuscleGroup.UNKNOWN } }),
                     { if (it == MuscleGroup.UNKNOWN) "Muscle not set" else it?.title ?: "All muscles" },
-                    Modifier.testTag("library-filter-muscle")) { muscle = it }
+                    Modifier.testTag("library-filter-muscle")) { muscle = it; unfinishedOnly = false }
                 FilterDropdown(equipment, "Equipment", listOf(null) + knownEquipment +
                     listOfNotNull(Equipment.UNKNOWN.takeIf { exercises.any { it.equipment == Equipment.UNKNOWN } }),
                     { if (it == Equipment.UNKNOWN) "Equipment not set" else it?.title ?: "All equipment" },
-                    Modifier.testTag("library-filter-equipment")) { equipment = it }
+                    Modifier.testTag("library-filter-equipment")) { equipment = it; unfinishedOnly = false }
                 if (fixedMeasure == null) {
                     FilterDropdown(chosenMeasure, "Type", listOf(null) + Measure.entries, ::measureFilterTitle,
-                        Modifier.testTag("library-filter-type")) { chosenMeasure = it }
+                        Modifier.testTag("library-filter-type")) { chosenMeasure = it; unfinishedOnly = false }
                 }
                 if (muscle != null || equipment != null || chosenMeasure != null) {
                     SecondaryButton(onClick = { query = ""; muscle = null; equipment = null; chosenMeasure = null }) {
