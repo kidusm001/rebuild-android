@@ -14,8 +14,8 @@ android {
         applicationId = "com.rebuild"
         minSdk = 26
         targetSdk = 35
-        versionCode = 27
-        versionName = "0.5.2"
+        versionCode = 28
+        versionName = "0.6.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     // Every Rebuild APK is signed with the same key, so each one installs over the last and keeps its data. Locally

@@ -4,6 +4,15 @@ Every version installs over the one before it with the same signing key and keep
 on, release APKs are built and published by [GitHub Actions](.github/workflows/release.yml); notes for each are in
 [docs/releases](docs/releases/).
 
+## 0.6.0 (version code 28)
+- Switch exercise: swap an exercise during a workout from the hold menu or Switch exercise sheet (including unlogged
+  exercises added today), with movement-aware grouped suggestions also in Edit plan, plan additions, and routines.
+  Custom exercises now require a muscle and equipment so they get same-muscle swaps too.
+- Collapsing headers: screen headers collapse on scroll under frosted glass, including in right-to-left layouts.
+- Redesigned exercise editor in Edit plan and Adjust today, and grouped choice rows throughout the app.
+- Fixes: Show lists every unfinished exercise; the hold menu no longer flashes while scrolling the exercise strip;
+  quieter selection pills and destructive dialog buttons.
+
 ## 0.5.2 (version code 27)
 - A new app icon: the Rebuild R in amber on ink, also on the launch screen and the welcome page. With themed icons
   on (Android 13+), the home screen shows a tinted R instead of a blank tile.
