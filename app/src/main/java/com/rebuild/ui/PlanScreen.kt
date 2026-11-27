@@ -484,7 +484,13 @@ private fun PlanSlotDialog(env: AppEnv, phase: Phase, slot: PlanSlot, onDismiss:
 
     AdaptiveDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit plan · ${phaseShort(phase)}") },
+        // What's being edited as a quiet line over the phase, so a large-text title never breaks at its separator.
+        title = {
+            Column {
+                Text("Edit plan", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(phaseShort(phase))
+            }
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 TargetEditorFields(
@@ -492,12 +498,16 @@ private fun PlanSlotDialog(env: AppEnv, phase: Phase, slot: PlanSlot, onDismiss:
                     sets, { sets = it; if (!(slot.upperSets != null && it > slot.upperSets)) allowAboveCap = false },
                     rest, { rest = it }, slot.baselineSets, slot.upperSets, allowAboveCap, { allowAboveCap = it }
                 )
-                TextButton(onClick = {
-                    exerciseId = slot.exerciseFor(env.state.gear) ?: slot.exerciseId
-                    sets = defaults.sets
-                    rest = slot.restSeconds.toString()
-                    allowAboveCap = false
-                }) { Text("Use phase defaults") }
+                // A reset only shows when there's something to reset; it puts back the exercise as well as sets and rest.
+                val defaultExercise = slot.exerciseFor(env.state.gear) ?: slot.exerciseId
+                if (exerciseId != defaultExercise || sets != defaults.sets || parseRest(rest) != slot.restSeconds) {
+                    TextButton(onClick = {
+                        exerciseId = defaultExercise
+                        sets = defaults.sets
+                        rest = slot.restSeconds.toString()
+                        allowAboveCap = false
+                    }) { Text("Use phase defaults") }
+                }
                 ErrorText(error)
                 Spacer(Modifier.height(8.dp))
                 TextButton(
