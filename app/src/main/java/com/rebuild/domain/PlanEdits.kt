@@ -122,6 +122,16 @@ fun AppState.asksPerLeg(exercise: Exercise): Boolean {
     return heldByPlan || exercise.primaryMuscle in ONE_LEG_CANDIDATES
 }
 
+/**
+ * The user's own exercises offered beside a planned one when swapping it: only those working the same primary muscle,
+ * so a curl isn't offered a pec deck. The rest, and any without a muscle, are one tap away in the full library.
+ */
+fun AppState.customSwapsFor(exerciseId: String?): List<String> {
+    val muscle = exercises.find { it.id == exerciseId }?.primaryMuscle ?: return emptyList()
+    if (muscle == MuscleGroup.UNKNOWN) return emptyList()
+    return exercises.filter { it.custom && it.id != exerciseId && it.primaryMuscle == muscle }.map { it.id }
+}
+
 enum class RestSource(val label: String) {
     LAST_USED("last used"),
     PLAN("from your plan"),

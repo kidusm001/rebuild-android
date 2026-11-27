@@ -137,12 +137,17 @@ class LibraryPlatesTest {
         rule.onNodeWithText("Name", substring = false).performTextInput("My cable row")
         rule.onNodeWithTag("custom-equipment").performScrollTo().performClick()
         rule.onNodeWithText(Equipment.CABLE.title, substring = false).performClick()
+        // Muscle is required too: without it the dialog stays open and says what's missing.
+        rule.onNodeWithText("Add", substring = false).performClick()
+        rule.onNodeWithText("Choose its primary muscle.").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("custom-muscle").performScrollTo().performClick()
+        rule.onNodeWithText(MuscleGroup.BACK.title, substring = false).performClick()
         rule.onNodeWithText("Add", substring = false).performClick()
         rule.waitUntil(5000) { repo.state.value.exercises.any { it.custom } }
         rule.waitForIdle()
         val created = repo.state.value.exercises.single { it.custom }
         assertEquals(Equipment.CABLE, created.equipment)
-        assertEquals(MuscleGroup.UNKNOWN, created.primaryMuscle)
+        assertEquals(MuscleGroup.BACK, created.primaryMuscle)
         assertEquals(LoadUnit.KG, created.preferredLoadUnit)
         rule.onNodeWithTag("unit-PLATES").performScrollTo().performClick()
         rule.waitUntil(5000) { repo.state.value.exercises.single { it.custom }.preferredLoadUnit == LoadUnit.PLATES }

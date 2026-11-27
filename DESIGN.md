@@ -52,6 +52,7 @@ Everything visual comes from `ui/theme/Theme.kt` and the shared components in
   of their own group, not loose pills. Expanding options open as rows of the same
   group, and a saved note is a block inside it; nothing expands onto the bare page.
   Above 130% text, values move under their labels rather than squeezing them.
+- **Every exercise names its muscle and equipment.** There is no "Unspecified" choice. A new exercise's rows read a muted "Choose"; Add with one missing turns it red, names it under the rows and scrolls there. Bodyweight loading fills Bodyweight equipment and Cardio fills Full body; from a plan slot the muscle starts as the slot's. Older custom exercises without them show "needs a muscle" in the library, behind one quiet "Show" row, never a prompt mid-workout.
 - **Spacing.** A 4/8/12/16/20/24 dp grid; a 20 dp gutter; 16 dp between sections.
   Content is a centered column capped at 640 dp on wide windows. Scrolling pages
   fade at an edge only when there is content beyond it.

@@ -36,6 +36,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -44,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -92,10 +94,14 @@ internal fun ExerciseLibraryScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(exerciseMetadata(exercise))
+                    if (exercise.custom && !exercise.hasMetadata) Text(
+                        "Set its muscle and equipment so it shows up beside similar exercises when you swap.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     Text(loadingDescription(exercise, exercise.preferredLoadUnit))
                     Text("To use it, add it to a workout or a routine.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (exercise.custom) SecondaryButton(onClick = { editingMetadata = exercise.id }) {
-                        Text("Edit equipment and muscle")
+                        Text(if (exercise.hasMetadata) "Edit muscle and equipment" else "Set muscle and equipment")
                     }
                     if (exercise.takesLoad) {
                         Text("Load unit for future workouts", style = MaterialTheme.typography.labelLarge)
@@ -123,34 +129,51 @@ internal fun ExerciseLibraryScreen(
 
 @Composable
 private fun CustomMetadataDialog(env: AppEnv, exercise: Exercise, onDismiss: () -> Unit) {
-    var equipment by rememberSaveable(exercise.id) { mutableStateOf(exercise.equipment) }
+    // Weight per dumbbell only makes sense on a dumbbell, so an older exercise saved that way starts there.
+    var equipment by rememberSaveable(exercise.id) {
+        mutableStateOf(if (exercise.perDumbbell && exercise.equipment == Equipment.UNKNOWN) Equipment.DUMBBELL
+        else exercise.equipment)
+    }
     var muscle by rememberSaveable(exercise.id) { mutableStateOf(exercise.primaryMuscle) }
     var error by rememberSaveable(exercise.id) { mutableStateOf<String?>(null) }
     AdaptiveDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Equipment and muscle") },
+        title = { Text("Muscle and equipment") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(exercise.name)
                 Column {
-                    EnumChoice("Equipment", equipment.title, Equipment.entries.filter {
-                        !exercise.perDumbbell || it == Equipment.UNKNOWN || it == Equipment.DUMBBELL
-                    }, { it.title }, index = 0, count = 2) { equipment = it }
-                    EnumChoice("Primary muscle", muscle.title, MuscleGroup.entries, { it.title }, index = 1, count = 2) {
+                    EnumChoice("Primary muscle", muscleChoice(muscle), knownMuscles, { it.title }, index = 0, count = 2,
+                        unset = muscle == MuscleGroup.UNKNOWN, missing = error != null) {
                         muscle = it
+                        if (error != null) error = metadataMissing(equipment, it)
                     }
+                    EnumChoice("Equipment", equipmentChoice(equipment), knownEquipment.filter {
+                        !exercise.perDumbbell || it == Equipment.DUMBBELL
+                    }, { it.title }, index = 1, count = 2, unset = equipment == Equipment.UNKNOWN,
+                        missing = error != null) {
+                        equipment = it
+                        if (error != null) error = metadataMissing(it, muscle)
+                    }
+                    if (error != null) androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 6.dp))
+                    ErrorText(error)
                 }
-                Text("Cable and Stack machine can log plates per stack.\nApplies to future workouts. Saved sets never change.",
+                Text((if (equipment == Equipment.CABLE || equipment == Equipment.STACK_MACHINE)
+                    "Cable and Stack machine can log plates per stack.\n" else "") +
+                    "Applies to future workouts. Saved sets never change.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                ErrorText(error)
             }
         },
         confirmButton = {
             TextButton(enabled = !env.runner.looksBusy(), onClick = {
+                metadataMissing(equipment, muscle)?.let { error = it; return@TextButton }
                 var updated = exercise.copy(equipment = equipment, primaryMuscle = muscle)
-                if (updated.preferredLoadUnit !in updated.loadUnitOptions()) updated = updated.copy(preferredLoadUnit = LoadUnit.KG)
+                if (updated.preferredLoadUnit !in updated.loadUnitOptions()) {
+                    // Leaving plates falls back to the lifting unit chosen in More, as a new exercise starts.
+                    updated = updated.copy(preferredLoadUnit = env.state.liftingUnit.loadUnit)
+                }
                 env.runner.run(Action.AddExercise(updated), onError = { error = it }, onSuccess = onDismiss)
-            }) { Text("Save metadata") }
+            }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
@@ -201,14 +224,26 @@ private fun ExerciseLibraryContent(
     var chosenMeasure by rememberSaveable { mutableStateOf<Measure?>(null) }
     // Where only one kind of exercise fits (swapping a planned one), the others are never offered.
     val measure = fixedMeasure ?: chosenMeasure
-    val results = searchExercises(exercises, query, muscle, equipment, measure)
+    // Older custom exercises still missing a muscle or equipment; in a picker, only those it could offer.
+    var unfinishedOnly by rememberSaveable { mutableStateOf(false) }
+    val needing = exercises.filter { !it.hasMetadata && (fixedMeasure == null || it.measure == fixedMeasure) }
+    val unfinished = needing.size
+    val noMuscle = exercises.count { it.primaryMuscle == MuscleGroup.UNKNOWN }
+    if (unfinishedOnly && unfinished == 0) LaunchedEffect(Unit) { unfinishedOnly = false }
+    // A "not set" filter goes away with its last exercise, so the list never strands on an option that's gone.
+    if (muscle == MuscleGroup.UNKNOWN && noMuscle == 0) LaunchedEffect(Unit) { muscle = null }
+    if (equipment == Equipment.UNKNOWN && exercises.none { it.equipment == Equipment.UNKNOWN }) {
+        LaunchedEffect(Unit) { equipment = null }
+    }
+    val results = if (unfinishedOnly) needing.sortedBy { it.name.lowercase() }
+    else searchExercises(exercises, query, muscle, equipment, measure)
     LazyColumn(Modifier.fillMaxHeight().readableWidth().yieldsToFixedControls().testTag("library-results"),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
         item {
             // A filled search pill, like the app's other fields, rather than a lone outlined box.
             val fill = tonalFill()
             androidx.compose.material3.TextField(
-                query, { query = it },
+                query, { query = it; unfinishedOnly = false },
                 placeholder = { Text("Search exercises") },
                 shape = androidx.compose.foundation.shape.CircleShape,
                 colors = androidx.compose.material3.TextFieldDefaults.colors(
@@ -227,16 +262,50 @@ private fun ExerciseLibraryContent(
                     .semantics { contentDescription = "Search exercises" }
             )
         }
+        // Older custom exercises made before muscle and equipment were required: one quiet line until they're set.
+        // Show lists every one of them, whichever field it lacks, clearing the search and filters that could hide one.
+        if (unfinished > 0 && (unfinishedOnly || muscle == null && equipment == null)) item {
+            Row(
+                Modifier.padding(top = 8.dp).fillMaxWidth().heightIn(min = 56.dp).clip(MaterialTheme.shapes.large)
+                    .background(if (unfinishedOnly) MaterialTheme.colorScheme.secondaryContainer else tonalFill())
+                    .clickable(role = Role.Button, onClickLabel = if (unfinishedOnly) "Show all exercises" else "Show them") {
+                        if (!unfinishedOnly) {
+                            query = ""; muscle = null; equipment = null; chosenMeasure = null
+                        }
+                        unfinishedOnly = !unfinishedOnly
+                    }
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                    .testTag("library-unfinished"),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val missing = when {
+                    needing.all { it.equipment != Equipment.UNKNOWN } -> "a muscle"
+                    needing.all { it.primaryMuscle != MuscleGroup.UNKNOWN } -> "equipment"
+                    else -> "a muscle or equipment"
+                }
+                Text(
+                    if (unfinished == 1) "1 exercise needs $missing" else "$unfinished exercises need $missing",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(if (unfinishedOnly) "Show all" else "Show", style = MaterialTheme.typography.labelLarge, color = accentText(),
+                    modifier = Modifier.padding(start = 12.dp))
+            }
+        }
         item {
             FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically) {
-                FilterDropdown(muscle, "Muscle", listOf(null) + MuscleGroup.entries, { it?.title ?: "All muscles" },
-                    Modifier.testTag("library-filter-muscle")) { muscle = it }
-                FilterDropdown(equipment, "Equipment", listOf(null) + Equipment.entries, { it?.title ?: "All equipment" },
-                    Modifier.testTag("library-filter-equipment")) { equipment = it }
+                FilterDropdown(muscle, "Muscle", listOf(null) + knownMuscles +
+                    listOfNotNull(MuscleGroup.UNKNOWN.takeIf { exercises.any { it.primaryMuscle == MuscleGroup.UNKNOWN } }),
+                    { if (it == MuscleGroup.UNKNOWN) "Muscle not set" else it?.title ?: "All muscles" },
+                    Modifier.testTag("library-filter-muscle")) { muscle = it; unfinishedOnly = false }
+                FilterDropdown(equipment, "Equipment", listOf(null) + knownEquipment +
+                    listOfNotNull(Equipment.UNKNOWN.takeIf { exercises.any { it.equipment == Equipment.UNKNOWN } }),
+                    { if (it == Equipment.UNKNOWN) "Equipment not set" else it?.title ?: "All equipment" },
+                    Modifier.testTag("library-filter-equipment")) { equipment = it; unfinishedOnly = false }
                 if (fixedMeasure == null) {
                     FilterDropdown(chosenMeasure, "Type", listOf(null) + Measure.entries, ::measureFilterTitle,
-                        Modifier.testTag("library-filter-type")) { chosenMeasure = it }
+                        Modifier.testTag("library-filter-type")) { chosenMeasure = it; unfinishedOnly = false }
                 }
                 if (muscle != null || equipment != null || chosenMeasure != null) {
                     SecondaryButton(onClick = { query = ""; muscle = null; equipment = null; chosenMeasure = null }) {
@@ -296,7 +365,34 @@ private fun libraryRowMetadata(exercise: Exercise): String =
         if (exercise.supportsPlates) " · kg or plates" else ""
 
 internal fun exerciseMetadata(exercise: Exercise): String =
-    "${exercise.primaryMuscle.title} · ${exercise.equipment.title}" + if (exercise.custom) " · custom" else ""
+    (if (exercise.hasMetadata) "${exercise.primaryMuscle.title} · ${exercise.equipment.title}"
+    else listOfNotNull(exercise.primaryMuscle.takeIf { it != MuscleGroup.UNKNOWN }?.title,
+        exercise.equipment.takeIf { it != Equipment.UNKNOWN }?.title, "needs ${missingMetadata(exercise)}")
+        .joinToString(" · ")) + if (exercise.custom) " · custom" else ""
+
+/** Every exercise names its muscle and equipment; only custom ones made before both were required can lack them. */
+internal val Exercise.hasMetadata: Boolean
+    get() = primaryMuscle != MuscleGroup.UNKNOWN && equipment != Equipment.UNKNOWN
+
+private fun missingMetadata(exercise: Exercise): String = when {
+    exercise.primaryMuscle == MuscleGroup.UNKNOWN && exercise.equipment == Equipment.UNKNOWN -> "muscle and equipment"
+    exercise.primaryMuscle == MuscleGroup.UNKNOWN -> "a muscle"
+    else -> "equipment"
+}
+
+/** The choices offered for a new or edited exercise: never "not set". */
+internal val knownEquipment: List<Equipment> = Equipment.entries.filter { it != Equipment.UNKNOWN }
+internal val knownMuscles: List<MuscleGroup> = MuscleGroup.entries.filter { it != MuscleGroup.UNKNOWN }
+internal fun equipmentChoice(equipment: Equipment) = if (equipment == Equipment.UNKNOWN) "Choose" else equipment.title
+internal fun muscleChoice(muscle: MuscleGroup) = if (muscle == MuscleGroup.UNKNOWN) "Choose" else muscle.title
+
+/** Why an exercise can't be saved yet, or null once both its muscle and equipment are chosen. */
+internal fun metadataMissing(equipment: Equipment, muscle: MuscleGroup): String? = when {
+    muscle == MuscleGroup.UNKNOWN && equipment == Equipment.UNKNOWN -> "Choose its primary muscle and equipment."
+    muscle == MuscleGroup.UNKNOWN -> "Choose its primary muscle."
+    equipment == Equipment.UNKNOWN -> "Choose its equipment."
+    else -> null
+}
 
 /**
  * A library filter as a chip: selected while it narrows the list, with a chevron that opens its choices. The label is
@@ -345,16 +441,25 @@ internal fun <T> EnumChoice(
     modifier: Modifier = Modifier,
     index: Int = 0,
     count: Int = 1,
+    /** Nothing is chosen yet: the value reads "Choose" in the muted colour instead of the accent. */
+    unset: Boolean = false,
+    /** Saving was tried with nothing chosen: "Choose" turns the error colour. */
+    missing: Boolean = false,
     onSelect: (T) -> Unit
 ) {
     var open by rememberSaveable { mutableStateOf(false) }
-    val valueColor = accentText()
+    val valueColor = when {
+        unset && missing -> MaterialTheme.colorScheme.error
+        unset -> MaterialTheme.colorScheme.onSurfaceVariant
+        else -> accentText()
+    }
     val scheme = MaterialTheme.colorScheme
     Box(modifier.padding(top = if (index > 0) 2.dp else 0.dp)) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(groupShape(index, count - 1)).background(tonalFill())
                 .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = "Choose $name") { open = true }
-                .clearAndSetSemantics { contentDescription = "$name: $value" }
+                .clearAndSetSemantics { contentDescription = if (unset) "$name: not chosen" else "$name: $value"
+                    if (unset && missing) error("Required") }
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
