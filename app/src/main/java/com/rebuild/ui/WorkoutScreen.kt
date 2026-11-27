@@ -893,7 +893,8 @@ private fun ExercisePill(
             // Held: an amber edge marks the pill being moved.
             .then(if (lifted) Modifier.border(2.dp, colors.primaryContainer.copy(alpha = liftAmount().coerceIn(0f, 1f)),
                 shape) else if (mark.alpha > 0f) Modifier.border(2.dp, mark, shape) else Modifier)
-            .selectable(selected = selected, role = Role.Tab, onClick = onClick)
+            .selectable(selected = selected, role = Role.Tab, interactionSource = null,
+                indication = com.rebuild.ui.theme.FocusHighlight, onClick = onClick)
             .semantics {
                 contentDescription = "Exercise ${index + 1} of $count: ${we.exercise.name}, " +
                     we.progressDescription() + progress

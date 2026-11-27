@@ -360,7 +360,8 @@ internal fun LoadUnitSelector(
             Box(
                 Modifier.weight(1f).heightIn(min = 48.dp).clip(CircleShape)
                     .background(if (selected) colors.secondaryContainer else Color.Transparent)
-                    .selectable(selected = selected, enabled = enabled, role = Role.RadioButton) { onSelect(option) }
+                    .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, interactionSource = null,
+                        indication = com.rebuild.ui.theme.FocusHighlight) { onSelect(option) }
                     .testTag("unit-${option.name}")
                     .semantics { contentDescription = if (option == LoadUnit.LB) "Pounds" else if (option == LoadUnit.KG)
                         "Kilograms" else "Plates per stack" },

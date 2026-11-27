@@ -195,8 +195,8 @@ internal fun DurationPickerDialog(
 
 /** One common rest as a full pill: a tinted tile on the dialog's surface, amber ink when it is the time on the wheels. */
 @Composable
-private fun QuickChoice(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Surface(
+private fun QuickChoice(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) =
+    com.rebuild.ui.theme.NoPressFlash { Surface(
         selected = selected,
         onClick = onClick,
         shape = CircleShape,
@@ -208,8 +208,7 @@ private fun QuickChoice(label: String, selected: Boolean, onClick: () -> Unit, m
             Text(label, style = MaterialTheme.typography.titleMedium.copy(fontFamily = Numerals, fontFeatureSettings = "tnum"),
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
         }
-    }
-}
+    } }
 
 /** The platform NumberPicker: flings, snaps, accepts typed digits and speaks its value with TalkBack. */
 @Composable

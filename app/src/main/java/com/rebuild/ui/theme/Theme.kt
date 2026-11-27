@@ -21,6 +21,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.node.currentValueOf
+import androidx.compose.ui.node.invalidateDraw
+import kotlinx.coroutines.launch
 import com.rebuild.R
 
 // Ink + Ember. A warm tinted canvas with lighter (light) or raised (dark) cards, separated by tone, never borders.
@@ -200,6 +203,68 @@ internal fun InkPress(content: @Composable () -> Unit) =
 
 @OptIn(ExperimentalMaterial3Api::class)
 private val InkRipple = RippleConfiguration()
+
+/**
+ * For selection pills (chips, unit and range choices, quick picks): the selected fill already shows what a tap chose,
+ * so a press draws nothing. Keyboard focus and hover still show, for those who don't touch.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+private val FocusOnlyRipple = RippleConfiguration(
+    rippleAlpha = RippleAlpha(draggedAlpha = 0f, focusedAlpha = 0.16f, hoveredAlpha = 0.08f, pressedAlpha = 0f)
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun NoPressFlash(content: @Composable () -> Unit) =
+    CompositionLocalProvider(LocalRippleConfiguration provides FocusOnlyRipple, content = content)
+
+/**
+ * The indication for hand-built selection pills: no press flash, but a tint in the content colour while focused by a
+ * keyboard, D-pad or switch, or hovered, so those users can still see where they are.
+ */
+internal object FocusHighlight : androidx.compose.foundation.IndicationNodeFactory {
+    override fun create(interactionSource: androidx.compose.foundation.interaction.InteractionSource):
+        androidx.compose.ui.node.DelegatableNode = Node(interactionSource)
+    override fun equals(other: Any?) = other === this
+    override fun hashCode() = System.identityHashCode(this)
+
+    private class Node(private val source: androidx.compose.foundation.interaction.InteractionSource) :
+        androidx.compose.ui.Modifier.Node(), androidx.compose.ui.node.DrawModifierNode,
+        androidx.compose.ui.node.CompositionLocalConsumerModifierNode {
+        private var focused = 0
+        private var hovered = 0
+
+        override fun onAttach() {
+            coroutineScope.launch {
+                source.interactions.collect {
+                    when (it) {
+                        is androidx.compose.foundation.interaction.FocusInteraction.Focus -> focused++
+                        is androidx.compose.foundation.interaction.FocusInteraction.Unfocus -> focused--
+                        is androidx.compose.foundation.interaction.HoverInteraction.Enter -> hovered++
+                        is androidx.compose.foundation.interaction.HoverInteraction.Exit -> hovered--
+                        else -> return@collect
+                    }
+                    invalidateDraw()
+                }
+            }
+        }
+
+        // A recycled node (a lazy row scrolled away while focused) may miss its Unfocus or Exit once its scope is
+        // cancelled, so it starts clean rather than staying tinted.
+        override fun onDetach() {
+            focused = 0
+            hovered = 0
+        }
+
+        override fun androidx.compose.ui.graphics.drawscope.ContentDrawScope.draw() {
+            drawContent()
+            val alpha = if (focused > 0) 0.16f else if (hovered > 0) 0.08f else 0f
+            // A capsule, like the pills it marks, even where the touch cell around the pill isn't clipped.
+            if (alpha > 0f) drawRoundRect(currentValueOf(LocalContentColor).copy(alpha = alpha),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.minDimension / 2))
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
