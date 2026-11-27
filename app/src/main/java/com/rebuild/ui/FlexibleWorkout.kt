@@ -1,5 +1,7 @@
 package com.rebuild.ui
 
+import androidx.compose.foundation.background
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
@@ -656,61 +658,43 @@ internal fun EntryOptions(
             if (skipped) onSkipped()
         }
     }
-    Column(Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (!we.optional) {
-            Text(
-                (we.baselineSets?.let { "Baseline ${countLabel(it, "set")}" } ?: "Your own exercise in this routine") +
-                    (we.upperSets?.let { " · advisory upper $it (not a target)" } ?: "") +
-                    if (we.exercise.measure == Measure.REPS) "" else ". ${restSentence(we)}",
-                style = MaterialTheme.typography.bodyMedium
-            )
-        } else {
-            Text(
-                if (workout.extra) "No target unless you set a goal. ${restSentence(we)}"
-                else "Added today · optional. " + restSentence(we),
-                style = MaterialTheme.typography.bodyMedium
-            )
+    // The options open as rows of the same group as "Target and options" above and the note below, so the panel
+    // reads as one list instead of a line of text over a stack of mismatched pills.
+    @Composable fun Note(text: String, tag: String? = null) = Text(
+        text, style = MaterialTheme.typography.bodyMedium, color = muted,
+        modifier = Modifier.padding(top = 2.dp).fillMaxWidth().clip(groupShape(1, 2))
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            .padding(horizontal = 16.dp, vertical = 12.dp).then(if (tag != null) Modifier.testTag(tag) else Modifier)
+    )
+    @Composable fun Option(@DrawableRes icon: Int, label: String, tag: String? = null, onClick: () -> Unit) =
+        GroupedActionRow(onClick = onClick, icon = icon, index = 1, lastIndex = 2, enabled = !busy,
+            modifier = Modifier.padding(top = 2.dp).then(if (tag != null) Modifier.testTag(tag) else Modifier)) {
+            Text(label, modifier = Modifier.weight(1f))
         }
-    }
     if (!we.optional) {
-        SecondaryButton(onClick = onAdjust, enabled = !busy, icon = R.drawable.ic_pencil) { Text("Adjust today") }
+        Note((we.baselineSets?.let { "Baseline ${countLabel(it, "set")}" } ?: "Your own exercise in this routine") +
+            (we.upperSets?.let { " · advisory upper $it (not a target)" } ?: "") +
+            if (we.exercise.measure == Measure.REPS) "" else ". ${restSentence(we)}")
+        Option(R.drawable.ic_pencil, "Adjust today", onClick = onAdjust)
         when {
-            we.skipped -> SecondaryButton(onClick = { skip(false) }, enabled = !busy, icon = R.drawable.ic_undo_2,
-                modifier = Modifier.testTag("undo-skip-option")) { Text("Undo skip") }
-            we.belowTarget() && we.openGroup() != null -> Text(
-                "Finish the ${we.openGroup()!!.method.title.lowercase()} in progress before skipping this exercise.",
-                style = MaterialTheme.typography.bodySmall, color = muted,
-                modifier = Modifier.padding(start = 12.dp)
-            )
-            we.belowTarget() && env.state.stopwatch.timesEntry(workout, we) -> Text(
-                "Log or discard the stopwatch's effort before skipping this exercise. Its time is kept until then.",
-                style = MaterialTheme.typography.bodySmall, color = muted,
-                modifier = Modifier.padding(start = 12.dp)
-            )
-            we.belowTarget() -> SecondaryButton(onClick = { skip(true) }, enabled = !busy,
-                icon = R.drawable.ic_skip_forward, modifier = Modifier.testTag("skip-today")) {
-                Text("Skip today · target stays")
-            }
+            we.skipped -> Option(R.drawable.ic_undo_2, "Undo skip", "undo-skip-option") { skip(false) }
+            we.belowTarget() && we.openGroup() != null ->
+                Note("Finish the ${we.openGroup()!!.method.title.lowercase()} in progress before skipping this exercise.")
+            we.belowTarget() && env.state.stopwatch.timesEntry(workout, we) ->
+                Note("Log or discard the stopwatch's effort before skipping this exercise. Its time is kept until then.")
+            we.belowTarget() -> Option(R.drawable.ic_skip_forward, "Skip today · target stays", "skip-today") { skip(true) }
         }
     } else {
-        SecondaryButton(onClick = onEditGoal, enabled = !busy, icon = R.drawable.ic_pencil,
-            modifier = Modifier.testTag("edit-goal")) { Text("Goal and rest") }
+        Note(if (workout.extra) "No target unless you set a goal. ${restSentence(we)}"
+            else "Added today · optional. " + restSentence(we))
+        Option(R.drawable.ic_pencil, "Goal and rest", "edit-goal", onEditGoal)
         // Only an occurrence still on its phase's week has future workouts to save to.
         val template = env.state.scheduledRoutine(workout.phase, workout.templateId)
         if (template != null) {
-            if (env.state.inPlan(template, workout.phase, we.exercise.id)) {
-                Text(
-                    "In your ${template.name} plan",
-                    style = MaterialTheme.typography.bodySmall, color = muted,
-                    modifier = Modifier.padding(start = 12.dp).testTag("addition-in-plan")
-                )
-            } else {
-                SecondaryButton(onClick = onSaveToPlan, enabled = !busy, icon = R.drawable.ic_clipboard_list,
-                    modifier = Modifier.testTag("save-addition")) { Text("Save to ${template.name} plan…") }
-            }
+            if (env.state.inPlan(template, workout.phase, we.exercise.id)) Note("In your ${template.name} plan", "addition-in-plan")
+            else Option(R.drawable.ic_clipboard_list, "Save to ${template.name} plan…", "save-addition", onSaveToPlan)
         }
-        SecondaryButton(onClick = onRemove, enabled = !busy, icon = R.drawable.ic_x,
-            modifier = Modifier.testTag("remove-entry")) { Text("Remove from this workout") }
+        Option(R.drawable.ic_x, "Remove from this workout", "remove-entry", onRemove)
     }
     ErrorText(error)
 }

@@ -135,7 +135,7 @@ class LibraryPlatesTest {
         rule.onNodeWithTag("library-search").performTextReplacement("new custom name zzz")
         rule.onNodeWithText("New exercise").performScrollTo().performClick()
         rule.onNodeWithText("Name", substring = false).performTextInput("My cable row")
-        rule.onNodeWithText("Equipment: ${Equipment.UNKNOWN.title}").performScrollTo().performClick()
+        rule.onNodeWithTag("custom-equipment").performScrollTo().performClick()
         rule.onNodeWithText(Equipment.CABLE.title, substring = false).performClick()
         rule.onNodeWithText("Add", substring = false).performClick()
         rule.waitUntil(5000) { repo.state.value.exercises.any { it.custom } }

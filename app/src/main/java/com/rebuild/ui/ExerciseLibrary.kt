@@ -1,5 +1,7 @@
 package com.rebuild.ui
 
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
@@ -8,9 +10,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.background
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import com.rebuild.domain.takesLoad
 import com.rebuild.domain.loadUnitOptions
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -31,12 +30,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -136,11 +131,15 @@ private fun CustomMetadataDialog(env: AppEnv, exercise: Exercise, onDismiss: () 
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(exercise.name)
-                EnumChoice("Equipment: ${equipment.title}", Equipment.entries.filter {
-                    !exercise.perDumbbell || it == Equipment.UNKNOWN || it == Equipment.DUMBBELL
-                }, { it.title }) { equipment = it }
-                EnumChoice("Primary muscle: ${muscle.title}", MuscleGroup.entries, { it.title }) { muscle = it }
-                Text("Cable and Selectorized stack can log plates per stack.\nApplies to future workouts. Saved sets never change.",
+                Column {
+                    EnumChoice("Equipment", equipment.title, Equipment.entries.filter {
+                        !exercise.perDumbbell || it == Equipment.UNKNOWN || it == Equipment.DUMBBELL
+                    }, { it.title }, index = 0, count = 2) { equipment = it }
+                    EnumChoice("Primary muscle", muscle.title, MuscleGroup.entries, { it.title }, index = 1, count = 2) {
+                        muscle = it
+                    }
+                }
+                Text("Cable and Stack machine can log plates per stack.\nApplies to future workouts. Saved sets never change.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 ErrorText(error)
             }
@@ -205,15 +204,26 @@ private fun ExerciseLibraryContent(
     LazyColumn(Modifier.fillMaxHeight().readableWidth().yieldsToFixedControls().testTag("library-results"),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
         item {
-            OutlinedTextField(
+            // A filled search pill, like the app's other fields, rather than a lone outlined box.
+            val fill = tonalFill()
+            androidx.compose.material3.TextField(
                 query, { query = it },
-                label = { Text("Search exercises") },
+                placeholder = { Text("Search exercises") },
+                shape = androidx.compose.foundation.shape.CircleShape,
+                colors = androidx.compose.material3.TextFieldDefaults.colors(
+                    focusedContainerColor = fill, unfocusedContainerColor = fill,
+                    focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                    unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                    cursorColor = accentText()
+                ),
                 leadingIcon = { RebuildIcon(R.drawable.ic_search, contentDescription = null) },
                 trailingIcon = if (query.isEmpty()) null else {
                     { IconButton(onClick = { query = "" }) { RebuildIcon(R.drawable.ic_x, contentDescription = "Clear search") } }
                 },
                 singleLine = true,
+                // A placeholder disappears once typing starts, so the field keeps its name for screen readers.
                 modifier = Modifier.fillMaxWidth().testTag("library-search")
+                    .semantics { contentDescription = "Search exercises" }
             )
         }
         item {
@@ -251,7 +261,6 @@ private fun ExerciseLibraryContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 SecondaryButton(onClick = onAdd, icon = R.drawable.ic_plus) { Text("New exercise") }
             }
-            HorizontalDivider()
         }
         if (results.isEmpty()) item {
             Column(Modifier.padding(vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -270,7 +279,6 @@ private fun ExerciseLibraryContent(
             val metadata = libraryRowMetadata(exercise) + if (exercise.id in marked) " · $markedLabel" else ""
             ListRow(exercise.name, supporting = metadata, label = "${exercise.name}, $metadata",
                 modifier = Modifier.testTag("library-${exercise.id}"), onClick = { onChoose(exercise) })
-            HorizontalDivider()
         }
     }
 }
@@ -320,18 +328,45 @@ private fun <T> FilterDropdown(
     }
 }
 
+/**
+ * One setting with a few fixed choices, as a row of a grouped list ([index] of [count]): its name, its value in the
+ * accent and a chevron; a tap opens the choices beneath it. Spoken as "Name: value".
+ */
 @Composable
-internal fun <T> EnumChoice(label: String, options: List<T>, title: (T) -> String, onSelect: (T) -> Unit) {
+internal fun <T> EnumChoice(
+    name: String,
+    value: String,
+    options: List<T>,
+    title: (T) -> String,
+    modifier: Modifier = Modifier,
+    index: Int = 0,
+    count: Int = 1,
+    onSelect: (T) -> Unit
+) {
     var open by rememberSaveable { mutableStateOf(false) }
-    Column {
-        OutlinedButton(
-            onClick = { open = true },
-            modifier = Modifier.heightIn(min = 48.dp),
-            contentPadding = PaddingValues(start = 16.dp, end = 12.dp)
+    val valueColor = accentText()
+    val scheme = MaterialTheme.colorScheme
+    Box(modifier.padding(top = if (index > 0) 2.dp else 0.dp)) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(groupShape(index, count - 1)).background(tonalFill())
+                .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = "Choose $name") { open = true }
+                .clearAndSetSemantics { contentDescription = "$name: $value" }
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(label)
-            RebuildIcon(R.drawable.ic_chevron_down, contentDescription = null,
-                modifier = Modifier.padding(start = 6.dp).size(18.dp))
+            // Above 130% text the value sits under its name, so neither is cut to fit beside the other.
+            if (androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) {
+                Column(Modifier.weight(1f)) {
+                    Text(name, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                    Text(value, style = MaterialTheme.typography.titleSmall, color = valueColor)
+                }
+            } else {
+                Text(name, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
+                Text(value, style = MaterialTheme.typography.titleSmall, color = valueColor, maxLines = 1,
+                    modifier = Modifier.padding(start = 12.dp))
+            }
+            RebuildIcon(R.drawable.ic_chevron_down, contentDescription = null, tint = scheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 4.dp).size(18.dp))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             options.forEach { option ->
