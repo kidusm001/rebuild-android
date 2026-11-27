@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -261,6 +262,7 @@ private fun ExerciseLibraryContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 SecondaryButton(onClick = onAdd, icon = R.drawable.ic_plus) { Text("New exercise") }
             }
+            HorizontalDivider()
         }
         if (results.isEmpty()) item {
             Column(Modifier.padding(vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -279,6 +281,8 @@ private fun ExerciseLibraryContent(
             val metadata = libraryRowMetadata(exercise) + if (exercise.id in marked) " · $markedLabel" else ""
             ListRow(exercise.name, supporting = metadata, label = "${exercise.name}, $metadata",
                 modifier = Modifier.testTag("library-${exercise.id}"), onClick = { onChoose(exercise) })
+            // A long flat list of two-line rows: the hairlines show where one exercise ends and the next begins.
+            HorizontalDivider()
         }
     }
 }
