@@ -400,13 +400,14 @@ internal fun CustomExerciseDialog(
                 if (measure == null) {
                     Column(Modifier.selectableGroup().testTag("custom-measure")) {
                         RadioRow("Sets of reps", how == Measure.REPS, { chosenMeasure = Measure.REPS },
-                            supporting = "Reps with a load, like most strength exercises")
+                            supporting = "Reps with a load, like most strength exercises", index = 0, count = 4)
                         RadioRow("Timed sets", how == Measure.TIMED, { chosenMeasure = Measure.TIMED },
-                            supporting = "Holds such as a plank: each set's time, with a load if it has one")
+                            supporting = "Holds such as a plank: each set's time, with a load if it has one", index = 1, count = 4)
                         RadioRow("Distance sets", how == Measure.DISTANCE, { chosenMeasure = Measure.DISTANCE },
-                            supporting = "Carries and sled pushes: each set's distance, with its time and load if wanted")
+                            supporting = "Carries and sled pushes: each set's distance, with its time and load if wanted",
+                            index = 2, count = 4)
                         RadioRow("Cardio", how == Measure.CARDIO, { chosenMeasure = Measure.CARDIO },
-                            supporting = "Running, cycling or rowing: time, distance or both, never a load")
+                            supporting = "Running, cycling or rowing: time, distance or both, never a load", index = 3, count = 4)
                     }
                 } else {
                     Text("${customMeasureTitle(measure)}, like the exercise it replaces.",
@@ -416,21 +417,26 @@ internal fun CustomExerciseDialog(
                     Text("How is it loaded?", style = MaterialTheme.typography.labelLarge)
                     Column(Modifier.selectableGroup()) {
                         RadioRow("External weight", loading == LoadingType.EXTERNAL, { loading = LoadingType.EXTERNAL },
-                            supporting = "Kg, or plates for a cable or selectorized stack")
+                            supporting = "Kg, or plates for a cable or stack machine", index = 0, count = 3)
                         RadioRow("Bodyweight", loading == LoadingType.BODYWEIGHT, { loading = LoadingType.BODYWEIGHT },
                             supporting = if (how == Measure.REPS) {
                                 "Reps only; add a separate external exercise for weighted versions"
-                            } else "No weight recorded; add a separate external exercise for weighted versions")
+                            } else "No weight recorded; add a separate external exercise for weighted versions",
+                            index = 1, count = 3)
                         RadioRow("Assisted", loading == LoadingType.ASSISTANCE, { loading = LoadingType.ASSISTANCE },
-                            supporting = "Log the assistance kg; less assistance is harder")
+                            supporting = "Log the assistance kg; less assistance is harder", index = 2, count = 3)
                     }
                 }
-                EnumChoice("Equipment: ${equipment.title}", Equipment.entries, { it.title }) {
-                    equipment = it
-                    if (it != Equipment.DUMBBELL && it != Equipment.UNKNOWN) perDumbbell = false
+                Column {
+                    EnumChoice("Equipment", equipment.title, Equipment.entries, { it.title },
+                        Modifier.testTag("custom-equipment"), index = 0, count = 2) {
+                        equipment = it
+                        if (it != Equipment.DUMBBELL && it != Equipment.UNKNOWN) perDumbbell = false
+                    }
+                    EnumChoice("Primary muscle", muscle.title, MuscleGroup.entries, { it.title },
+                        Modifier.testTag("custom-muscle"), index = 1, count = 2) { muscle = it }
                 }
-                EnumChoice("Primary muscle: ${muscle.title}", MuscleGroup.entries, { it.title }) { muscle = it }
-                Text("Choose Cable or Selectorized stack only for physical stack plates. " +
+                Text("Choose Cable or Stack machine only for physical stack plates. " +
                     "Leave metadata unknown if unsure.", style = MaterialTheme.typography.bodySmall)
                 if (how != Measure.CARDIO) CheckRow(
                     "kg per dumbbell", perDumbbell && loading == LoadingType.EXTERNAL, { perDumbbell = it },

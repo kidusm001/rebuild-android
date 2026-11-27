@@ -1264,6 +1264,7 @@ private fun ExerciseFocus(
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ExerciseNoteField(env: AppEnv, workoutId: String, we: WorkoutExercise, drafts: NoteDrafts) {
     val note = drafts.text(we.id, we.notes)
@@ -1271,7 +1272,16 @@ internal fun ExerciseNoteField(env: AppEnv, workoutId: String, we: WorkoutExerci
     var editing by rememberSaveable(we.id) { mutableStateOf(false) }
     val focus = remember(we.id) { FocusRequester() }
     if (!editing && note == we.notes) {
-        if (note.isNotBlank()) Text(note, modifier = Modifier.testTag("exercise-note-content"))
+        // A saved note is a block of the same group as the row that edits it, never loose text on the page.
+        if (note.isNotBlank()) Column(
+            Modifier.padding(top = 2.dp).fillMaxWidth().clip(groupShape(1, 2))
+                .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Text("Note", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(note, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.testTag("exercise-note-content"))
+        }
         val action = if (note.isBlank()) "Add exercise note" else "Edit exercise note"
         GroupedActionRow(onClick = { editing = true },
             icon = if (note.isBlank()) R.drawable.ic_notebook_pen else R.drawable.ic_pencil,
@@ -1283,34 +1293,44 @@ internal fun ExerciseNoteField(env: AppEnv, workoutId: String, we: WorkoutExerci
         }
         return
     }
-    InputField(
-        value = note,
-        onValueChange = {
-            editing = true
-            drafts.edit(we.id, we.notes, limitUserText(it, MAX_NOTE_CHARS))
-        },
-        label = "Exercise note",
-        singleLine = false,
-        modifier = Modifier
-            .fillMaxWidth()
-            .focusRequester(focus)
-            .testTag("exercise-note")
-    )
-    LaunchedEffect(editing) { if (editing) focus.requestFocus() }
-    ErrorText(error)
-    if (note != we.notes) {
-        SecondaryButton(
-            onClick = {
-                error = null
-                env.runner.run(Action.ExerciseNote(workoutId, we.id, note), onError = { error = it }) {
-                    drafts.clear(we.id)
-                    editing = false
-                }
+    // Editing stays inside the group as its last block: the field, then Cancel and Save, never loose on the page.
+    Column(
+        Modifier.padding(top = 2.dp).fillMaxWidth().clip(groupShape(1, 1))
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest).padding(12.dp)
+    ) {
+        InputField(
+            value = note,
+            onValueChange = {
+                editing = true
+                drafts.edit(we.id, we.notes, limitUserText(it, MAX_NOTE_CHARS))
             },
-            enabled = !env.runner.looksBusy()
-        ) { Text("Save note") }
+            label = "Exercise note",
+            singleLine = false,
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(focus)
+                .testTag("exercise-note")
+        )
+        LaunchedEffect(editing) { if (editing) focus.requestFocus() }
+        ErrorText(error)
+        // Cancel and Save side by side under the field, Save last, as in every dialog; they wrap only when they don't fit.
+        androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth().padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SecondaryButton(onClick = { drafts.clear(we.id); editing = false }, enabled = !env.runner.busy) { Text("Cancel") }
+            if (note != we.notes) {
+                Button(
+                    onClick = {
+                        error = null
+                        env.runner.run(Action.ExerciseNote(workoutId, we.id, note), onError = { error = it }) {
+                            drafts.clear(we.id)
+                            editing = false
+                        }
+                    },
+                    enabled = !env.runner.looksBusy()
+                ) { Text("Save note") }
+            }
+        }
     }
-    SecondaryButton(onClick = { drafts.clear(we.id); editing = false }, enabled = !env.runner.busy) { Text("Cancel note edit") }
 }
 
 @Composable

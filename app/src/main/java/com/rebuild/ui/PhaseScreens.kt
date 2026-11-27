@@ -32,9 +32,9 @@ import com.rebuild.domain.Phase
 internal fun PhaseChoices(state: AppState, selected: Phase?, onSelect: (Phase) -> Unit) {
     Column(Modifier.selectableGroup()) {
         Phase.entries.forEachIndexed { index, phase ->
-            if (index > 0) HorizontalDivider()
             RadioRow(
                 text = phase.title,
+                index = index, count = Phase.entries.size,
                 selected = selected == phase,
                 onClick = { onSelect(phase) },
                 supporting = state.phasePrescription(phase) + "\n" + state.phaseGuidance(phase),

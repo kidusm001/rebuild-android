@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -70,12 +69,26 @@ internal fun DurationPickerField(
     var picking by rememberSaveable { mutableStateOf(false) }
     val value = seconds.trim().toIntOrNull()
     val shown = value?.let { if (it == 0) "0:00" else formatRest(it) } ?: ""
-    // A read-only field keeps the familiar outlined shape, label and supporting text; any press opens the wheels.
+    // A read-only field filled like the app's number fields (tonal fill, hairline edge), with its label and supporting
+    // text; any press opens the wheels.
     val presses = remember { MutableInteractionSource() }
     LaunchedEffect(presses) {
         presses.interactions.collect { if (it is PressInteraction.Release && enabled) picking = true }
     }
-    OutlinedTextField(
+    val shape = MaterialTheme.shapes.small
+    val fill = tonalFill()
+    androidx.compose.material3.TextField(
+        shape = shape,
+        colors = androidx.compose.material3.TextFieldDefaults.colors(
+            focusedContainerColor = fill, unfocusedContainerColor = fill, disabledContainerColor = fill,
+            focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+            unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+            disabledIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+            focusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            focusedSupportingTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            unfocusedSupportingTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+        ),
         value = shown,
         onValueChange = {},
         readOnly = true,
@@ -87,6 +100,7 @@ internal fun DurationPickerField(
         trailingIcon = { RebuildIcon(com.rebuild.R.drawable.ic_rest, contentDescription = null) },
         textStyle = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum"),
         interactionSource = presses,
+        // The edge goes round the field itself, not its supporting text below.
         modifier = modifier.semantics {
             role = Role.Button
             contentDescription = label

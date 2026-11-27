@@ -435,9 +435,10 @@ private fun StartRoutineDialog(
         text = {
             Text("Which workout is this?", style = MaterialTheme.typography.bodyMedium)
             Column(Modifier.selectableGroup()) {
-                linked.forEach { copy ->
+                linked.forEachIndexed { i, copy ->
                     RadioRow(
                         "${occurrenceDay(copy, week)} · ${copy.name}",
+                        index = i, count = linked.size + 1,
                         selected = selected == copy.id,
                         onClick = { choice = copy.id },
                         supporting = listOfNotNull(
@@ -449,6 +450,7 @@ private fun StartRoutineDialog(
                 }
                 RadioRow(
                     "Extra session",
+                    index = linked.size, count = linked.size + 1,
                     selected = selected == EXTRA_CHOICE,
                     onClick = { choice = EXTRA_CHOICE },
                     supporting = "Outside the plan · never counts on the weekly checklist",
@@ -473,6 +475,7 @@ private fun DayChoices(week: List<ScheduledRoutine>, selected: Int?, current: In
             val there = week.filter { it.weekday == day }.joinToString { it.name }
             RadioRow(
                 weekdayName(day),
+                index = day - 1, count = 7,
                 selected = selected == day,
                 onClick = { onSelect(day) },
                 supporting = when {
@@ -519,14 +522,16 @@ private fun ConflictChoices(
         Column(Modifier.selectableGroup()) {
             RadioRow(
                 "Add alongside",
+                index = 0, count = onDay.size + 1,
                 selected = choice == ALONGSIDE,
                 onClick = { onChoice(ALONGSIDE) },
                 supporting = "Keeps $names. Each counts on its own on the checklist.",
                 modifier = Modifier.testTag("schedule-alongside")
             )
-            onDay.forEach { other ->
+            onDay.forEachIndexed { i, other ->
                 RadioRow(
                     "Replace ${occurrenceName(other, week)}",
+                    index = i + 1, count = onDay.size + 1,
                     selected = choice == other.id,
                     onClick = { onChoice(other.id) },
                     supporting = replaceNote(state, other),
