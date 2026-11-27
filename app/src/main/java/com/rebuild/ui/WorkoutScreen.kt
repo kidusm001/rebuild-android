@@ -1418,7 +1418,6 @@ private fun AdjustTodayDialog(env: AppEnv, workout: Workout, we: WorkoutExercise
                     rest, { rest = it }, we.baselineSets, upperSets, allowAboveCap, { allowAboveCap = it },
                     measure = measure
                 )
-                HorizontalDivider()
                 if (planSource != null) {
                     CheckRow(
                         "Also save to plan", saveToPlan, { saveToPlan = it },

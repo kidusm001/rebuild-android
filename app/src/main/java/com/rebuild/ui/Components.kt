@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -73,7 +74,6 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -551,24 +551,62 @@ internal fun Stepper(
     onChange: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    // Above 130% text the label sits over the counter, so it isn't squeezed a word per line beside it.
+    if (androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) {
+        Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+            Counter(label, value, range, onChange)
+        }
+    } else Row(
         modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(label, modifier = Modifier.weight(1f))
-        OutlinedIconButton(onClick = { onChange(value - 1) }, enabled = value > range.first) {
-            RebuildIcon(R.drawable.ic_minus, contentDescription = "Fewer $label")
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f))
+        Counter(label, value, range, onChange)
+    }
+}
+
+/**
+ * A count as one quiet outlined capsule, − value +, at the end of its row: no fill, light glyphs, the value in the
+ * row's own text size. Amber stays for chosen rows and accent values. The capsule is drawn 40 dp tall, but each of its
+ * three segments still takes a 48 × 48 dp touch. The value is a polite live region, so each press is spoken.
+ */
+@Composable
+internal fun Counter(label: String, value: Int, range: IntRange, onChange: (Int) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val outline = scheme.outline.copy(alpha = 0.5f)
+    Row(
+        Modifier.height(48.dp).drawBehind {
+            val inset = 4.dp.toPx()
+            val stroke = 1.dp.toPx()
+            val h = size.height - inset * 2 - stroke
+            drawRoundRect(outline, topLeft = androidx.compose.ui.geometry.Offset(stroke / 2, inset + stroke / 2),
+                size = androidx.compose.ui.geometry.Size(size.width - stroke, h),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(h / 2),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+        },
+        // The buttons tuck 6 dp over the value's slot, so the capsule is narrower while each still takes 48 × 48 dp.
+        horizontalArrangement = Arrangement.spacedBy((-6).dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val glyphs = androidx.compose.material3.IconButtonDefaults.iconButtonColors(contentColor = scheme.onSurfaceVariant)
+        androidx.compose.material3.IconButton(onClick = { onChange(value - 1) }, enabled = value > range.first,
+            colors = glyphs, modifier = Modifier.size(48.dp)) {
+            RebuildIcon(R.drawable.ic_minus, contentDescription = "Fewer $label", modifier = Modifier.size(20.dp))
         }
-        Text(
-            value.toString(),
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier
-                .widthIn(min = 32.dp)
-                .semantics { stateDescription = "$value" }
-        )
-        OutlinedIconButton(onClick = { onChange(value + 1) }, enabled = value < range.last) {
-            RebuildIcon(R.drawable.ic_plus, contentDescription = "More $label")
+        Text("$value", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold,
+            fontFeatureSettings = "tnum"),
+            color = scheme.onSurface, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.widthIn(min = 40.dp).semantics {
+                liveRegion = LiveRegionMode.Polite
+                stateDescription = "$value " + label.lowercase().let { if (value == 1) it.removeSuffix("s") else it }
+            })
+        androidx.compose.material3.IconButton(onClick = { onChange(value + 1) }, enabled = value < range.last,
+            colors = glyphs, modifier = Modifier.size(48.dp)) {
+            RebuildIcon(R.drawable.ic_plus, contentDescription = "More $label", modifier = Modifier.size(20.dp))
         }
     }
 }
@@ -601,6 +639,11 @@ internal fun CheckRow(
     }
 }
 
+/**
+ * One choice of a single-choice group, drawn as a row of a grouped list: tonal rows joined by 2 dp seams, 20 dp corners
+ * on the group's ends ([index] of [count]). The chosen row fills amber-tinted, bolds and takes a check, so the choice
+ * never rests on colour alone; [locked] swaps the check for a lock. Callers put the rows in a selectableGroup.
+ */
 @Composable
 internal fun RadioRow(
     text: String,
@@ -608,23 +651,39 @@ internal fun RadioRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    supporting: String? = null
+    supporting: String? = null,
+    index: Int = 0,
+    count: Int = 1,
+    locked: Boolean = false
 ) {
+    val scheme = MaterialTheme.colorScheme
+    val shape = groupShape(index, count - 1)
+    val fill by androidx.compose.animation.animateColorAsState(
+        if (selected) scheme.secondaryContainer else tonalFill(), com.rebuild.ui.theme.Motion.colourSpec(),
+        label = "choice-fill")
+    val dim = if (enabled) 1f else 0.38f
     Row(
         modifier
+            .padding(top = if (index > 0) 2.dp else 0.dp)
             .fillMaxWidth()
-            .heightIn(min = 48.dp)
+            .heightIn(min = if (supporting != null) 64.dp else 56.dp)
+            .clip(shape)
+            .background(fill)
             .selectable(selected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.Top
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        RadioButton(selected = selected, onClick = null, enabled = enabled)
-        Column(Modifier.padding(start = 12.dp)) {
-            Text(text, style = MaterialTheme.typography.bodyLarge)
+        Column(Modifier.weight(1f)) {
+            // Plain ink on the tint: amber text on the dark theme's amber tint reads muddy. The check carries the accent.
+            Text(text, style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.SemiBold else null,
+                color = scheme.onSurface.copy(alpha = dim))
             if (supporting != null) {
-                Text(supporting, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(supporting, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant.copy(alpha = dim))
             }
         }
+        if (selected) RebuildIcon(if (locked) R.drawable.ic_lock else R.drawable.ic_check, contentDescription = null,
+            modifier = Modifier.padding(start = 12.dp), tint = scheme.onSecondaryContainer)
     }
 }
 

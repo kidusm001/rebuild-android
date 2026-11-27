@@ -1,5 +1,20 @@
 package com.rebuild.ui
 
+import com.rebuild.R
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -7,9 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
 import androidx.compose.ui.unit.sp
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.shape.CircleShape
 import com.rebuild.domain.takesLoad
 import com.rebuild.domain.loadUnitOptions
 import androidx.compose.foundation.layout.Arrangement
@@ -19,9 +32,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -464,54 +475,79 @@ internal fun TargetEditorFields(
 ) {
     var addingCustom by rememberSaveable { mutableStateOf(false) }
     var browsing by rememberSaveable { mutableStateOf(false) }
-    Text("Exercise", style = MaterialTheme.typography.labelLarge)
+    val scheme = MaterialTheme.colorScheme
+    EditorSection("Exercise")
     if (swapLocked != null) {
-        Text(swapLocked, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(swapLocked, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
     }
-    Column(Modifier.selectableGroup()) {
-        // Only exercises measured the same way can take its place.
-        (options + listOfNotNull(env.exercise(selectedId))).distinctBy { it.id }
-            .filter { it.measure == measure || it.id == selectedId }.forEach { option ->
+    // Only exercises measured the same way can take its place.
+    val shown = (options + listOfNotNull(env.exercise(selectedId))).distinctBy { it.id }
+        .filter { it.measure == measure || it.id == selectedId }
+    // The choices as one grouped list (a radio group for screen readers), then the ways to every other exercise as a
+    // group of their own, so neither reads as part of the other and the body holds no loose pills.
+    // RadioRow draws its own 2 dp seam above each row after the first.
+    Column(Modifier.fillMaxWidth().selectableGroup()) {
+        shown.forEachIndexed { i, option ->
             RadioRow(
                 text = option.name,
-                supporting = loadingShort(option) + if (option.custom) " · custom" else "",
+                // "external" is the ordinary case, so only a load that changes what gets logged is spelled out.
+                supporting = listOfNotNull(loadingShort(option).takeIf { it != "external" }, "custom".takeIf { option.custom })
+                    .joinToString(" · ").ifEmpty { null },
                 selected = option.id == selectedId,
+                locked = swapLocked != null,
                 enabled = swapLocked == null || option.id == selectedId,
+                index = i, count = shown.size,
                 onClick = { onSelect(option.id) }
             )
         }
     }
     if (swapLocked == null) {
-        OutlinedButton(onClick = { browsing = true }) { Text("All exercises") }
-        TextButton(onClick = { addingCustom = true }) { Text("New exercise") }
+        Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            EditorActionRow(R.drawable.ic_search, "All exercises", groupShape(0, 1), chevron = true) { browsing = true }
+            EditorActionRow(R.drawable.ic_plus, "New exercise", groupShape(1, 1)) { addingCustom = true }
+        }
     }
-    HorizontalDivider()
-    // Cardio has a total time or distance instead of sets.
-    if (measure != Measure.CARDIO) {
-        Stepper(
-            when (measure) {
-                Measure.TIMED -> "Timed sets"
-                Measure.DISTANCE -> "Distance sets"
-                else -> "Working sets"
-            },
-            sets, TARGET_SETS_RANGE, onSets
-        )
-        if (baselineSets != null) Text(
-            "Baseline $baselineSets" + (upperSets?.let { " · advisory upper $it (optional, not a target)" } ?: ""),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        if (upperSets != null && sets > upperSets) {
+    Spacer(Modifier.height(8.dp))
+    EditorSection(if (measure == Measure.CARDIO) "Rest" else "Sets and rest")
+    val restLabel = if (measure == Measure.CARDIO) "Rest when you start one" else "Rest between sets"
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        // Cardio has a total time or distance instead of sets.
+        val last = if (measure != Measure.CARDIO) 1 else 0
+        if (measure != Measure.CARDIO) {
+            SetsRow(
+                when (measure) {
+                    Measure.TIMED -> "Timed sets"
+                    Measure.DISTANCE -> "Distance sets"
+                    else -> "Working sets"
+                },
+                sets, onSets,
+                note = baselineSets?.let { "Baseline $it" + (upperSets?.let { u -> " · up to $u is optional, not a target" } ?: "") },
+                shape = groupShape(0, last)
+            )
+        }
+        RestRow(rest, onRest, restLabel, groupShape(last, last), Modifier.testTag("exercise-rest"))
+    }
+    androidx.compose.animation.AnimatedVisibility(
+        visible = upperSets != null && sets > upperSets,
+        enter = com.rebuild.ui.theme.Motion.expand(),
+        exit = com.rebuild.ui.theme.Motion.collapse()
+    ) {
+        // Advisory, not an error: a neutral note with the choice inside it, never the alarm red.
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(tonalFill())
+                .semantics { liveRegion = LiveRegionMode.Polite }
+                .padding(start = 16.dp, end = 16.dp, top = 14.dp)
+        ) {
+            Text("Above the advisory upper", style = MaterialTheme.typography.titleSmall, color = accentText())
             Text(
-                "$sets sets is above the advisory upper of $upperSets. More volume isn't needed for progress and adds fatigue.",
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium
+                "$sets sets is more than the optional upper of ${upperSets ?: 0}. More volume isn't needed for progress " +
+                    "and adds fatigue.",
+                style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
             )
             CheckRow("I understand: allow $sets sets", allowAboveCap, onAllowAboveCap, modifier = Modifier.testTag("allow-above-cap"))
         }
     }
-    DurationPickerField(rest, onRest, if (measure == Measure.CARDIO) "Rest when you start one" else "Rest between sets",
-        Modifier.fillMaxWidth().testTag("exercise-rest"))
     if (addingCustom) {
         CustomExerciseDialog(env, onDismiss = { addingCustom = false }, measure = measure) {
             addingCustom = false
@@ -571,4 +607,111 @@ internal fun unlikelySetReason(state: AppState, we: WorkoutExercise, input: SetI
     }
     if (input.reps > UNLIKELY_REPS) return "${input.reps} reps is a lot for one set."
     return null
+}
+
+
+/** A section heading inside an editor dialog: quiet, and a heading for screen readers. */
+@Composable
+private fun EditorSection(title: String) {
+    Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.semantics { heading() })
+}
+
+/** The end of the exercise list: a way to another exercise, drawn as a row of the same group. */
+@Composable
+private fun EditorActionRow(
+    @androidx.annotation.DrawableRes icon: Int,
+    label: String,
+    shape: androidx.compose.ui.graphics.Shape,
+    chevron: Boolean = false,
+    onClick: () -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(shape).background(tonalFill())
+            .clickable(role = Role.Button, onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RebuildIcon(icon, contentDescription = null, tint = accentText())
+        Text(label, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = scheme.onSurface,
+            modifier = Modifier.weight(1f).padding(start = 16.dp))
+        if (chevron) RebuildIcon(R.drawable.ic_chevron_right, contentDescription = null, tint = scheme.onSurfaceVariant)
+    }
+}
+
+/**
+ * The set count as the row's loudest thing: a narrow bold numeral between two round buttons. Above 130% text the
+ * buttons drop under the label, so the label and its note never squeeze into a sliver beside them.
+ */
+@Composable
+private fun SetsRow(
+    label: String,
+    value: Int,
+    onChange: (Int) -> Unit,
+    note: String?,
+    shape: androidx.compose.ui.graphics.Shape
+) {
+    val scheme = MaterialTheme.colorScheme
+    val large = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f
+    val counter: @Composable () -> Unit = { Counter(label, value, TARGET_SETS_RANGE, onChange) }
+    Column(Modifier.fillMaxWidth().clip(shape).background(tonalFill()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (large) {
+            Text(label, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+            counter()
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(label, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
+                counter()
+            }
+        }
+        if (note != null) Text(note, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+    }
+}
+
+/** Rest as a row of the group: its value trails, and a tap opens the same wheels the old field did. */
+@Composable
+private fun RestRow(
+    seconds: String,
+    onSeconds: (String) -> Unit,
+    label: String,
+    shape: androidx.compose.ui.graphics.Shape,
+    modifier: Modifier = Modifier
+) {
+    var picking by rememberSaveable { mutableStateOf(false) }
+    val value = seconds.trim().toIntOrNull()
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        modifier.fillMaxWidth().heightIn(min = 56.dp).clip(shape).background(tonalFill())
+            .clickable { picking = true }
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                contentDescription = label
+                stateDescription = value?.let { spokenDuration(it) } ?: "not set"
+                onClick(label = "Choose time") { picking = true; true }
+            }
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val shown = value?.let { if (it == 0) "0:00" else formatRest(it) } ?: "Choose"
+        val valueStyle = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum")
+        // Above 130% text the time sits under its label, so the label isn't squeezed to a word a line beside it.
+        if (androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) {
+            Column(Modifier.weight(1f)) {
+                Text(label, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                Text(shown, style = valueStyle, color = accentText(), maxLines = 1, softWrap = false)
+            }
+        } else {
+            Text(label, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
+            Text(shown, style = valueStyle, color = accentText(), maxLines = 1, softWrap = false,
+                modifier = Modifier.padding(start = 12.dp))
+        }
+        RebuildIcon(R.drawable.ic_chevron_right, contentDescription = null, tint = scheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp))
+    }
+    if (picking) DurationPickerDialog(
+        title = label, initialSeconds = value, maxSeconds = REST_SECONDS_RANGE.last, allowBlank = true,
+        onDismiss = { picking = false },
+        onPick = { picked -> onSeconds(picked?.toString() ?: ""); picking = false }
+    )
 }

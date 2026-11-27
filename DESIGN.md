@@ -42,6 +42,16 @@ Everything visual comes from `ui/theme/Theme.kt` and the shared components in
   outlined pill with red text and a red edge; only the final confirm is filled red.
   Selection pills (chips, tabs, unit and range choices) show no press flash: the
   selected fill is the feedback.
+- **Choices and editors.** A single choice is a grouped list of tonal rows
+  (`RadioRow`): the chosen row fills amber-tinted, bolds and takes a check, never a
+  bare radio button. A setting with fixed values is a row with its value in the
+  accent and a chevron (`EnumChoice`); a duration is a row or filled field that opens
+  the wheels. Counts use `Counter`: one quiet outlined capsule, − value +, with
+  light glyphs and the value at row text size; no amber, which stays for chosen rows
+  and accent values. It is drawn 40 dp tall; each segment still takes a 48 dp touch. Ways to reach something else (All exercises, New exercise) are rows
+  of their own group, not loose pills. Expanding options open as rows of the same
+  group, and a saved note is a block inside it; nothing expands onto the bare page.
+  Above 130% text, values move under their labels rather than squeezing them.
 - **Spacing.** A 4/8/12/16/20/24 dp grid; a 20 dp gutter; 16 dp between sections.
   Content is a centered column capped at 640 dp on wide windows. Scrolling pages
   fade at an edge only when there is content beyond it.
