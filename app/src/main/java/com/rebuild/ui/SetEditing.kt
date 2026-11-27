@@ -529,8 +529,8 @@ internal fun TargetEditorFields(
     }
     androidx.compose.animation.AnimatedVisibility(
         visible = upperSets != null && sets > upperSets,
-        enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
-        exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()
+        enter = com.rebuild.ui.theme.Motion.expand(),
+        exit = com.rebuild.ui.theme.Motion.collapse()
     ) {
         // Advisory, not an error: a neutral note with the choice inside it, never the alarm red.
         Column(
