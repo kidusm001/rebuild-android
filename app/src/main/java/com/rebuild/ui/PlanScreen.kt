@@ -42,6 +42,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.rebuild.R
+import com.rebuild.domain.MuscleGroup
+import com.rebuild.domain.customSwapsFor
 import com.rebuild.domain.Action
 import com.rebuild.domain.Measure
 import com.rebuild.domain.measureOf
@@ -466,7 +468,7 @@ private fun PlanSlotDialog(env: AppEnv, phase: Phase, slot: PlanSlot, onDismiss:
     val aboveCap = slot.upperSets != null && sets > slot.upperSets
     // The slot's exercise and swaps for the plan's equipment.
     val options = (listOfNotNull(slot.exerciseFor(env.state.gear)) + slot.alternativesFor(env.state.gear) + target.exerciseId +
-        env.state.exercises.filter { it.custom }.map { it.id }).distinct().mapNotNull(env::exercise)
+        env.state.customSwapsFor(slot.exerciseFor(env.state.gear) ?: target.exerciseId)).distinct().mapNotNull(env::exercise)
     val defaults = PlanDefaults(slot, phase)
 
     fun save() {
@@ -496,7 +498,9 @@ private fun PlanSlotDialog(env: AppEnv, phase: Phase, slot: PlanSlot, onDismiss:
                 TargetEditorFields(
                     env, options, exerciseId, { exerciseId = it }, null,
                     sets, { sets = it; if (!(slot.upperSets != null && it > slot.upperSets)) allowAboveCap = false },
-                    rest, { rest = it }, slot.baselineSets, slot.upperSets, allowAboveCap, { allowAboveCap = it }
+                    rest, { rest = it }, slot.baselineSets, slot.upperSets, allowAboveCap, { allowAboveCap = it },
+                    swapMuscle = env.exercise(slot.exerciseFor(env.state.gear) ?: target.exerciseId)?.primaryMuscle
+                        ?: MuscleGroup.UNKNOWN
                 )
                 // A reset only shows when there's something to reset; it puts back the exercise as well as sets and rest.
                 val defaultExercise = slot.exerciseFor(env.state.gear) ?: slot.exerciseId

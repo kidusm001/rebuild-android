@@ -71,14 +71,21 @@ fun repComparisons(sets: List<LiftedSet>, asOf: LocalDate): List<RepComparison> 
     return bestByReps(sets).map { (reps, now) -> RepComparison(reps, now, then[reps]) }
 }
 
-/** Working sets per primary muscle in the Monday–Sunday week starting [weekStart], finished workouts only. */
+/**
+ * Working sets per primary muscle in the Monday–Sunday week starting [weekStart], finished workouts only. A workout
+ * keeps its own copy of each exercise; where that copy has no muscle (custom exercises made before one was required)
+ * the library's current muscle stands in, so setting it later fixes past weeks too. Saved records never change.
+ */
 fun AppState.weeklySetsByMuscle(weekStart: LocalDate): List<Pair<MuscleGroup, Int>> {
     val end = weekStart.plusDays(7)
+    val libraryMuscle = exercises.associate { it.id to it.primaryMuscle }
     return workouts.filter { w ->
         w.finishedAt != null && w.startDate?.let { LocalDate.parse(it) }?.let { it >= weekStart && it < end } == true
     }.flatMap { it.exercises }
         .filter { it.exercise.measure == Measure.REPS }
-        .groupBy { it.exercise.primaryMuscle }
+        .groupBy { e ->
+            e.exercise.primaryMuscle.takeIf { it != MuscleGroup.UNKNOWN } ?: libraryMuscle[e.exercise.id] ?: MuscleGroup.UNKNOWN
+        }
         .mapValues { (_, entries) -> entries.sumOf { it.workingCount() } }
         .filterValues { it > 0 }
         .toList()

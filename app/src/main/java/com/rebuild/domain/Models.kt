@@ -78,13 +78,13 @@ enum class MassUnit(val symbol: String, val loadUnit: LoadUnit) {
 
 @Serializable
 enum class Equipment(val title: String) {
-    UNKNOWN("Unspecified"), BARBELL("Barbell"), DUMBBELL("Dumbbell"), CABLE("Cable"),
+    UNKNOWN("Not set"), BARBELL("Barbell"), DUMBBELL("Dumbbell"), CABLE("Cable"),
     MACHINE("Machine"), STACK_MACHINE("Stack machine"), BODYWEIGHT("Bodyweight")
 }
 
 @Serializable
 enum class MuscleGroup(val title: String) {
-    UNKNOWN("Unspecified"), CHEST("Chest"), BACK("Back"), SHOULDERS("Shoulders"),
+    UNKNOWN("Not set"), CHEST("Chest"), BACK("Back"), SHOULDERS("Shoulders"),
     BICEPS("Biceps"), TRICEPS("Triceps"), QUADS("Quads"), HAMSTRINGS("Hamstrings"),
     GLUTES("Glutes"), CALVES("Calves"), CORE("Core"), FULL_BODY("Full body")
 }

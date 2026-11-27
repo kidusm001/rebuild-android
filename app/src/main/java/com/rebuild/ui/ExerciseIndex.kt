@@ -72,7 +72,7 @@ internal fun arrangeExercises(all: List<ExerciseSummary>, sort: ExerciseSort, qu
     }.filter { it.rows.isNotEmpty() }
 }
 
-private fun muscleHeader(muscle: MuscleGroup) = if (muscle == MuscleGroup.UNKNOWN) "Other" else muscle.title
+private fun muscleHeader(muscle: MuscleGroup) = if (muscle == MuscleGroup.UNKNOWN) "Muscle not set" else muscle.title
 
 /**
  * The latest session's top set: the heaviest normal working set in the unit last used (then the most reps), or for

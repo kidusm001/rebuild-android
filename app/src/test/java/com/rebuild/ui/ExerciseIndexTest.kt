@@ -36,7 +36,7 @@ class ExerciseIndexTest {
     @Test fun muscleGroupsInLibraryOrderWithUnspecifiedLastAndNamesAToZ() {
         assertEquals(
             listOf("Chest" to listOf("Incline press"), "Back" to listOf("Chest-supported row", "Lat pulldown"),
-                "Other" to listOf("Band thing")),
+                "Muscle not set" to listOf("Band thing")),
             arrangeExercises(all, ExerciseSort.MUSCLE).names()
         )
     }

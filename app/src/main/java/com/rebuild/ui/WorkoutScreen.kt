@@ -37,6 +37,7 @@ import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.foundation.shape.CircleShape
+import com.rebuild.domain.customSwapsFor
 import com.rebuild.domain.loadUnitChoices
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -1372,7 +1373,7 @@ private fun AdjustTodayDialog(env: AppEnv, workout: Workout, we: WorkoutExercise
     // The slot's exercise and swaps for the plan's equipment: a dumbbell plan never offers a hack squat.
     val gear = env.state.gear
     val optionIds = (listOfNotNull(slot?.exerciseFor(gear)) + slot?.alternativesFor(gear).orEmpty() + we.exercise.id +
-        env.state.exercises.filter { it.custom }.map { it.id }).distinct()
+        env.state.customSwapsFor(slot?.exerciseFor(gear) ?: we.exercise.id)).distinct()
     val measure = we.exercise.measure
     // A planned exercise is only ever swapped for one measured the same way.
     val options = optionIds.mapNotNull { id -> if (id == we.exercise.id) we.exercise else env.exercise(id) }
@@ -1436,7 +1437,8 @@ private fun AdjustTodayDialog(env: AppEnv, workout: Workout, we: WorkoutExercise
                     env, options, replacement, { replacement = it }, swapLocked,
                     sets, { sets = it; if (!(upperSets != null && it > upperSets)) allowAboveCap = false },
                     rest, { rest = it }, we.baselineSets, upperSets, allowAboveCap, { allowAboveCap = it },
-                    measure = measure
+                    measure = measure,
+                    swapMuscle = (slot?.exerciseFor(gear)?.let(env::exercise) ?: we.exercise).primaryMuscle
                 )
                 if (planSource != null) {
                     CheckRow(

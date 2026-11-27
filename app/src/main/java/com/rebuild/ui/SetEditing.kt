@@ -36,7 +36,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -357,6 +359,8 @@ internal fun CustomExerciseDialog(
     env: AppEnv,
     onDismiss: () -> Unit,
     measure: Measure? = null,
+    /** The muscle of the exercise being replaced, so the new one is offered beside it in quick lists afterwards. */
+    muscleHint: MuscleGroup = MuscleGroup.UNKNOWN,
     onCreated: (Exercise) -> Unit
 ) {
     var name by rememberSaveable { mutableStateOf("") }
@@ -365,14 +369,61 @@ internal fun CustomExerciseDialog(
     var loading by rememberSaveable { mutableStateOf(LoadingType.EXTERNAL) }
     var perDumbbell by rememberSaveable { mutableStateOf(false) }
     var equipment by rememberSaveable { mutableStateOf(Equipment.UNKNOWN) }
-    var muscle by rememberSaveable { mutableStateOf(MuscleGroup.UNKNOWN) }
+    var muscle by rememberSaveable {
+        mutableStateOf(if (muscleHint == MuscleGroup.UNKNOWN && measure == Measure.CARDIO) MuscleGroup.FULL_BODY else muscleHint)
+    }
+    // Filled in by a choice above (Bodyweight loading, Cardio) rather than by the lifter, so undoing that choice
+    // clears them again; one the lifter picked is never cleared behind their back.
+    var autoEquipment by rememberSaveable { mutableStateOf(false) }
+    var autoMuscle by rememberSaveable { mutableStateOf(false) }
     val id by rememberSaveable { mutableStateOf("custom-${newId()}") }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
+    // Shown under the muscle and equipment rows, beside what is missing, rather than at the foot of the dialog.
+    var metadataError by rememberSaveable { mutableStateOf<String?>(null) }
+    var failedTries by remember { mutableIntStateOf(0) }
+    val metadataBounds = remember { BringIntoViewRequester() }
+    LaunchedEffect(failedTries) { if (failedTries > 0) metadataBounds.bringIntoView() }
+
+    fun recheck() {
+        if (metadataError != null) metadataError = metadataMissing(equipment, muscle)
+    }
+
+    fun chooseLoading(type: LoadingType) {
+        loading = type
+        if (type == LoadingType.BODYWEIGHT && equipment == Equipment.UNKNOWN) {
+            equipment = Equipment.BODYWEIGHT
+            autoEquipment = true
+        } else if (type != LoadingType.BODYWEIGHT && autoEquipment) {
+            equipment = Equipment.UNKNOWN
+            autoEquipment = false
+        }
+        recheck()
+    }
+
+    fun chooseMeasure(type: Measure) {
+        chosenMeasure = type
+        // Cardio works the whole body, as every cardio exercise in the library does.
+        if (type == Measure.CARDIO && muscle == MuscleGroup.UNKNOWN) {
+            muscle = MuscleGroup.FULL_BODY
+            autoMuscle = true
+        } else if (type != Measure.CARDIO && autoMuscle) {
+            muscle = MuscleGroup.UNKNOWN
+            autoMuscle = false
+        }
+        recheck()
+    }
 
     fun save() {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) {
             error = "Give the exercise a name."
+            return
+        }
+        error = null
+        // Every exercise names its muscle and equipment, so it groups with and swaps beside similar ones.
+        metadataMissing(equipment, muscle)?.let {
+            metadataError = it
+            failedTries++
             return
         }
         // Cardio never records a load, so it is saved as bodyweight.
@@ -381,7 +432,6 @@ internal fun CustomExerciseDialog(
             equipment = equipment, primaryMuscle = muscle, measure = how,
             // New exercises start in the lifting unit chosen in More; plates are a choice made per machine.
             preferredLoadUnit = env.state.liftingUnit.loadUnit)
-        error = null
         env.runner.run(Action.AddExercise(exercise), onError = { error = it }) { onCreated(exercise) }
     }
 
@@ -399,57 +449,69 @@ internal fun CustomExerciseDialog(
                 Text("How is it measured?", style = MaterialTheme.typography.labelLarge)
                 if (measure == null) {
                     Column(Modifier.selectableGroup().testTag("custom-measure")) {
-                        RadioRow("Sets of reps", how == Measure.REPS, { chosenMeasure = Measure.REPS },
+                        RadioRow("Sets of reps", how == Measure.REPS, { chooseMeasure(Measure.REPS) },
                             supporting = "Reps with a load, like most strength exercises", index = 0, count = 4)
-                        RadioRow("Timed sets", how == Measure.TIMED, { chosenMeasure = Measure.TIMED },
+                        RadioRow("Timed sets", how == Measure.TIMED, { chooseMeasure(Measure.TIMED) },
                             supporting = "Holds such as a plank: each set's time, with a load if it has one", index = 1, count = 4)
-                        RadioRow("Distance sets", how == Measure.DISTANCE, { chosenMeasure = Measure.DISTANCE },
+                        RadioRow("Distance sets", how == Measure.DISTANCE, { chooseMeasure(Measure.DISTANCE) },
                             supporting = "Carries and sled pushes: each set's distance, with its time and load if wanted",
                             index = 2, count = 4)
-                        RadioRow("Cardio", how == Measure.CARDIO, { chosenMeasure = Measure.CARDIO },
+                        RadioRow("Cardio", how == Measure.CARDIO, { chooseMeasure(Measure.CARDIO) },
                             supporting = "Running, cycling or rowing: time, distance or both, never a load", index = 3, count = 4)
                     }
+                    Text("How it is measured can't change later, so its records keep their meaning.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     Text("${customMeasureTitle(measure)}, like the exercise it replaces.",
                         style = MaterialTheme.typography.bodyMedium)
                 }
+                // Muscle first: it decides which swaps offer this exercise, and arrives filled in from a plan slot.
+                Column(Modifier.bringIntoViewRequester(metadataBounds)) {
+                    EnumChoice("Primary muscle", muscleChoice(muscle), knownMuscles, { it.title },
+                        Modifier.testTag("custom-muscle"), index = 0, count = 2,
+                        unset = muscle == MuscleGroup.UNKNOWN, missing = metadataError != null) {
+                        muscle = it
+                        autoMuscle = false
+                        recheck()
+                    }
+                    EnumChoice("Equipment", equipmentChoice(equipment), knownEquipment, { it.title },
+                        Modifier.testTag("custom-equipment"), index = 1, count = 2,
+                        unset = equipment == Equipment.UNKNOWN, missing = metadataError != null) {
+                        equipment = it
+                        autoEquipment = false
+                        if (it != Equipment.DUMBBELL) perDumbbell = false
+                        recheck()
+                    }
+                    if (metadataError != null) Spacer(Modifier.height(6.dp))
+                    ErrorText(metadataError)
+                }
+                if (how == Measure.CARDIO) Text(
+                    "Bodyweight for running or walking outdoors; Machine for a treadmill, bike or rower.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (how != Measure.CARDIO) {
-                    Text("How is it loaded?", style = MaterialTheme.typography.labelLarge)
+                    Text("How is it loaded?", style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(top = 8.dp))
                     Column(Modifier.selectableGroup()) {
-                        RadioRow("External weight", loading == LoadingType.EXTERNAL, { loading = LoadingType.EXTERNAL },
+                        RadioRow("External weight", loading == LoadingType.EXTERNAL, { chooseLoading(LoadingType.EXTERNAL) },
                             supporting = "Kg, or plates for a cable or stack machine", index = 0, count = 3)
-                        RadioRow("Bodyweight", loading == LoadingType.BODYWEIGHT, { loading = LoadingType.BODYWEIGHT },
+                        RadioRow("Bodyweight", loading == LoadingType.BODYWEIGHT, { chooseLoading(LoadingType.BODYWEIGHT) },
                             supporting = if (how == Measure.REPS) {
                                 "Reps only; add a separate external exercise for weighted versions"
                             } else "No weight recorded; add a separate external exercise for weighted versions",
                             index = 1, count = 3)
-                        RadioRow("Assisted", loading == LoadingType.ASSISTANCE, { loading = LoadingType.ASSISTANCE },
+                        RadioRow("Assisted", loading == LoadingType.ASSISTANCE, { chooseLoading(LoadingType.ASSISTANCE) },
                             supporting = "Log the assistance kg; less assistance is harder", index = 2, count = 3)
                     }
+                    Text("Each loading type keeps its own history, so results stay comparable.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Column {
-                    EnumChoice("Equipment", equipment.title, Equipment.entries, { it.title },
-                        Modifier.testTag("custom-equipment"), index = 0, count = 2) {
-                        equipment = it
-                        if (it != Equipment.DUMBBELL && it != Equipment.UNKNOWN) perDumbbell = false
-                    }
-                    EnumChoice("Primary muscle", muscle.title, MuscleGroup.entries, { it.title },
-                        Modifier.testTag("custom-muscle"), index = 1, count = 2) { muscle = it }
-                }
-                Text("Choose Cable or Stack machine only for physical stack plates. " +
-                    "Leave metadata unknown if unsure.", style = MaterialTheme.typography.bodySmall)
-                if (how != Measure.CARDIO) CheckRow(
-                    "kg per dumbbell", perDumbbell && loading == LoadingType.EXTERNAL, { perDumbbell = it },
-                    enabled = loading == LoadingType.EXTERNAL &&
-                        (equipment == Equipment.UNKNOWN || equipment == Equipment.DUMBBELL),
+                if (how != Measure.CARDIO && loading == LoadingType.EXTERNAL && equipment == Equipment.DUMBBELL) CheckRow(
+                    "kg per dumbbell", perDumbbell, { perDumbbell = it },
                     supporting = "Log the weight of one dumbbell"
                 )
-                Text(
-                    "How it is measured can't change later. Each loading type keeps its own history so results stay " +
-                        "comparable.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (how != Measure.CARDIO && loading == LoadingType.EXTERNAL && (equipment == Equipment.CABLE || equipment == Equipment.STACK_MACHINE)) Text(
+                    "Cable and Stack machine can log plates per stack. Choose them only for a real pin-loaded stack.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 ErrorText(error)
             }
         },
@@ -477,7 +539,9 @@ internal fun TargetEditorFields(
     upperSets: Int?,
     allowAboveCap: Boolean,
     onAllowAboveCap: (Boolean) -> Unit,
-    measure: Measure = Measure.REPS
+    measure: Measure = Measure.REPS,
+    /** The muscle the quick swaps match on, so an exercise made here shows up among them next time. */
+    swapMuscle: MuscleGroup = MuscleGroup.UNKNOWN
 ) {
     var addingCustom by rememberSaveable { mutableStateOf(false) }
     var browsing by rememberSaveable { mutableStateOf(false) }
@@ -555,7 +619,9 @@ internal fun TargetEditorFields(
         }
     }
     if (addingCustom) {
-        CustomExerciseDialog(env, onDismiss = { addingCustom = false }, measure = measure) {
+        CustomExerciseDialog(env, onDismiss = { addingCustom = false }, measure = measure,
+            muscleHint = swapMuscle.takeIf { it != MuscleGroup.UNKNOWN }
+                ?: env.exercise(selectedId)?.primaryMuscle ?: MuscleGroup.UNKNOWN) {
             addingCustom = false
             onSelect(it.id)
         }
