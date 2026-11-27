@@ -43,7 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.rebuild.R
 import com.rebuild.domain.MuscleGroup
-import com.rebuild.domain.customSwapsFor
+import com.rebuild.domain.swapSuggestions
 import com.rebuild.domain.Action
 import com.rebuild.domain.Measure
 import com.rebuild.domain.measureOf
@@ -466,9 +466,12 @@ private fun PlanSlotDialog(env: AppEnv, phase: Phase, slot: PlanSlot, onDismiss:
     var error by rememberSaveable(key) { mutableStateOf<String?>(null) }
     var confirmingRemove by rememberSaveable(key) { mutableStateOf(false) }
     val aboveCap = slot.upperSets != null && sets > slot.upperSets
-    // The slot's exercise and swaps for the plan's equipment.
-    val options = (listOfNotNull(slot.exerciseFor(env.state.gear)) + slot.alternativesFor(env.state.gear) + target.exerciseId +
-        env.state.customSwapsFor(slot.exerciseFor(env.state.gear) ?: target.exerciseId)).distinct().mapNotNull(env::exercise)
+    // Grouped suggestions for the slot and plan's equipment, excluding exercises already in this routine.
+    val owner = env.state.availableTemplates(phase).find { t -> t.slots.any { it.id == slot.id } }
+    val otherIds = owner?.let {
+        env.state.plannedExercises(it, phase).filter { p -> p.slotId != slot.id }.map { p -> p.exerciseId }.toSet()
+    }.orEmpty()
+    val swapGroups = env.state.swapSuggestions(target.exerciseId, slot = slot, gear = env.state.gear, excluding = otherIds)
     val defaults = PlanDefaults(slot, phase)
 
     fun save() {
@@ -496,11 +499,16 @@ private fun PlanSlotDialog(env: AppEnv, phase: Phase, slot: PlanSlot, onDismiss:
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 TargetEditorFields(
-                    env, options, exerciseId, { exerciseId = it }, null,
+                    env, listOfNotNull(env.exercise(target.exerciseId)), exerciseId, { exerciseId = it }, null,
                     sets, { sets = it; if (!(slot.upperSets != null && it > slot.upperSets)) allowAboveCap = false },
                     rest, { rest = it }, slot.baselineSets, slot.upperSets, allowAboveCap, { allowAboveCap = it },
                     swapMuscle = env.exercise(slot.exerciseFor(env.state.gear) ?: target.exerciseId)?.primaryMuscle
-                        ?: MuscleGroup.UNKNOWN
+                        ?: MuscleGroup.UNKNOWN,
+                    swapGroups = swapGroups,
+                    currentId = target.exerciseId,
+                    exerciseLabel = slot.muscle.ifBlank { "Exercise" },
+                    marked = otherIds,
+                    markedLabel = "in ${owner?.name ?: "this routine"}"
                 )
                 // A reset only shows when there's something to reset; it puts back the exercise as well as sets and rest.
                 val defaultExercise = slot.exerciseFor(env.state.gear) ?: slot.exerciseId

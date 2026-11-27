@@ -727,9 +727,20 @@ internal object StateChanges {
         }
         val existing = state.planAdditions.find { it.id == action.id }
         if (existing != null) {
-            ensure(existing.phase == action.phase && existing.templateId == action.templateId &&
-                existing.exerciseId == definition.id,
-                "This saved exercise belongs to another routine or exercise. Add it again instead.")
+            ensure(existing.phase == action.phase && existing.templateId == action.templateId,
+                "This saved exercise belongs to another routine or phase. Add it again instead.")
+            if (existing.exerciseId != definition.id) {
+                val oldMeasure = state.measureOf(existing.exerciseId)
+                ensure(definition.measure == oldMeasure,
+                    "This saved exercise is planned as ${oldMeasure.title.lowercase()} work, so swap it for another exercise measured the same way.")
+                ensure(!state.inPlan(template, action.phase, definition.id),
+                    "${definition.name} is already in ${template.name} for this phase.")
+                val planned = state.plannedExercises(template, action.phase)
+                if (planned.none { it.slotId == existing.id }) {
+                    ensure(planned.size < MAX_WORKOUT_EXERCISES,
+                        "A routine can hold at most $MAX_WORKOUT_EXERCISES exercises.")
+                }
+            }
         } else {
             // Workouts started from a since-removed addition keep its ID; a new addition must never take it over.
             ensure(state.templates.none { t -> t.slots.any { it.id == action.id } } &&

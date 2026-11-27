@@ -526,30 +526,25 @@ internal fun CustomExerciseDialog(
  * Shared editor for today's changes and saved plan changes: exercise choice, set count,
  * rest, and an explicit acknowledgement when going above the advisory upper.
  */
+/**
+ * Grouped radio list of swap suggestions plus "All exercises" and "New exercise" action rows, shared by
+ * [TargetEditorFields] (Adjust today, Edit plan) and [PlanAdditionDialog].
+ */
 @Composable
-internal fun TargetEditorFields(
+internal fun SwapChoiceSection(
     env: AppEnv,
     options: List<Exercise>,
+    swapGroups: List<SwapGroup>,
+    currentId: String,
     selectedId: String,
     onSelect: (String) -> Unit,
-    swapLocked: String?,
-    sets: Int,
-    onSets: (Int) -> Unit,
-    rest: String,
-    onRest: (String) -> Unit,
-    baselineSets: Int?,
-    upperSets: Int?,
-    allowAboveCap: Boolean,
-    onAllowAboveCap: (Boolean) -> Unit,
+    swapLocked: String? = null,
     measure: Measure = Measure.REPS,
-    /** The muscle the quick swaps match on, so an exercise made here shows up among them next time. */
     swapMuscle: MuscleGroup = MuscleGroup.UNKNOWN,
-    /** Grouped swap suggestions; when non-empty, replaces the flat [options] list with labelled groups. */
-    swapGroups: List<SwapGroup> = emptyList(),
-    /** The starting exercise being edited, kept visible so the user can return to it after tapping another option. */
-    currentId: String = selectedId,
-    /** Section heading for the exercise picker (e.g. a slot's own muscle label like "Side delts"). */
-    exerciseLabel: String = "Exercise"
+    exerciseLabel: String = "Exercise",
+    marked: Set<String> = emptySet(),
+    markedLabel: String = "in this workout",
+    browseInitialMuscle: MuscleGroup? = null
 ) {
     var addingCustom by rememberSaveable { mutableStateOf(false) }
     var browsing by rememberSaveable { mutableStateOf(false) }
@@ -679,6 +674,69 @@ internal fun TargetEditorFields(
             EditorActionRow(R.drawable.ic_plus, "New exercise", groupShape(1, 1)) { addingCustom = true }
         }
     }
+    if (addingCustom) {
+        CustomExerciseDialog(env, onDismiss = { addingCustom = false }, measure = measure,
+            muscleHint = swapMuscle.takeIf { it != MuscleGroup.UNKNOWN }
+                ?: env.exercise(selectedId)?.primaryMuscle ?: MuscleGroup.UNKNOWN) {
+            addingCustom = false
+            onSelect(it.id)
+        }
+    }
+    if (browsing) ExerciseLibraryPicker(
+        env,
+        onDismiss = { browsing = false },
+        marked = marked,
+        markedLabel = markedLabel,
+        measure = measure,
+        initialMuscle = browseInitialMuscle
+    ) {
+        browsing = false
+        onSelect(it.id)
+    }
+}
+
+@Composable
+internal fun TargetEditorFields(
+    env: AppEnv,
+    options: List<Exercise>,
+    selectedId: String,
+    onSelect: (String) -> Unit,
+    swapLocked: String?,
+    sets: Int,
+    onSets: (Int) -> Unit,
+    rest: String,
+    onRest: (String) -> Unit,
+    baselineSets: Int?,
+    upperSets: Int?,
+    allowAboveCap: Boolean,
+    onAllowAboveCap: (Boolean) -> Unit,
+    measure: Measure = Measure.REPS,
+    /** The muscle the quick swaps match on, so an exercise made here shows up among them next time. */
+    swapMuscle: MuscleGroup = MuscleGroup.UNKNOWN,
+    /** Grouped swap suggestions; when non-empty, replaces the flat [options] list with labelled groups. */
+    swapGroups: List<SwapGroup> = emptyList(),
+    /** The starting exercise being edited, kept visible so the user can return to it after tapping another option. */
+    currentId: String = selectedId,
+    /** Section heading for the exercise picker (e.g. a slot's own muscle label like "Side delts"). */
+    exerciseLabel: String = "Exercise",
+    marked: Set<String> = emptySet(),
+    markedLabel: String = "in this workout"
+) {
+    val scheme = MaterialTheme.colorScheme
+    SwapChoiceSection(
+        env = env,
+        options = options,
+        swapGroups = swapGroups,
+        currentId = currentId,
+        selectedId = selectedId,
+        onSelect = onSelect,
+        swapLocked = swapLocked,
+        measure = measure,
+        swapMuscle = swapMuscle,
+        exerciseLabel = exerciseLabel,
+        marked = marked,
+        markedLabel = markedLabel
+    )
     Spacer(Modifier.height(8.dp))
     EditorSection(if (measure == Measure.CARDIO) "Rest" else "Sets and rest")
     val restLabel = if (measure == Measure.CARDIO) "Rest when you start one" else "Rest between sets"
@@ -719,18 +777,6 @@ internal fun TargetEditorFields(
             )
             CheckRow("I understand: allow $sets sets", allowAboveCap, onAllowAboveCap, modifier = Modifier.testTag("allow-above-cap"))
         }
-    }
-    if (addingCustom) {
-        CustomExerciseDialog(env, onDismiss = { addingCustom = false }, measure = measure,
-            muscleHint = swapMuscle.takeIf { it != MuscleGroup.UNKNOWN }
-                ?: env.exercise(selectedId)?.primaryMuscle ?: MuscleGroup.UNKNOWN) {
-            addingCustom = false
-            onSelect(it.id)
-        }
-    }
-    if (browsing) ExerciseLibraryPicker(env, onDismiss = { browsing = false }, measure = measure) {
-        browsing = false
-        onSelect(it.id)
     }
 }
 

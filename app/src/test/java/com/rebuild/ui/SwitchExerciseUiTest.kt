@@ -5,6 +5,8 @@ import android.graphics.Canvas
 import android.view.View
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
@@ -18,11 +20,13 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import com.rebuild.data.MemoryPersistence
 import com.rebuild.data.RebuildRepository
 import com.rebuild.domain.Action
 import com.rebuild.domain.Phase
+import com.rebuild.domain.swapSuggestions
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -176,6 +180,129 @@ class SwitchExerciseUiTest {
         compose.onNodeWithText("Shoulders").assertIsDisplayed()
     }
 
+    @Test fun planSlotDialogUsesSlotLabelAndGroupedSuggestions() {
+        val repo = runBlocking {
+            RebuildRepository.fromPersistence(MemoryPersistence()) { now }.also {
+                it.execute(Action.SelectPhase(Phase.BASELINE))
+            }
+        }
+        compose.setContent { RebuildApp(repo, platform, clock = { now }) }
+        tap("Plan")
+        compose.onNodeWithTag("plan-slot-push-lateral").performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Side delts").assertIsDisplayed()
+        compose.onNodeWithText("Same movement").assertIsDisplayed()
+        compose.onNodeWithText("Dumbbell lateral raise").performScrollTo().performClick()
+        tap("Save to plan")
+        assertEquals("lateral-db", repo.state.value.overrides.single().exerciseId)
+    }
+
+    @Test fun swapChoiceSectionShowsGroupedSuggestionsAndExpandsMoreForMuscle() {
+        val repo = runBlocking {
+            RebuildRepository.fromPersistence(MemoryPersistence()) { now }.also {
+                it.execute(Action.SelectPhase(Phase.BASELINE))
+            }
+        }
+        val selected = androidx.compose.runtime.mutableStateOf("face-pull")
+        compose.setContent {
+            val env = testEnv(repo)
+            val groups = env.state.swapSuggestions("face-pull", gear = env.state.gear)
+            androidx.compose.foundation.layout.Column(
+                androidx.compose.ui.Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())
+            ) {
+                SwapChoiceSection(
+                    env = env,
+                    options = listOfNotNull(env.exercise("face-pull")),
+                    swapGroups = groups,
+                    currentId = "face-pull",
+                    selectedId = selected.value,
+                    onSelect = { selected.value = it },
+                    swapMuscle = com.rebuild.domain.MuscleGroup.SHOULDERS
+                )
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithText("Same movement").assertIsDisplayed()
+        compose.onNodeWithText("Reverse pec deck").performScrollTo().performClick()
+        assertEquals("reverse-pec-deck", selected.value)
+        compose.onNodeWithTag("expand-more-muscle").performScrollTo().assertIsDisplayed().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Dumbbell lateral raise").performScrollTo().assertIsDisplayed().performClick()
+        assertEquals("lateral-db", selected.value)
+        // Collapsing More for Shoulders still works even when an item inside it is selected.
+        compose.onNodeWithTag("expand-more-muscle").performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Dumbbell lateral raise").assertDoesNotExist()
+    }
+
+    @androidx.compose.runtime.Composable
+    private fun testEnv(repo: RebuildRepository): AppEnv {
+        val state = repo.state.collectAsState().value
+        val runner = androidx.compose.runtime.remember { ActionRunner(repo) }
+        return AppEnv(state, PlatformStatus(), platform, runner, { now }, { com.rebuild.domain.Monotonic(null, "t", 0L) },
+            EffortDrafts(), RestAlert(), TipsState(enabled = false))
+    }
+
+    @Test fun capturePlanAndRoutineAfterLight() {
+        if (out == null) return
+        capturePlanAndRoutine("light")
+    }
+
+    @Test fun capturePlanAndRoutineAfterDark() {
+        if (out == null) return
+        RuntimeEnvironment.setQualifiers("+night")
+        capturePlanAndRoutine("dark")
+    }
+
+    private fun capturePlanAndRoutine(mode: String) {
+        val repo = runBlocking {
+            val r = RebuildRepository.fromPersistence(MemoryPersistence()) { now }
+            r.execute(Action.SelectPhase(Phase.BASELINE))
+            r.execute(Action.SavePlanAddition("add-face", Phase.BASELINE, "push", "face-pull", 3, 12, 20, 75, false))
+            r.execute(Action.SaveRoutine("r-1", "Upper focus", listOf(
+                com.rebuild.domain.RoutineExercise("lateral-cable", 3, 12, 20, 90, false),
+                com.rebuild.domain.RoutineExercise("incline-db", 3, 8, 12, 180, false)
+            )))
+            r
+        }
+        compose.setContent { RebuildApp(repo, platform, clock = { now }) }
+        tap("Plan")
+        compose.onNodeWithTag("plan-slot-push-lateral").performScrollTo().performClick()
+        compose.waitForIdle()
+        shot("$mode-plan-slot-after")
+        tap("Cancel")
+        compose.onNodeWithTag("plan-addition-add-face").performScrollTo()
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithTag("plan-addition-add-face").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        compose.mainClock.advanceTimeBy(500)
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
+        compose.mainClock.advanceTimeByFrame()
+        shotNow("$mode-plan-addition-after")
+        compose.onAllNodes(hasText("Cancel") and hasClickAction()).onFirst().performClick()
+        compose.mainClock.advanceTimeBy(500)
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+
+        tap("More")
+        tap("Routines")
+        tap("Upper focus")
+        tap("Edit routine")
+        compose.mainClock.autoAdvance = false
+        compose.onNode(hasClickAction() and hasText("Cable lateral raise"))
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        compose.mainClock.advanceTimeBy(500)
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
+        compose.mainClock.advanceTimeByFrame()
+        shotNow("$mode-routine-targets-after")
+        compose.onNodeWithTag("draft-switch-exercise").performScrollTo().performClick()
+        compose.mainClock.advanceTimeBy(500)
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
+        compose.mainClock.advanceTimeByFrame()
+        shotNow("$mode-routine-switch-after")
+        compose.mainClock.autoAdvance = true
+    }
+
     @Test fun captureSwitchScreensLight() {
         if (out == null) return
         captureMode("light")
@@ -232,6 +359,10 @@ class SwitchExerciseUiTest {
 
     private fun shot(name: String) {
         compose.waitForIdle()
+        shotNow(name)
+    }
+
+    private fun shotNow(name: String) {
         val root = compose.activity.window.decorView
         val bitmap = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)

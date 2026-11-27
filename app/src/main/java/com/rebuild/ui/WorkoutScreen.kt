@@ -1488,7 +1488,8 @@ private fun AdjustTodayDialog(env: AppEnv, workout: Workout, we: WorkoutExercise
                     measure = measure,
                     swapMuscle = (slot?.exerciseFor(gear)?.let(env::exercise) ?: we.exercise).primaryMuscle,
                     swapGroups = swapGroups,
-                    currentId = we.exercise.id
+                    currentId = we.exercise.id,
+                    marked = otherIds
                 )
                 if (planSource != null) {
                     CheckRow(

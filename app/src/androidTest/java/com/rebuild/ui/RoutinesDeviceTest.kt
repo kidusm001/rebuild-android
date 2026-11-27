@@ -725,4 +725,36 @@ class RoutinesDeviceTest {
             requireNotNull(repo.state.value.weekChecklist(localDateOf(FIXED_NOW))).statusOf("p-tue"))
         assertSaved(repo)
     }
+
+    @Test
+    fun routineEditorSwitchesExerciseWhileKeepingTargets() {
+        val repo = repository {
+            execute(Action.SaveRoutine("r-switch", "Shoulders", listOf(
+                RoutineExercise("lateral-cable", 3, 12, 20, 90, false),
+                RoutineExercise("incline-db", 3, 8, 12, 180, false)
+            )))
+        }
+        launch(repo)
+        openRoutine("r-switch")
+        rule.onNodeWithTag("routine-edit").performScrollTo().performClick()
+        draftRow(0, "Cable lateral raise").performClick()
+        assertDialogShows("Cable lateral raise")
+        rule.onNodeWithTag("draft-switch-exercise").performScrollTo().performClick()
+        assertDialogShows("Your targets for this row stay as you entered them.")
+        rule.onNodeWithText("Dumbbell lateral raise").performScrollTo().performClick()
+        assertDialogShows("Dumbbell lateral raise")
+        assertEquals("3", editable("goal-sets"))
+        assertEquals("12", editable("goal-min"))
+        assertEquals("20", editable("goal-max"))
+        rule.onNodeWithTag("draft-targets-save").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("routine-save").performClick()
+        rule.waitUntil(5_000) { repo.state.value.routines.single().exercises.first().exerciseId == "lateral-db" }
+        val updated = repo.state.value.routines.single().exercises.first()
+        assertEquals(3, updated.sets)
+        assertEquals(12, updated.minReps)
+        assertEquals(20, updated.maxReps)
+        assertEquals(90, updated.restSeconds)
+        assertSaved(repo)
+    }
 }

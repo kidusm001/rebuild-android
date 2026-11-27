@@ -547,6 +547,35 @@ class FlexibleWorkoutTest {
         // Editing the saved exercise later changes only workouts started after it.
         repo.execute(Action.SavePlanAddition("add-face", Phase.BASELINE, "push", "face-pull", 4, 10, 15, 60, false))
         assertEquals(3, repo.active.of("face-pull").targetSets)
+        // Switching a saved plan addition to another exercise of the same measure works and rejects duplicates/measure/perLeg conflicts.
+        failure("already in Push") {
+            repo.execute(Action.SavePlanAddition("add-face", Phase.BASELINE, "push", "lateral-cable", 4, 10, 15, 60, false))
+        }
+        failure("measured the same way") {
+            repo.execute(Action.SavePlanAddition("add-face", Phase.BASELINE, "push", "plank", 4, null, null, 60, false,
+                effortSeconds = 30))
+        }
+        failure("per leg") {
+            repo.execute(Action.SavePlanAddition("add-face", Phase.BASELINE, "push", "split-squat", 4, 10, 15, 60, false))
+        }
+        repo.execute(Action.SavePlanAddition("add-plank", Phase.BASELINE, "push", "plank", 2, null, null, 60, false,
+            effortSeconds = 30))
+        repo.execute(Action.SavePlanAddition("add-curl", Phase.BASELINE, "push", "curl-db", 2, 10, 15, 60, false))
+        failure("already in Push") {
+            repo.execute(Action.SavePlanAddition("add-face", Phase.BASELINE, "push", "curl-db", 4, 10, 15, 60, false))
+        }
+        // Switching a measured addition preserves its goal and stays valid across SnapshotCodec round-trip.
+        repo.execute(Action.SavePlanAddition("add-plank", Phase.BASELINE, "push", "side-plank", 2, null, null, 60, false,
+            effortSeconds = 30))
+        assertEquals("side-plank", repo.state.value.planAdditions.single { it.id == "add-plank" }.exerciseId)
+        // Reordering and switching a plan addition keeps its PlanOrder ID intact and leaves the active workout valid.
+        repo.execute(Action.MovePlannedExercise(Phase.BASELINE, "push", "add-face", -1))
+        repo.execute(Action.SavePlanAddition("add-face", Phase.BASELINE, "push", "reverse-pec-deck", 4, 10, 15, 60, false))
+        assertEquals("reverse-pec-deck", repo.state.value.planAdditions.single { it.id == "add-face" }.exerciseId)
+        assertEquals(SnapshotCodec.decode(SnapshotCodec.encode(repo.state.value)), repo.state.value)
+        repo.execute(Action.RemovePlanAddition("add-plank"))
+        repo.execute(Action.RemovePlanAddition("add-curl"))
+        repo.execute(Action.SavePlanAddition("add-face", Phase.BASELINE, "push", "face-pull", 4, 10, 15, 60, false))
         repo.execute(Action.DiscardWorkout)
         repo.execute(Action.SelectPhase(Phase.FIVE_TWO))
         repo.execute(Action.StartWorkout("push", tue + 3000, tueDate))

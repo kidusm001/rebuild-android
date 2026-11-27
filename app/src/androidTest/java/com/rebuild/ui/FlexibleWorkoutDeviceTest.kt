@@ -1016,4 +1016,22 @@ class FlexibleWorkoutDeviceTest {
         rule.onNodeWithTag("entry-kg").performScrollTo().assertIsDisplayed()
         assertSaved(repo)
     }
+
+    @Test
+    fun planAdditionDialogSwitchesExerciseUsingGroupedSuggestions() {
+        val repo = repository {
+            execute(Action.SavePlanAddition("add-face", Phase.INTRO_TWO, "intro-upper", "face-pull", 3, 12, 20, 75, false))
+        }
+        launch(repo)
+        rule.onNodeWithText("Plan", substring = false).performClick()
+        rule.onNodeWithTag("plan-addition-add-face").performScrollTo().performClick()
+        assertDialogShows("Cable face pull · Upper")
+        rule.onNodeWithText("Same movement").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Reverse pec deck").performScrollTo().performClick()
+        rule.onNodeWithTag("plan-addition-save").performClick()
+        rule.waitUntil(5_000) {
+            repo.state.value.planAdditions.single { it.id == "add-face" }.exerciseId == "reverse-pec-deck"
+        }
+        assertSaved(repo)
+    }
 }
