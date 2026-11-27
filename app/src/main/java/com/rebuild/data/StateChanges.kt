@@ -783,8 +783,21 @@ internal object StateChanges {
         val replacement = library(state, action.replacementId)
         val entry = workout.exercises.find { it.id == action.exerciseId }
             ?: throw RepositoryException("This exercise is not part of the workout.")
-        ensure(!entry.optional, "${entry.exercise.name} was added today. Edit its optional goal instead.")
         val substituted = replacement.id != entry.exercise.id
+        val convention = if (entry.optional && substituted) state.perLegConvention(replacement.id) else null
+        if (entry.optional) {
+            ensure(!action.saveToPlan && substituted,
+                "${entry.exercise.name} was added today. Edit its optional goal instead.")
+            ensure(workout.exercises.none { it.id != entry.id && it.exercise.id == replacement.id },
+                "${replacement.name} is already in this workout.")
+            ensure(!replacement.measured || action.perLeg != true, "Only reps can be counted per leg.")
+            if (action.perLeg != null && convention != null) {
+                ensure(action.perLeg == convention, "Your plan already counts ${replacement.name} reps " +
+                    if (convention) "per leg." else "without a per-leg label.")
+            }
+        } else {
+            ensure(action.perLeg == null, "Per-leg can only be set when switching an exercise added today.")
+        }
         val measure = entry.exercise.measure
         ensure(replacement.measure == measure, "${entry.exercise.name} is planned as " +
             measure.title.lowercase() + " work, so swap it for another exercise measured the same way.")
@@ -793,18 +806,31 @@ internal object StateChanges {
         ensure(!substituted || entry.efforts.isEmpty(), "Remove this exercise's logged efforts before substituting " +
             "it, or log another exercise instead. Logged efforts cannot be converted.")
         if (substituted) requireNotStopwatchEntry(state, workout.id, entry, "swapping it")
-        if (measure == Measure.CARDIO) {
-            ensure(action.sets == null, "Cardio has a total time or distance instead of sets.")
-            SnapshotCodec.rest(action.restSeconds)
-        } else {
-            ensure(action.sets != null, "Enter the number of sets.")
-            checkTarget(action.sets!!, action.restSeconds, entry.upperSets, action.allowAboveCap)
+        when {
+            entry.optional -> {
+                SnapshotCodec.goal(measure, required = false, action.sets, entry.minReps, entry.maxReps, entry.measuredGoal)
+                SnapshotCodec.rest(action.restSeconds)
+            }
+            measure == Measure.CARDIO -> {
+                ensure(action.sets == null, "Cardio has a total time or distance instead of sets.")
+                SnapshotCodec.rest(action.restSeconds)
+            }
+            else -> {
+                ensure(action.sets != null, "Enter the number of sets.")
+                checkTarget(action.sets!!, action.restSeconds, entry.upperSets, action.allowAboveCap)
+            }
         }
         // Even library edits must not alter the loading convention of an existing snapshot.
         var changed = editExercise(state, workout.id, entry.id) {
-            it.copy(exercise = if (substituted) replacement.copy() else it.exercise,
-                targetSets = action.sets, restSeconds = action.restSeconds,
-                entryLoadUnit = if (substituted) replacement.preferredLoadUnit else it.entryLoadUnit)
+            it.copy(
+                exercise = if (substituted) replacement.copy() else it.exercise,
+                targetSets = action.sets,
+                restSeconds = action.restSeconds,
+                perLeg = if (substituted && it.optional) {
+                    !replacement.measured && (convention ?: action.perLeg ?: state.lastLoggedPerLeg(replacement.id) ?: false)
+                } else it.perLeg,
+                entryLoadUnit = if (substituted) replacement.preferredLoadUnit else it.entryLoadUnit
+            )
         }
         if (action.saveToPlan) {
             // A removed occurrence has no future workouts, so a change made today never brings it back.

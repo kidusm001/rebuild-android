@@ -726,6 +726,7 @@ internal fun EntryOptions(
     } else {
         Note(if (workout.extra) "No target unless you set a goal. ${restSentence(we)}"
             else "Added today · optional. " + restSentence(we))
+        Option(R.drawable.ic_refresh_cw, "Switch exercise", "switch-exercise", onClick = onSwitch)
         Option(R.drawable.ic_pencil, "Goal and rest", "edit-goal", onEditGoal)
         // Only an occurrence still on its phase's week has future workouts to save to.
         val template = env.state.scheduledRoutine(workout.phase, workout.templateId)

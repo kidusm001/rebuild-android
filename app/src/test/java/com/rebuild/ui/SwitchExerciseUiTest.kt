@@ -303,6 +303,118 @@ class SwitchExerciseUiTest {
         compose.mainClock.autoAdvance = true
     }
 
+    @Test fun addedTodayExerciseCanBeSwitchedFromOptionsAndHoldMenu() {
+        val repo = runBlocking {
+            val r = RebuildRepository.fromPersistence(MemoryPersistence()) { now }
+            r.execute(Action.SelectPhase(Phase.BASELINE))
+            r.execute(Action.StartWorkout("push", now - 60_000L))
+            val w = requireNotNull(r.state.value.activeWorkout)
+            r.execute(Action.AddWorkoutExercise(w.id, "added-1", "curl-db", sets = 3))
+            r
+        }
+        compose.setContent { RebuildApp(repo, platform, clock = { now }) }
+        tap("Resume workout")
+        val lastIdx = repo.state.value.activeWorkout!!.exercises.lastIndex
+        compose.onNodeWithTag("exercise-picker").performScrollToNode(hasTestTag("exercise-chip-$lastIdx"))
+        compose.onNodeWithTag("exercise-chip-$lastIdx").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("exercise-details").performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("switch-exercise").performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Applies to today only.").assertIsDisplayed()
+        // Picking the current exercise in Browse all quietly closes the sheet without an error.
+        compose.onNodeWithTag("switch-browse-all").performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("library-results").performScrollToNode(hasTestTag("library-curl-db"))
+        compose.onNodeWithTag("library-curl-db").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("switch-exercise-sheet").assertDoesNotExist()
+        // Switch via EntryOptions.
+        compose.onNodeWithTag("switch-exercise").performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("switch-option-curl-hammer").performScrollTo().performClick()
+        compose.waitForIdle()
+        val swapped = repo.state.value.activeWorkout!!.exercises.last()
+        assertEquals("curl-hammer", swapped.exercise.id)
+        assertTrue(swapped.optional)
+        assertEquals(3, swapped.targetSets)
+        // Switch back via the exercise hold menu on the optional chip.
+        compose.onNodeWithTag("exercise-chip-$lastIdx").performTouchInput { longClick() }
+        compose.waitForIdle()
+        compose.onNodeWithTag("hold-switch").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("switch-option-curl-db").performScrollTo().performClick()
+        compose.waitForIdle()
+        assertEquals("curl-db", repo.state.value.activeWorkout!!.exercises.last().exercise.id)
+        // Once a set is logged, the hold menu locks switching on the optional chip.
+        runBlocking {
+            val w = requireNotNull(repo.state.value.activeWorkout)
+            repo.execute(Action.SaveSet(w.id, "added-1", "s-added", 12.0, 12, 2.0, false, now - 10_000L))
+        }
+        compose.waitForIdle()
+        compose.onNodeWithTag("exercise-chip-$lastIdx").performTouchInput { longClick() }
+        compose.waitForIdle()
+        compose.onNodeWithTag("hold-switch").assertIsNotEnabled()
+        compose.onNodeWithText("Sets already logged").assertIsDisplayed()
+    }
+
+    @Test fun switchingAddedTodayToUnsettledUnilateralPromptsPerLeg() {
+        val repo = runBlocking {
+            val r = RebuildRepository.fromPersistence(MemoryPersistence()) { now }
+            r.execute(Action.SelectPhase(Phase.BASELINE))
+            r.execute(Action.StartExtraWorkout(now - 60_000L))
+            val w = requireNotNull(r.state.value.activeWorkout)
+            r.execute(Action.AddWorkoutExercise(w.id, "added-leg", "split-squat", sets = 3))
+            r
+        }
+        compose.setContent { RebuildApp(repo, platform, clock = { now }) }
+        tap("Resume workout")
+        compose.onNodeWithTag("exercise-details").performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("switch-exercise").performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("switch-option-lunge-db").performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("per-leg-yes").performClick()
+        compose.waitForIdle()
+        val updated = repo.state.value.activeWorkout!!.exercises.single()
+        assertEquals("lunge-db", updated.exercise.id)
+        assertTrue(updated.perLeg)
+    }
+
+    @Test fun captureAddedTodayAfterLight() {
+        if (out == null) return
+        captureAddedToday("light")
+    }
+
+    @Test fun captureAddedTodayAfterDark() {
+        if (out == null) return
+        RuntimeEnvironment.setQualifiers("+night")
+        captureAddedToday("dark")
+    }
+
+    private fun captureAddedToday(mode: String) {
+        val repo = runBlocking {
+            val r = RebuildRepository.fromPersistence(MemoryPersistence()) { now }
+            r.execute(Action.SelectPhase(Phase.BASELINE))
+            r.execute(Action.StartWorkout("push", now - 60_000L))
+            val w = requireNotNull(r.state.value.activeWorkout)
+            r.execute(Action.AddWorkoutExercise(w.id, "added-1", "curl-db", sets = 3))
+            r
+        }
+        compose.setContent { RebuildApp(repo, platform, clock = { now }) }
+        tap("Resume workout")
+        val lastIdx = repo.state.value.activeWorkout!!.exercises.lastIndex
+        compose.onNodeWithTag("exercise-picker").performScrollToNode(hasTestTag("exercise-chip-$lastIdx"))
+        compose.onNodeWithTag("exercise-chip-$lastIdx").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("exercise-details").performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("switch-exercise").performScrollTo()
+        shot("$mode-added-today-options-after")
+    }
+
     @Test fun captureSwitchScreensLight() {
         if (out == null) return
         captureMode("light")

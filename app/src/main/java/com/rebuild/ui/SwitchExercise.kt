@@ -39,6 +39,7 @@ import com.rebuild.domain.SwapGroup
 import com.rebuild.domain.SwapSuggestion
 import com.rebuild.domain.Workout
 import com.rebuild.domain.WorkoutExercise
+import com.rebuild.domain.asksPerLeg
 import com.rebuild.domain.planSourceOf
 import com.rebuild.domain.swapSuggestions
 
@@ -61,7 +62,6 @@ internal fun swapSuggestionSupporting(suggestion: SwapSuggestion): String {
  * running or stopped stopwatch effort belongs to the exercise it timed.
  */
 internal fun switchBlockedReason(we: WorkoutExercise, watch: Stopwatch?): String? = when {
-    we.optional -> "Added today"
     we.sets.isNotEmpty() -> "Sets already logged"
     we.efforts.isNotEmpty() -> "${effortNoun(we.exercise.measure).replaceFirstChar { it.uppercase() }}s already logged"
     watch?.exerciseId == we.id -> "Stopwatch is holding it"
@@ -96,6 +96,7 @@ internal fun SwitchExerciseSheet(
     var error by rememberSaveable(we.id) { mutableStateOf<String?>(null) }
     var browsing by rememberSaveable(we.id) { mutableStateOf(false) }
     var addingCustom by rememberSaveable(we.id) { mutableStateOf(false) }
+    var askingPerLeg by rememberSaveable(we.id) { mutableStateOf<String?>(null) }
     // Freeze the displayed exercise and suggestions once a switch commits so the sheet doesn't rewrite itself mid-exit.
     var frozen by remember(we.id) { mutableStateOf<Pair<WorkoutExercise, List<SwapGroup>>?>(null) }
     val shownWe = frozen?.first ?: we
@@ -111,10 +112,14 @@ internal fun SwitchExerciseSheet(
         onClosed = onClosed,
         modifier = Modifier.testTag("switch-exercise-sheet")
     ) { close ->
-        fun applySwitch(replacementId: String) {
+        fun applySwitch(replacementId: String, perLeg: Boolean? = null) {
             if (frozen != null) return
             if (replacementId == we.exercise.id) {
                 close()
+                return
+            }
+            if (we.optional && perLeg == null && env.exercise(replacementId)?.let(env.state::asksPerLeg) == true) {
+                askingPerLeg = replacementId
                 return
             }
             error = null
@@ -128,7 +133,8 @@ internal fun SwitchExerciseSheet(
                     restSeconds = we.restSeconds,
                     saveToPlan = saveToPlan && planSource != null,
                     allowAboveCap = aboveCap,
-                    keepPlanTargets = true
+                    keepPlanTargets = true,
+                    perLeg = perLeg
                 ),
                 onError = {
                     frozen = null
@@ -286,6 +292,15 @@ internal fun SwitchExerciseSheet(
             ) { created ->
                 addingCustom = false
                 applySwitch(created.id)
+            }
+        }
+        askingPerLeg?.let { id ->
+            PerLegQuestionDialog(
+                name = env.exercise(id)?.name ?: id,
+                onDismiss = { askingPerLeg = null }
+            ) { answer ->
+                askingPerLeg = null
+                applySwitch(id, perLeg = answer)
             }
         }
     }

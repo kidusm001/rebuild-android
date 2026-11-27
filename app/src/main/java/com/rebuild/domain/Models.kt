@@ -858,13 +858,15 @@ sealed interface Action {
     data class EditToday(
         val exerciseId: String,
         val replacementId: String,
-        /** Working, timed or distance sets; null for a cardio exercise, which has a total instead. */
+        /** Working, timed or distance sets; null for a cardio exercise or an optional entry without a set goal. */
         val sets: Int?,
         val restSeconds: Int,
         val saveToPlan: Boolean = false,
         val allowAboveCap: Boolean = false,
         /** When true with [saveToPlan], updates only the plan's exercise while keeping the plan's sets and rest. */
-        val keepPlanTargets: Boolean = false
+        val keepPlanTargets: Boolean = false,
+        /** Explicit per-leg answer when swapping an optional entry to an exercise without a settled convention. */
+        val perLeg: Boolean? = null
     ) : Action
     data class AddExercise(val exercise: Exercise) : Action
     /**
