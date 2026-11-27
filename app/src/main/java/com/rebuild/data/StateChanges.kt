@@ -803,10 +803,12 @@ internal object StateChanges {
             if (slot != null) {
                 ensure(!state.slotRemoved(workout.phase, slot.id),
                     "${entry.exercise.name} was removed from this phase's plan. Restore it in Plan to change it.")
-                requireNotAdded(state, template, workout.phase, replacement,
-                    keeping = state.targetFor(slot, workout.phase).exerciseId)
-                changed = override(changed, PlanOverride(workout.phase, slot.id, replacement.id, action.sets!!,
-                    action.restSeconds, storedGear(state.gear)))
+                val currentPlan = state.targetFor(slot, workout.phase)
+                requireNotAdded(state, template, workout.phase, replacement, keeping = currentPlan.exerciseId)
+                val planSets = if (action.keepPlanTargets) currentPlan.sets else action.sets!!
+                val planRest = if (action.keepPlanTargets) currentPlan.restSeconds else action.restSeconds
+                changed = override(changed, PlanOverride(workout.phase, slot.id, replacement.id, planSets,
+                    planRest, storedGear(state.gear)))
             } else {
                 // A removed addition is never brought back by a change made to today's copy of it.
                 val addition = state.planAdditions.find { it.id == entry.slotId && it.phase == workout.phase }
@@ -821,8 +823,11 @@ internal object StateChanges {
                         "add it to the plan on its own.")
                 }
                 changed = changed.copy(planAdditions = changed.planAdditions.map {
-                    if (it.id == addition.id) it.copy(exerciseId = replacement.id, sets = action.sets,
-                        restSeconds = action.restSeconds) else it
+                    if (it.id == addition.id) it.copy(
+                        exerciseId = replacement.id,
+                        sets = if (action.keepPlanTargets) it.sets else action.sets,
+                        restSeconds = if (action.keepPlanTargets) it.restSeconds else action.restSeconds
+                    ) else it
                 })
             }
         }

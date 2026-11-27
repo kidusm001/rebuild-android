@@ -37,7 +37,8 @@ import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.foundation.shape.CircleShape
-import com.rebuild.domain.customSwapsFor
+import com.rebuild.domain.MuscleGroup
+import com.rebuild.domain.swapSuggestions
 import com.rebuild.domain.loadUnitChoices
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -146,7 +147,14 @@ private const val LEAVE_FINISH = "finish"
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
+internal fun WorkoutScreen(
+    env: AppEnv,
+    workout: Workout,
+    onBack: () -> Unit,
+    onSwitchExercise: (String) -> Unit = {},
+    addRequest: Pair<Int, MuscleGroup?>? = null,
+    onConsumeAddRequest: () -> Unit = {}
+) {
     // Resuming opens a set in progress, else the stopwatch's exercise, else the first exercise still short of its
     // target: the same one Today points to. If the workout is replaced while open (a restore), the exercise in view
     // stays when it still exists; otherwise focus returns there.
@@ -173,6 +181,14 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
     var finishing by rememberSaveable(workout.id) { mutableStateOf(false) }
     var discarding by rememberSaveable(workout.id) { mutableStateOf(false) }
     var adding by rememberSaveable(workout.id) { mutableStateOf(false) }
+    var addingMuscle by rememberSaveable(workout.id) { mutableStateOf<MuscleGroup?>(null) }
+    LaunchedEffect(addRequest) {
+        if (addRequest != null) {
+            addingMuscle = addRequest.second
+            adding = true
+            onConsumeAddRequest()
+        }
+    }
     var reordering by rememberSaveable(workout.id) { mutableStateOf(false) }
     var notice by rememberSaveable(workout.id) { mutableStateOf<String?>(null) }
     var askingPerLeg by rememberSaveable(workout.id) { mutableStateOf<String?>(null) }
@@ -243,6 +259,7 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
                     enabled = !env.runner.looksBusy(),
                     onClick = {
                         menuOpen = false
+                        addingMuscle = null
                         adding = true
                     },
                     modifier = Modifier.testTag("menu-add-exercise")
@@ -271,8 +288,9 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
         val keyboardUp = railHidden
         AnimatedVisibility(workout.exercises.isNotEmpty() && !keyboardUp,
             enter = Motion.expand(), exit = Motion.collapse()) {
-            ExerciseRail(env, workout, focusedIndex, watch, onAdd = { adding = true }, addEnabled = !env.runner.looksBusy(),
-                onSelect = ::select, onNotice = { notice = it })
+            ExerciseRail(env, workout, focusedIndex, watch, onAdd = { addingMuscle = null; adding = true },
+                addEnabled = !env.runner.looksBusy(), onSelect = ::select,
+                onSwitch = onSwitchExercise, onNotice = { notice = it })
         }
         // An unlogged stopwatch effort on another exercise stays in sight until it's logged or discarded.
         if (watch != null && !watch.running && watch.exerciseId != focused?.id && !WindowInsets.isImeVisible) {
@@ -345,6 +363,7 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
                     onFinish = { guarded(LEAVE_FINISH) { finishing = true } },
                     onEntryFocus = { if (!leaving) entryFocused = it },
                     onSelect = ::select,
+                    onSwitch = { onSwitchExercise(shown.id) },
                     motion = remember {
                         FocusMotion(
                             bodyAlpha = { bodyAlpha }, dx = { dx }, dockAlpha = { dockAlpha }, overhang = { overhang },
@@ -361,11 +380,13 @@ internal fun WorkoutScreen(env: AppEnv, workout: Workout, onBack: () -> Unit) {
 
     if (adding) ExerciseLibraryPicker(
         env,
-        onDismiss = { adding = false },
+        onDismiss = { adding = false; addingMuscle = null },
         title = "Add exercise",
-        marked = workout.exercises.map { it.exercise.id }.toSet()
+        marked = workout.exercises.map { it.exercise.id }.toSet(),
+        initialMuscle = addingMuscle
     ) { exercise ->
         adding = false
+        addingMuscle = null
         // The same exercise twice would split its sets; the one already here opens instead.
         val existing = workout.exercises.find { it.exercise.id == exercise.id }
         when {
@@ -434,6 +455,7 @@ private fun ExerciseRail(
     onAdd: () -> Unit,
     addEnabled: Boolean,
     onSelect: (String) -> Unit,
+    onSwitch: (String) -> Unit,
     onNotice: (String) -> Unit = {}
 ) {
     val listState = rememberLazyListState()
@@ -503,6 +525,12 @@ private fun ExerciseRail(
         removeBlocked(we, watch)?.let { onNotice(it); return false }
         if (we.optional) removing = we.id
         else env.runner.run(Action.SetSkipped(workout.id, we.id, !we.skipped))
+        return true
+    }
+    fun switchExercise(we: WorkoutExercise): Boolean {
+        if (env.runner.busy) return false
+        switchBlockedReason(we, watch)?.let { onNotice(it); return false }
+        onSwitch(we.id)
         return true
     }
     // The gesture handler outlives a recomposition, so it reads these through their latest values.
@@ -706,6 +734,7 @@ private fun ExerciseRail(
                             .takeIf { saved.indexOf(ex.id) > 0 },
                         CustomAccessibilityAction("Move later") { move(ex.id, saved.indexOf(ex.id) + 1) }
                             .takeIf { saved.indexOf(ex.id) < saved.lastIndex },
+                        CustomAccessibilityAction("Switch exercise") { switchExercise(ex) },
                         CustomAccessibilityAction(removeLabel(ex)) { removeFromToday(ex) }
                     )) { if (heldTap) heldTap = false else onSelect(ex.id) }
                 if (menuFor == ex.id) ExerciseHoldMenu(
@@ -713,10 +742,12 @@ private fun ExerciseRail(
                     canMoveEarlier = saved.indexOf(ex.id) > 0,
                     canMoveLater = saved.indexOf(ex.id) < saved.lastIndex,
                     busy = env.runner.looksBusy(),
+                    switchBlocked = switchBlockedReason(ex, watch),
                     blocked = removeBlocked(ex, watch),
                     onDismiss = { menuFor = null },
                     onMoveEarlier = { menuFor = null; move(ex.id, saved.indexOf(ex.id) - 1) },
                     onMoveLater = { menuFor = null; move(ex.id, saved.indexOf(ex.id) + 1) },
+                    onSwitch = { menuFor = null; switchExercise(ex) },
                     onRemove = { menuFor = null; removeFromToday(ex) }
                 )
             }
@@ -794,17 +825,19 @@ private fun removeLabel(we: WorkoutExercise): String = when {
     else -> "Remove from today"
 }
 
-/** The menu a held pill opens: move it a place, or take it out of today. */
+/** The menu a held pill opens: move it a place, switch it, or take it out of today. */
 @Composable
 private fun ExerciseHoldMenu(
     we: WorkoutExercise,
     canMoveEarlier: Boolean,
     canMoveLater: Boolean,
     busy: Boolean,
+    switchBlocked: String?,
     blocked: String?,
     onDismiss: () -> Unit,
     onMoveEarlier: () -> Unit,
     onMoveLater: () -> Unit,
+    onSwitch: () -> Unit,
     onRemove: () -> Unit
 ) {
     DropdownMenu(
@@ -825,6 +858,22 @@ private fun ExerciseHoldMenu(
             text = { Text("Move later") }, enabled = canMoveLater && !busy, onClick = onMoveLater,
             leadingIcon = { RebuildIcon(R.drawable.ic_arrow_right, contentDescription = null) },
             modifier = Modifier.testTag("hold-move-later")
+        )
+        DropdownMenuItem(
+            text = {
+                Column {
+                    Text("Switch exercise…")
+                    if (switchBlocked != null) Text(
+                        switchBlocked,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            enabled = !busy && switchBlocked == null,
+            onClick = onSwitch,
+            leadingIcon = { RebuildIcon(R.drawable.ic_refresh_cw, contentDescription = null) },
+            modifier = Modifier.testTag("hold-switch")
         )
         val back = !we.optional && we.skipped
         DropdownMenuItem(
@@ -950,6 +999,7 @@ private fun ExerciseFocus(
     onFinish: () -> Unit,
     onEntryFocus: (Boolean) -> Unit,
     onSelect: (String) -> Unit,
+    onSwitch: () -> Unit,
     modifier: Modifier = Modifier,
     motion: FocusMotion = FocusMotion(),
     onDockSize: (IntSize) -> Unit = {}
@@ -1198,6 +1248,7 @@ private fun ExerciseFocus(
                         Column {
                             EntryOptions(
                                 env, workout, we,
+                                onSwitch = onSwitch,
                                 onAdjust = { adjusting = true },
                                 onEditGoal = { editingGoal = true },
                                 onSaveToPlan = { savingToPlan = true },
@@ -1370,14 +1421,11 @@ private fun AdjustTodayDialog(env: AppEnv, workout: Workout, we: WorkoutExercise
     val slot = env.state.templates.find { it.id == workout.templateId }?.slots?.find { it.id == we.slotId }
     // A removed slot or addition can't take saved changes; they stay with today's copy.
     val planSource = env.state.planSourceOf(workout, we)
-    // The slot's exercise and swaps for the plan's equipment: a dumbbell plan never offers a hack squat.
+    // The slot's exercise and grouped suggestions for the plan's equipment: a dumbbell plan never offers a hack squat.
     val gear = env.state.gear
-    val optionIds = (listOfNotNull(slot?.exerciseFor(gear)) + slot?.alternativesFor(gear).orEmpty() + we.exercise.id +
-        env.state.customSwapsFor(slot?.exerciseFor(gear) ?: we.exercise.id)).distinct()
+    val otherIds = workout.exercises.filter { it.id != we.id }.map { it.exercise.id }.toSet()
+    val swapGroups = env.state.swapSuggestions(we.exercise.id, slot = slot, gear = gear, excluding = otherIds)
     val measure = we.exercise.measure
-    // A planned exercise is only ever swapped for one measured the same way.
-    val options = optionIds.mapNotNull { id -> if (id == we.exercise.id) we.exercise else env.exercise(id) }
-        .filter { it.measure == measure }
     val draftKey = listOf(we.id, we.exercise.id, we.targetSets, we.restSeconds).joinToString("|")
     var replacement by rememberSaveable(draftKey) { mutableStateOf(we.exercise.id) }
     var sets by rememberSaveable(draftKey) { mutableStateOf(we.targetSets ?: 1) }
@@ -1434,11 +1482,13 @@ private fun AdjustTodayDialog(env: AppEnv, workout: Workout, we: WorkoutExercise
                     modifier = Modifier.testTag("adjust-goal")
                 )
                 TargetEditorFields(
-                    env, options, replacement, { replacement = it }, swapLocked,
+                    env, listOf(we.exercise), replacement, { replacement = it }, swapLocked,
                     sets, { sets = it; if (!(upperSets != null && it > upperSets)) allowAboveCap = false },
                     rest, { rest = it }, we.baselineSets, upperSets, allowAboveCap, { allowAboveCap = it },
                     measure = measure,
-                    swapMuscle = (slot?.exerciseFor(gear)?.let(env::exercise) ?: we.exercise).primaryMuscle
+                    swapMuscle = (slot?.exerciseFor(gear)?.let(env::exercise) ?: we.exercise).primaryMuscle,
+                    swapGroups = swapGroups,
+                    currentId = we.exercise.id
                 )
                 if (planSource != null) {
                     CheckRow(

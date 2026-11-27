@@ -643,6 +643,7 @@ internal fun EntryOptions(
     env: AppEnv,
     workout: Workout,
     we: WorkoutExercise,
+    onSwitch: () -> Unit,
     onAdjust: () -> Unit,
     onEditGoal: () -> Unit,
     onSaveToPlan: () -> Unit,
@@ -675,6 +676,7 @@ internal fun EntryOptions(
         Note((we.baselineSets?.let { "Baseline ${countLabel(it, "set")}" } ?: "Your own exercise in this routine") +
             (we.upperSets?.let { " · advisory upper $it (not a target)" } ?: "") +
             if (we.exercise.measure == Measure.REPS) "" else ". ${restSentence(we)}")
+        Option(R.drawable.ic_refresh_cw, "Switch exercise", "switch-exercise", onClick = onSwitch)
         Option(R.drawable.ic_pencil, "Adjust today", onClick = onAdjust)
         when {
             we.skipped -> Option(R.drawable.ic_undo_2, "Undo skip", "undo-skip-option") { skip(false) }

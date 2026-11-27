@@ -862,7 +862,9 @@ sealed interface Action {
         val sets: Int?,
         val restSeconds: Int,
         val saveToPlan: Boolean = false,
-        val allowAboveCap: Boolean = false
+        val allowAboveCap: Boolean = false,
+        /** When true with [saveToPlan], updates only the plan's exercise while keeping the plan's sets and rest. */
+        val keepPlanTargets: Boolean = false
     ) : Action
     data class AddExercise(val exercise: Exercise) : Action
     /**

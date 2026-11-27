@@ -105,9 +105,9 @@ class FakeRepository(initial: AppState) : AppRepository {
             is Action.DeleteSet, is Action.FinishWorkout, is Action.LogStage, is Action.LogDrop, is Action.FinishGroup, is Action.AddStage,
             is Action.SetGroupMethod, is Action.DeleteGroup, is Action.JoinDropsToSet, is Action.StartShortPause, is Action.SetWeekCredit,
             is Action.StartExtraWorkout, is Action.AddWorkoutExercise, is Action.MoveWorkoutExercise,
-            is Action.RemoveWorkoutExercise, is Action.SetSkipped, is Action.SetEntryGoal, is Action.SavePlanAddition,
-            is Action.RemovePlanAddition, is Action.SetPlanSlotRemoved, is Action.MovePlannedExercise,
-            is Action.CompleteSetup, is Action.ChangeSplit, is Action.SetLiftingUnit ->
+            is Action.RemoveWorkoutExercise, is Action.SetSkipped, is Action.SetEntryGoal, is Action.EditToday,
+            is Action.SavePlanAddition, is Action.RemovePlanAddition, is Action.SetPlanSlotRemoved,
+            is Action.MovePlannedExercise, is Action.CompleteSetup, is Action.ChangeSplit, is Action.SetLiftingUnit ->
                 com.rebuild.data.StateChanges.apply(s, action)
             Action.DiscardWorkout -> s.copy(workouts = s.workouts.filterNot { it.id == s.activeWorkoutId }, activeWorkoutId = null)
             else -> s
