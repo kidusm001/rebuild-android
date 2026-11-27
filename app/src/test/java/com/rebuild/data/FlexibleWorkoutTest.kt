@@ -547,6 +547,35 @@ class FlexibleWorkoutTest {
         // Editing the saved exercise later changes only workouts started after it.
         repo.execute(Action.SavePlanAddition("add-face", Phase.BASELINE, "push", "face-pull", 4, 10, 15, 60, false))
         assertEquals(3, repo.active.of("face-pull").targetSets)
+        // Switching a saved plan addition to another exercise of the same measure works and rejects duplicates/measure/perLeg conflicts.
+        failure("already in Push") {
+            repo.execute(Action.SavePlanAddition("add-face", Phase.BASELINE, "push", "lateral-cable", 4, 10, 15, 60, false))
+        }
+        failure("measured the same way") {
+            repo.execute(Action.SavePlanAddition("add-face", Phase.BASELINE, "push", "plank", 4, null, null, 60, false,
+                effortSeconds = 30))
+        }
+        failure("per leg") {
+            repo.execute(Action.SavePlanAddition("add-face", Phase.BASELINE, "push", "split-squat", 4, 10, 15, 60, false))
+        }
+        repo.execute(Action.SavePlanAddition("add-plank", Phase.BASELINE, "push", "plank", 2, null, null, 60, false,
+            effortSeconds = 30))
+        repo.execute(Action.SavePlanAddition("add-curl", Phase.BASELINE, "push", "curl-db", 2, 10, 15, 60, false))
+        failure("already in Push") {
+            repo.execute(Action.SavePlanAddition("add-face", Phase.BASELINE, "push", "curl-db", 4, 10, 15, 60, false))
+        }
+        // Switching a measured addition preserves its goal and stays valid across SnapshotCodec round-trip.
+        repo.execute(Action.SavePlanAddition("add-plank", Phase.BASELINE, "push", "side-plank", 2, null, null, 60, false,
+            effortSeconds = 30))
+        assertEquals("side-plank", repo.state.value.planAdditions.single { it.id == "add-plank" }.exerciseId)
+        // Reordering and switching a plan addition keeps its PlanOrder ID intact and leaves the active workout valid.
+        repo.execute(Action.MovePlannedExercise(Phase.BASELINE, "push", "add-face", -1))
+        repo.execute(Action.SavePlanAddition("add-face", Phase.BASELINE, "push", "reverse-pec-deck", 4, 10, 15, 60, false))
+        assertEquals("reverse-pec-deck", repo.state.value.planAdditions.single { it.id == "add-face" }.exerciseId)
+        assertEquals(SnapshotCodec.decode(SnapshotCodec.encode(repo.state.value)), repo.state.value)
+        repo.execute(Action.RemovePlanAddition("add-plank"))
+        repo.execute(Action.RemovePlanAddition("add-curl"))
+        repo.execute(Action.SavePlanAddition("add-face", Phase.BASELINE, "push", "face-pull", 4, 10, 15, 60, false))
         repo.execute(Action.DiscardWorkout)
         repo.execute(Action.SelectPhase(Phase.FIVE_TWO))
         repo.execute(Action.StartWorkout("push", tue + 3000, tueDate))
@@ -645,10 +674,82 @@ class FlexibleWorkoutTest {
         assertEquals("hip-thrust", repo.state.value.planAdditions.first { it.id == "add-hip" }.exerciseId)
         repo.execute(Action.AddWorkoutExercise(repo.active.id, "opt", "row-db"))
         failure("optional goal") { repo.execute(Action.EditToday("opt", "row-db", 3, 90, saveToPlan = true)) }
+        failure("optional goal") { repo.execute(Action.EditToday("opt", "row-db", 3, 90, saveToPlan = false)) }
+        failure("optional goal") { repo.execute(Action.EditToday("opt", "row-cable", 3, 90, saveToPlan = true)) }
+        // Swapping an added-today exercise works when nothing is logged, keeping it optional (including no-goal).
+        repo.execute(Action.EditToday("opt", "row-cable", null, 90))
+        assertEquals("row-cable", repo.active.entry("opt").exercise.id)
+        assertTrue(repo.active.entry("opt").optional)
+        assertNull(repo.active.entry("opt").targetSets)
+        assertEquals(SnapshotCodec.decode(SnapshotCodec.encode(repo.state.value)), repo.state.value)
+        // Switching from PLATES load unit to a non-plates exercise resets entryLoadUnit cleanly.
+        repo.execute(Action.SetLoadUnit(repo.active.id, "opt", LoadUnit.PLATES))
+        assertEquals(LoadUnit.PLATES, repo.active.entry("opt").entryLoadUnit)
+        repo.execute(Action.EditToday("opt", "row-db", null, 90))
+        assertEquals(LoadUnit.KG, repo.active.entry("opt").entryLoadUnit)
+        assertEquals(SnapshotCodec.decode(SnapshotCodec.encode(repo.state.value)), repo.state.value)
+        // Full rep goal (sets + rep range) survives optional swap.
+        repo.execute(Action.SetEntryGoal(repo.active.id, "opt", 3, 10, 15, 75, false))
+        repo.execute(Action.EditToday("opt", "row-cable", 3, 75))
+        assertEquals(3, repo.active.entry("opt").targetSets)
+        assertEquals(10, repo.active.entry("opt").minReps)
+        assertEquals(15, repo.active.entry("opt").maxReps)
+        assertEquals(SnapshotCodec.decode(SnapshotCodec.encode(repo.state.value)), repo.state.value)
+        // Duplicate in the same workout is refused.
+        failure("already in this workout") { repo.execute(Action.EditToday("opt", "incline-db", 3, 75)) }
+        // Once a set (even a warm-up) is logged, swapping is refused.
+        repo.execute(Action.SaveSet(repo.active.id, "opt", "w1", 20.0, 10, null, warmup = true, now = tue + 1000))
+        failure("Remove this exercise's logged sets") { repo.execute(Action.EditToday("opt", "row-db", 3, 75)) }
+        // Measured optional exercises (with and without goals) swap only within the same measure and lock on stopwatch/effort.
+        repo.execute(Action.AddWorkoutExercise(repo.active.id, "opt-plank", "plank"))
+        failure("measured the same way") { repo.execute(Action.EditToday("opt-plank", "crunch", null, 90)) }
+        failure("Only reps can be counted per leg") {
+            repo.execute(Action.EditToday("opt-plank", "side-plank", null, 90, perLeg = true))
+        }
+        repo.execute(Action.SetEntryGoal(repo.active.id, "opt-plank", 2, null, null, 60, false, effortSeconds = 45))
+        failure("sets") { repo.execute(Action.EditToday("opt-plank", "side-plank", null, 60)) }
+        repo.execute(Action.EditToday("opt-plank", "side-plank", 2, 60))
+        assertEquals("side-plank", repo.active.entry("opt-plank").exercise.id)
+        assertEquals(45, repo.active.entry("opt-plank").effortSeconds)
+        assertEquals(SnapshotCodec.decode(SnapshotCodec.encode(repo.state.value)), repo.state.value)
+        repo.execute(Action.StartStopwatch("sw-1", repo.active.id, "opt-plank", Monotonic(1, "b", 10_000L), tue + 1200))
+        failure("before swapping it") { repo.execute(Action.EditToday("opt-plank", "plank", 2, 60)) }
+        repo.execute(Action.DiscardStopwatch("sw-1", step = 0))
+        repo.execute(Action.SaveEffort(repo.active.id, "opt-plank", "ef-1", durationSeconds = 50,
+            distance = null, kg = null, now = tue + 1500))
+        failure("Logged efforts cannot be converted") { repo.execute(Action.EditToday("opt-plank", "plank", 2, 60)) }
+        // Distance and cardio measured optional goals also survive swaps.
+        repo.execute(Action.AddWorkoutExercise(repo.active.id, "opt-carry", "farmers-carry"))
+        repo.execute(Action.SetEntryGoal(repo.active.id, "opt-carry", 3, null, null, 90, false,
+            effortDistance = Distance(40_000L, DistanceUnit.M)))
+        repo.execute(Action.EditToday("opt-carry", "suitcase-carry", 3, 90))
+        assertEquals("suitcase-carry", repo.active.entry("opt-carry").exercise.id)
+        assertEquals(Distance(40_000L, DistanceUnit.M), repo.active.entry("opt-carry").effortDistance)
+        repo.execute(Action.AddWorkoutExercise(repo.active.id, "opt-cardio", "treadmill"))
+        repo.execute(Action.SetEntryGoal(repo.active.id, "opt-cardio", null, null, null, 60, false, totalSeconds = 1200))
+        repo.execute(Action.EditToday("opt-cardio", "running", null, 60))
+        assertEquals("running", repo.active.entry("opt-cardio").exercise.id)
+        assertEquals(1200, repo.active.entry("opt-cardio").totalSeconds)
+        assertEquals(SnapshotCodec.decode(SnapshotCodec.encode(repo.state.value)), repo.state.value)
         repo.execute(Action.DiscardWorkout)
         repo.execute(Action.StartExtraWorkout(tue + 1000, tueDate))
         repo.execute(Action.AddWorkoutExercise(repo.active.id, "x", "row-db"))
         failure("optional goal") { repo.execute(Action.EditToday("x", "row-db", 3, 90, saveToPlan = true)) }
+        repo.execute(Action.EditToday("x", "row-cable", null, 90))
+        assertEquals("row-cable", repo.active.entry("x").exercise.id)
+        // Per-leg convention follows the replacement exercise or explicit answer on an optional entry.
+        repo.execute(Action.AddWorkoutExercise(repo.active.id, "opt-leg", "split-squat", sets = 3))
+        assertTrue(repo.active.entry("opt-leg").perLeg)
+        repo.execute(Action.EditToday("opt-leg", "lunge-db", 3, 90, perLeg = true))
+        assertEquals("lunge-db", repo.active.entry("opt-leg").exercise.id)
+        assertTrue(repo.active.entry("opt-leg").perLeg)
+        failure("per leg") { repo.execute(Action.EditToday("opt-leg", "split-squat", 3, 90, perLeg = false)) }
+        repo.execute(Action.EditToday("opt-leg", "squat-goblet", 3, 90))
+        assertFalse(repo.active.entry("opt-leg").perLeg)
+        assertEquals(3, repo.active.entry("opt-leg").targetSets)
+        repo.execute(Action.EditToday("opt-leg", "split-squat", 3, 90))
+        assertTrue(repo.active.entry("opt-leg").perLeg)
+        assertEquals(SnapshotCodec.decode(SnapshotCodec.encode(repo.state.value)), repo.state.value)
     }
 
     @Test fun planSwapsNeverListOneExerciseTwiceInARoutine() = runTest {

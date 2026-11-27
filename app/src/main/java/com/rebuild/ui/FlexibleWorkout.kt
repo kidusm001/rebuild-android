@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import com.rebuild.R
 import com.rebuild.domain.Action
 import com.rebuild.domain.Measure
+import com.rebuild.domain.MuscleGroup
 import com.rebuild.domain.goalReached
 import com.rebuild.domain.hasGoal
 import com.rebuild.domain.loggedSeconds
@@ -65,8 +66,10 @@ import com.rebuild.domain.inPlan
 import com.rebuild.domain.lastLoggedPerLeg
 import com.rebuild.domain.openGroup
 import com.rebuild.domain.perLegConvention
+import com.rebuild.domain.plannedExercises
 import com.rebuild.domain.restSuggestion
 import com.rebuild.domain.scheduledRoutine
+import com.rebuild.domain.swapSuggestions
 import com.rebuild.domain.workingCount
 
 /**
@@ -426,11 +429,20 @@ internal fun PlanAdditionDialog(
     onDismiss: () -> Unit,
     onSaved: () -> Unit = onDismiss
 ) {
-    val name = env.exercise(exerciseId)?.name ?: source?.exercise?.name ?: exerciseId
     val measure = env.state.measureOf(exerciseId)
     val key = "${phase.name}|${template.id}|$exerciseId|${existing?.id}|${existing?.hashCode()}"
-    val suggestion = env.state.restSuggestion(exerciseId, phase)
-    val known = env.state.perLegConvention(exerciseId, excludingAdditionId = existing?.id)
+    var chosenId by rememberSaveable(key) { mutableStateOf(exerciseId) }
+    val savedName = env.exercise(exerciseId)?.name ?: source?.exercise?.name ?: exerciseId
+    val name = env.exercise(chosenId)?.name ?: source?.exercise?.name ?: chosenId
+    val suggestion = env.state.restSuggestion(chosenId, phase)
+    val known = env.state.perLegConvention(chosenId, excludingAdditionId = existing?.id)
+    val otherIds = if (existing != null) {
+        env.state.plannedExercises(template, phase).filter { it.slotId != existing.id }.map { it.exerciseId }.toSet()
+    } else emptySet()
+    val swapGroups = if (existing != null) {
+        env.state.swapSuggestions(exerciseId, gear = env.state.gear, excluding = otherIds)
+    } else emptyList()
+    val swapMuscle = env.exercise(exerciseId)?.primaryMuscle ?: MuscleGroup.UNKNOWN
     // A goal is never inferred from what was performed: only a goal the user set today, or the saved one, is offered.
     val measured = rememberGoalText(key) {
         GoalText.of(measure, existing?.sets ?: source?.targetSets, existing?.measuredGoal ?: source?.measuredGoal
@@ -463,7 +475,7 @@ internal fun PlanAdditionDialog(
             if (parsed == null) return
             val goal = parsed.goal
             env.runner.run(
-                Action.SavePlanAddition(additionId, phase, template.id, exerciseId, parsed.sets, null, null, parsed.rest,
+                Action.SavePlanAddition(additionId, phase, template.id, chosenId, parsed.sets, null, null, parsed.rest,
                     perLeg = false, effortSeconds = goal.effortSeconds, effortDistance = goal.effortDistance,
                     totalSeconds = goal.totalSeconds, totalDistance = goal.totalDistance),
                 onError = { error = it }, onSuccess = onSaved
@@ -476,7 +488,7 @@ internal fun PlanAdditionDialog(
         val (sets, min, max) = goal
         if (error != null || rest == null || sets == null || min == null || max == null) return
         env.runner.run(
-            Action.SavePlanAddition(additionId, phase, template.id, exerciseId, sets, min, max, rest, perLeg),
+            Action.SavePlanAddition(additionId, phase, template.id, chosenId, sets, min, max, rest, known ?: perLeg),
             onError = { error = it }, onSuccess = onSaved
         )
     }
@@ -486,12 +498,37 @@ internal fun PlanAdditionDialog(
         title = { Text(if (existing != null) "$name · ${template.name}" else "Add to ${template.name}") },
         text = {
             if (existing == null) Text(name, style = MaterialTheme.typography.titleMedium)
+            if (existing != null) {
+                SwapChoiceSection(
+                    env = env,
+                    options = listOfNotNull(env.exercise(exerciseId)),
+                    swapGroups = swapGroups,
+                    currentId = exerciseId,
+                    selectedId = chosenId,
+                    onSelect = { id ->
+                        chosenId = id
+                        perLeg = if (id == exerciseId) {
+                            env.state.perLegConvention(id, excludingAdditionId = existing.id) ?: existing.perLeg
+                        } else {
+                            env.state.perLegConvention(id, excludingAdditionId = existing.id)
+                                ?: env.state.lastLoggedPerLeg(id)
+                                ?: false
+                        }
+                    },
+                    measure = measure,
+                    swapMuscle = swapMuscle,
+                    marked = otherIds,
+                    markedLabel = "in ${template.name}",
+                    browseInitialMuscle = swapMuscle.takeIf { it != MuscleGroup.UNKNOWN }
+                )
+                Spacer(Modifier.height(8.dp))
+            }
             val hint = if (existing == null && source == null) restHint(suggestion.seconds, suggestion.source.label) else null
             if (measure == Measure.REPS) {
                 GoalFields(setsText, { setsText = it }, minText, { minText = it }, maxText, { maxText = it },
                     restText, { restText = it }, optional = false, restHint = hint, onDone = ::save)
                 PerLegChoice(known, perLeg, lockedBecause = when {
-                    existing != null -> "as saved in your plan."
+                    existing != null && chosenId == exerciseId -> "as saved in your plan."
                     source?.sets?.isNotEmpty() == true -> LOGGED_LOCK
                     else -> null
                 }) { perLeg = it }
@@ -520,7 +557,7 @@ internal fun PlanAdditionDialog(
     if (confirmingRemove && existing != null) {
         var removeError by rememberSaveable(key) { mutableStateOf<String?>(null) }
         ConfirmDialog(
-            title = "Remove $name?",
+            title = "Remove $savedName?",
             text = "Future ${template.name} workouts in this phase (${phaseShort(phase)}) won't include it. " +
                 "Started and finished " +
                 "workouts keep it with everything logged.",
@@ -643,6 +680,7 @@ internal fun EntryOptions(
     env: AppEnv,
     workout: Workout,
     we: WorkoutExercise,
+    onSwitch: () -> Unit,
     onAdjust: () -> Unit,
     onEditGoal: () -> Unit,
     onSaveToPlan: () -> Unit,
@@ -675,6 +713,7 @@ internal fun EntryOptions(
         Note((we.baselineSets?.let { "Baseline ${countLabel(it, "set")}" } ?: "Your own exercise in this routine") +
             (we.upperSets?.let { " · advisory upper $it (not a target)" } ?: "") +
             if (we.exercise.measure == Measure.REPS) "" else ". ${restSentence(we)}")
+        Option(R.drawable.ic_refresh_cw, "Switch exercise", "switch-exercise", onClick = onSwitch)
         Option(R.drawable.ic_pencil, "Adjust today", onClick = onAdjust)
         when {
             we.skipped -> Option(R.drawable.ic_undo_2, "Undo skip", "undo-skip-option") { skip(false) }
@@ -687,6 +726,7 @@ internal fun EntryOptions(
     } else {
         Note(if (workout.extra) "No target unless you set a goal. ${restSentence(we)}"
             else "Added today · optional. " + restSentence(we))
+        Option(R.drawable.ic_refresh_cw, "Switch exercise", "switch-exercise", onClick = onSwitch)
         Option(R.drawable.ic_pencil, "Goal and rest", "edit-goal", onEditGoal)
         // Only an occurrence still on its phase's week has future workouts to save to.
         val template = env.state.scheduledRoutine(workout.phase, workout.templateId)

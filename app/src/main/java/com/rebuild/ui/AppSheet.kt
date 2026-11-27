@@ -189,6 +189,7 @@ internal fun AppSheet(
         ) {
             Surface(
                 modifier = modifier
+                    .then(if (closing) INERT else Modifier)
                     .widthIn(max = MAX_CONTENT_WIDTH)
                     .fillMaxWidth()
                     .onSizeChanged { height = it.height }

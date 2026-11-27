@@ -11,6 +11,7 @@ import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -170,10 +171,26 @@ class HoldToReorderDeviceTest {
         val actions = rule.onNodeWithTag("exercise-chip-0").fetchSemanticsNode()
             .config[SemanticsActions.CustomActions]
         // The first pill can't move earlier, so it isn't offered.
-        assertEquals(listOf("Move later", "Remove from today"), actions.map { it.label })
+        assertEquals(listOf("Move later", "Switch exercise", "Remove from today"), actions.map { it.label })
         rule.runOnIdle { actions.first { it.label == "Move later" }.action() }
         rule.waitUntil(5_000) { names(repo) == listOf("db-press", "bench") }
         assertTrue(repo.actions.any { it is Action.MoveWorkoutExercise })
+    }
+
+    @Test fun switchingFromTheHoldMenuReplacesTheExerciseForToday() {
+        val base = com.rebuild.domain.Seed.initialState().copy(phase = Phase.BASELINE)
+        val repo = FakeRepository(base)
+        runBlocking { repo.execute(Action.StartWorkout("push", FIXED_NOW)) }
+        rule.setContent { RebuildApp(repo, FakePlatform(), clock = { FIXED_NOW }) }
+        rule.onNodeWithText("Resume workout").performClick()
+        rule.onNodeWithTag("exercise-picker").performScrollToIndex(2)
+        rule.onNodeWithTag("exercise-chip-2").performTouchInput { longClick() }
+        rule.onNodeWithTag("exercise-hold-menu").assertIsDisplayed()
+        rule.onNodeWithTag("hold-switch").performClick()
+        rule.onNodeWithTag("switch-exercise-sheet").assertIsDisplayed()
+        rule.onNodeWithTag("switch-option-lateral-db").performScrollTo().performClick()
+        rule.waitUntil(5_000) { repo.state.value.activeWorkout!!.exercises[2].exercise.id == "lateral-db" }
+        assertTrue(repo.state.value.overrides.isEmpty())
     }
 
     @Test fun aMoveThatFailsToSavePutsTheStripBackAndSaysSo() {

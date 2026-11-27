@@ -71,7 +71,8 @@ internal fun ExerciseLibraryScreen(
     title: String? = null,
     marked: Set<String> = emptySet(),
     markedLabel: String = "in this workout",
-    measure: Measure? = null
+    measure: Measure? = null,
+    initialMuscle: MuscleGroup? = null
 ) {
     var detailId by rememberSaveable { mutableStateOf<String?>(null) }
     var adding by rememberSaveable { mutableStateOf(false) }
@@ -83,6 +84,7 @@ internal fun ExerciseLibraryScreen(
             marked,
             markedLabel,
             fixedMeasure = measure,
+            initialMuscle = initialMuscle,
             onChoose = { if (onSelect != null) onSelect(it) else detailId = it.id },
             onAdd = { adding = true }
         )
@@ -187,13 +189,14 @@ internal fun ExerciseLibraryPicker(
     marked: Set<String> = emptySet(),
     markedLabel: String = "in this workout",
     measure: Measure? = null,
+    initialMuscle: MuscleGroup? = null,
     onSelect: (Exercise) -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
             KeyboardFirstBack(onDismiss, Modifier.fillMaxSize()) {
-                ExerciseLibraryScreen(env, onDismiss, onSelect, title, marked, markedLabel, measure)
+                ExerciseLibraryScreen(env, onDismiss, onSelect, title, marked, markedLabel, measure, initialMuscle)
             }
         }
     }
@@ -215,11 +218,12 @@ private fun ExerciseLibraryContent(
     marked: Set<String>,
     markedLabel: String,
     fixedMeasure: Measure?,
+    initialMuscle: MuscleGroup? = null,
     onChoose: (Exercise) -> Unit,
     onAdd: () -> Unit
 ) {
     var query by rememberSaveable { mutableStateOf("") }
-    var muscle by rememberSaveable { mutableStateOf<MuscleGroup?>(null) }
+    var muscle by rememberSaveable(initialMuscle) { mutableStateOf(initialMuscle) }
     var equipment by rememberSaveable { mutableStateOf<Equipment?>(null) }
     var chosenMeasure by rememberSaveable { mutableStateOf<Measure?>(null) }
     // Where only one kind of exercise fits (swapping a planned one), the others are never offered.

@@ -95,6 +95,7 @@ import com.rebuild.domain.BodySite
 import com.rebuild.domain.Exercise
 import com.rebuild.domain.LoadingType
 import com.rebuild.domain.Monotonic
+import com.rebuild.domain.MuscleGroup
 import com.rebuild.domain.RoutineDraft
 import com.rebuild.domain.draft
 import com.rebuild.domain.localDateOf
@@ -409,6 +410,13 @@ fun RebuildApp(
         }
         // The navigation overlay is composed while the target or the layer leaving shows it.
         var navWanted by remember { mutableStateOf(showsNav(route)) }
+        var switchingId by rememberSaveable { mutableStateOf<String?>(null) }
+        var addRequest by remember { mutableStateOf<Pair<Int, MuscleGroup?>?>(null) }
+        LaunchedEffect(route, state.activeWorkout?.id) {
+            if (route != Routes.WORKOUT || state.activeWorkout == null) switchingId = null
+        }
+        val activeWorkout = state.activeWorkout
+        val switchingEntry = if (route == Routes.WORKOUT) activeWorkout?.exercises?.find { it.id == switchingId } else null
         val bottomNav = showsNav(route) && !wide
         val base = when {
             // The navigation bar paints its own tone; around a floating rest pill the canvas shows.
@@ -432,8 +440,8 @@ fun RebuildApp(
                 chrome = chrome,
                 targetRoute = route,
                 barsBase = base,
-                // Under the receipt the app is inert: no input, nothing for screen readers.
-                modifier = if (receiptFor != null) INERT else Modifier,
+                // Under the receipt or switch sheet the app (including rest/nav bars) is inert: no input, nothing for screen readers.
+                modifier = if (receiptFor != null || switchingEntry != null) INERT else Modifier,
                 navBar = if (navWanted && !wide && !setupShown) ({
                     NavigationBar {
                         Tab.entries.forEach { tab ->
@@ -538,7 +546,9 @@ fun RebuildApp(
                 }
                 if (stage == SetupStage.APP) AppDestination(env, nav, renderStack, chrome, arriving = arriving,
                     onArriving = { stageScope.launch { stepOut.animateTo(0f, Motion.lateralExitSpec()) } },
-                    onArrived = { arrived = true }, onNavWanted = { navWanted = it })
+                    onArrived = { arrived = true }, onNavWanted = { navWanted = it },
+                    onSwitchExercise = { switchingId = it },
+                    addRequest = addRequest, onConsumeAddRequest = { addRequest = null })
             }
             // The finish dialog's dim, drawn by the app so the receipt's scrim can take it over in the frame it arrives.
             CoverScrim(runner)
@@ -549,6 +559,15 @@ fun RebuildApp(
                         onClosed = { runner.receiptShown() },
                         onShown = { runner.receiptDrawn(finished.id) })
                 }
+            }
+            if (switchingEntry != null && activeWorkout != null) {
+                SwitchExerciseSheet(
+                    env = env,
+                    workout = activeWorkout,
+                    we = switchingEntry,
+                    onClosed = { switchingId = null },
+                    onAddInstead = { muscle -> addRequest = ((addRequest?.first ?: 0) + 1) to muscle }
+                )
             }
             SetLoggedTick(runner, state)
             // Topmost: a rest ending over the receipt covers it.
@@ -740,7 +759,10 @@ private fun AppDestination(
     onArriving: () -> Unit = {},
     onArrived: () -> Unit = {},
     backEnabled: Boolean = true,
-    onNavWanted: (Boolean) -> Unit
+    onNavWanted: (Boolean) -> Unit,
+    onSwitchExercise: (String) -> Unit = {},
+    addRequest: Pair<Int, MuscleGroup?>? = null,
+    onConsumeAddRequest: () -> Unit = {}
 ) {
     val route = stack.last()
     val state = env.state
@@ -961,7 +983,11 @@ private fun AppDestination(
                 // A pushed screen leaving keeps the env it was last shown with: a finished workout still draws itself.
                 if (layerKey == plan.target || layerKey !in book.envs) book.envs[layerKey] = env
                 Layer(layerKey, layerRoute, book.envs.getValue(layerKey)) { e ->
-                    saved.SaveableStateProvider(stackKey(layerRoute)) { key(layerRoute) { RouteContent(e, nav, layerRoute) } }
+                    saved.SaveableStateProvider(stackKey(layerRoute)) {
+                        key(layerRoute) {
+                            RouteContent(e, nav, layerRoute, onSwitchExercise, addRequest, onConsumeAddRequest)
+                        }
+                    }
                 }
             }
         }
@@ -1056,7 +1082,14 @@ private fun InactiveBack(disabled: Boolean, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun RouteContent(env: AppEnv, nav: Navigator, route: String) {
+private fun RouteContent(
+    env: AppEnv,
+    nav: Navigator,
+    route: String,
+    onSwitchExercise: (String) -> Unit = {},
+    addRequest: Pair<Int, MuscleGroup?>? = null,
+    onConsumeAddRequest: () -> Unit = {}
+) {
     val state = env.state
     when {
         route == Tab.HOME.route -> HomeScreen(env, onOpenWorkout = { nav.push(Routes.WORKOUT) }, onNavigate = nav::push,
@@ -1066,7 +1099,8 @@ private fun RouteContent(env: AppEnv, nav: Navigator, route: String) {
         route == Tab.MORE.route -> MoreScreen(env, onNavigate = nav::push)
         route == Routes.WORKOUT -> {
             val workout = state.activeWorkout
-            if (workout != null) WorkoutScreen(env, workout, onBack = { nav.pop() })
+            if (workout != null) WorkoutScreen(env, workout, onBack = { nav.pop() },
+                onSwitchExercise = onSwitchExercise, addRequest = addRequest, onConsumeAddRequest = onConsumeAddRequest)
         }
         route == Routes.PHASE -> PhaseSettingsScreen(env, onBack = { nav.pop() })
         route == Routes.SPLIT -> ChangeSplitScreen(env, onBack = { nav.pop() })

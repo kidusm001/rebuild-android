@@ -45,8 +45,8 @@ class PlanIconDeviceTest {
         rule.onNodeWithContentDescription("Back").performClick()
         rule.onNode(hasText("Plan") and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)).performClick()
         rule.onNodeWithTag("plan-slot-pull-vertical").performScrollTo().performClick()
-        rule.onNodeWithText("Pull-up").assertDoesNotExist()
-        rule.onNodeWithText("Assisted pull-up").assertDoesNotExist()
+        rule.onNodeWithText("Plan alternatives").assertDoesNotExist()
+        rule.onNodeWithText("Same movement").performScrollTo().assertIsDisplayed()
         rule.onNode(hasText("Lat pulldown") and isSelectable()).assertExists()
     }
 

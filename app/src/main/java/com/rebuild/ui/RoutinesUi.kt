@@ -82,7 +82,9 @@ import com.rebuild.domain.linkedPlacements
 import com.rebuild.domain.localDateOf
 import com.rebuild.domain.Measure
 import com.rebuild.domain.MeasuredGoal
+import com.rebuild.domain.MuscleGroup
 import com.rebuild.domain.measureOf
+import com.rebuild.domain.swapSuggestions
 import com.rebuild.domain.measuredGoal
 import com.rebuild.domain.perLegConvention
 import com.rebuild.domain.restSuggestion
@@ -1088,7 +1090,8 @@ internal fun RoutineEditorScreen(
     }
     editing?.let { key ->
         draft.exercises.find { it.key == key }?.let { row ->
-            DraftTargetsDialog(env, row.exerciseId, row, ownerId, onDismiss = { editing = null }) {
+            val others = draft.exercises.filter { it.key != row.key }.map { it.exerciseId }.toSet()
+            DraftTargetsDialog(env, row.exerciseId, row, ownerId, otherExerciseIds = others, onDismiss = { editing = null }) {
                 upsert(it)
                 editing = null
             }
@@ -1199,16 +1202,18 @@ private fun DraftTargetsDialog(
     exerciseId: String,
     row: DraftExercise?,
     ownerId: String,
+    otherExerciseIds: Set<String> = emptySet(),
     onDismiss: () -> Unit,
     onSave: (DraftExercise) -> Unit
 ) {
     val state = env.state
-    val exercise = env.exercise(exerciseId)
-    val name = exercise?.name ?: exerciseId
-    val measure = state.measureOf(exerciseId)
     val key = row?.key ?: "new|$exerciseId"
-    val suggestion = state.restSuggestion(exerciseId, state.phase)
-    val known = state.perLegConvention(exerciseId, excludingOwnerId = ownerId)
+    var chosenId by rememberSaveable(key) { mutableStateOf(exerciseId) }
+    val exercise = env.exercise(chosenId)
+    val name = exercise?.name ?: chosenId
+    val measure = state.measureOf(chosenId)
+    val suggestion = state.restSuggestion(chosenId, state.phase)
+    val known = state.perLegConvention(chosenId, excludingOwnerId = ownerId)
     val rowKey by rememberSaveable(key) { mutableStateOf(row?.key ?: newId()) }
     var setsText by rememberSaveable(key) { mutableStateOf(row?.sets?.toString().orEmpty()) }
     var minText by rememberSaveable(key) { mutableStateOf(row?.minReps?.toString().orEmpty()) }
@@ -1218,12 +1223,11 @@ private fun DraftTargetsDialog(
         GoalText.of(measure, row?.sets, MeasuredGoal(row?.effortSeconds, row?.effortDistance, row?.totalSeconds,
             row?.totalDistance), row?.restSeconds ?: suggestion.seconds)
     }
-    val initialPerLeg = known ?: row?.perLeg ?: state.lastLoggedPerLeg(exerciseId) ?: false
+    val initialPerLeg = known ?: row?.perLeg ?: state.lastLoggedPerLeg(chosenId) ?: false
     var perLeg by rememberSaveable(key) { mutableStateOf(initialPerLeg) }
-    val asks by rememberSaveable(key) {
-        mutableStateOf(measure == Measure.REPS &&
-            (known != null || initialPerLeg || (exercise != null && state.asksPerLeg(exercise))))
-    }
+    val asks = measure == Measure.REPS &&
+        (known != null || perLeg || (exercise != null && state.asksPerLeg(exercise)))
+    var switching by rememberSaveable(key) { mutableStateOf(false) }
     var error by rememberSaveable(key) { mutableStateOf<String?>(null) }
 
     fun save() {
@@ -1232,7 +1236,7 @@ private fun DraftTargetsDialog(
             error = problem
             if (parsed == null) return
             val goal = parsed.goal
-            onSave(DraftExercise(rowKey, exerciseId, parsed.sets, null, null, parsed.rest, perLeg = false,
+            onSave(DraftExercise(rowKey, chosenId, parsed.sets, null, null, parsed.rest, perLeg = false,
                 effortSeconds = goal.effortSeconds, effortDistance = goal.effortDistance,
                 totalSeconds = goal.totalSeconds, totalDistance = goal.totalDistance))
             return
@@ -1242,13 +1246,22 @@ private fun DraftTargetsDialog(
         error = problem ?: if (rest == null) "Rest must be between 1 and 3600 seconds." else null
         val (sets, min, max) = goal
         if (error != null || rest == null || sets == null || min == null || max == null) return
-        onSave(DraftExercise(rowKey, exerciseId, sets, min, max, rest, known ?: perLeg))
+        onSave(DraftExercise(rowKey, chosenId, sets, min, max, rest, known ?: perLeg))
     }
 
     AdaptiveDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (row == null) "Add $name" else name) },
         text = {
+            if (row != null) {
+                EditorActionRow(
+                    icon = R.drawable.ic_refresh_cw,
+                    label = "Switch exercise",
+                    shape = groupShape(0, 0),
+                    chevron = true,
+                    modifier = Modifier.testTag("draft-switch-exercise")
+                ) { switching = true }
+            }
             Text(
                 if (measure == Measure.REPS) "Logged loads and reps never become targets."
                 else "Logged times and distances never become goals.",
@@ -1272,4 +1285,45 @@ private fun DraftTargetsDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
+    if (switching && row != null) {
+        val swapMuscle = exercise?.primaryMuscle ?: MuscleGroup.UNKNOWN
+        val swapGroups = state.swapSuggestions(chosenId, gear = state.gear, excluding = otherExerciseIds)
+        AdaptiveDialog(
+            onDismissRequest = { switching = false },
+            title = { Text("Switch exercise") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Your targets for this row stay as you entered them.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    SwapChoiceSection(
+                        env = env,
+                        options = listOfNotNull(exercise),
+                        swapGroups = swapGroups,
+                        currentId = chosenId,
+                        selectedId = chosenId,
+                        onSelect = { nextId ->
+                            if (nextId != chosenId) {
+                                chosenId = nextId
+                                perLeg = state.perLegConvention(nextId, excludingOwnerId = ownerId)
+                                    ?: row.perLeg.takeIf { nextId == exerciseId }
+                                    ?: state.lastLoggedPerLeg(nextId)
+                                    ?: false
+                            }
+                            switching = false
+                        },
+                        measure = measure,
+                        swapMuscle = swapMuscle,
+                        marked = otherExerciseIds,
+                        markedLabel = "in this routine",
+                        browseInitialMuscle = swapMuscle.takeIf { it != MuscleGroup.UNKNOWN }
+                    )
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { switching = false }) { Text("Cancel") } }
+        )
+    }
 }

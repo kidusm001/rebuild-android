@@ -59,6 +59,8 @@ import com.rebuild.domain.LoadUnit
 import com.rebuild.domain.Equipment
 import com.rebuild.domain.MuscleGroup
 import com.rebuild.domain.LoggedSet
+import com.rebuild.domain.SwapGroup
+import com.rebuild.domain.SwapGroupKind
 import com.rebuild.domain.WorkoutExercise
 import com.rebuild.domain.stages
 
@@ -524,6 +526,175 @@ internal fun CustomExerciseDialog(
  * Shared editor for today's changes and saved plan changes: exercise choice, set count,
  * rest, and an explicit acknowledgement when going above the advisory upper.
  */
+/**
+ * Grouped radio list of swap suggestions plus "All exercises" and "New exercise" action rows, shared by
+ * [TargetEditorFields] (Adjust today, Edit plan) and [PlanAdditionDialog].
+ */
+@Composable
+internal fun SwapChoiceSection(
+    env: AppEnv,
+    options: List<Exercise>,
+    swapGroups: List<SwapGroup>,
+    currentId: String,
+    selectedId: String,
+    onSelect: (String) -> Unit,
+    swapLocked: String? = null,
+    measure: Measure = Measure.REPS,
+    swapMuscle: MuscleGroup = MuscleGroup.UNKNOWN,
+    exerciseLabel: String = "Exercise",
+    marked: Set<String> = emptySet(),
+    markedLabel: String = "in this workout",
+    browseInitialMuscle: MuscleGroup? = null
+) {
+    var addingCustom by rememberSaveable { mutableStateOf(false) }
+    var browsing by rememberSaveable { mutableStateOf(false) }
+    var moreExpanded by rememberSaveable(currentId) { mutableStateOf(false) }
+    val scheme = MaterialTheme.colorScheme
+    EditorSection(exerciseLabel)
+    if (swapLocked != null) {
+        Text(swapLocked, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+    }
+    if (swapGroups.isNotEmpty()) {
+        val current = env.exercise(currentId)
+        val inGroups = swapGroups.flatMap { it.suggestions }.map { it.exercise.id }.toSet()
+        val selected = env.exercise(selectedId)
+        val topRows = buildList {
+            if (current != null && (current.measure == measure || current.id == selectedId)) add(current)
+            if (selected != null && selected.id != currentId && selected.id !in inGroups) add(selected)
+        }
+        Column(Modifier.fillMaxWidth().selectableGroup()) {
+            topRows.forEachIndexed { i, option ->
+                RadioRow(
+                    text = option.name,
+                    supporting = listOfNotNull(
+                        "Current".takeIf { option.id == currentId },
+                        loadingShort(option).takeIf { it != "external" },
+                        "custom".takeIf { option.custom }
+                    ).joinToString(" · ").ifEmpty { null },
+                    selected = option.id == selectedId,
+                    locked = swapLocked != null,
+                    enabled = swapLocked == null || option.id == selectedId,
+                    index = i, count = topRows.size,
+                    onClick = { onSelect(option.id) }
+                )
+            }
+            if (swapLocked == null) {
+                val hasHigherGroups = swapGroups.any { it.kind != SwapGroupKind.SAME_MUSCLE }
+                swapGroups.forEach { group ->
+                    val collapsible = group.kind == SwapGroupKind.SAME_MUSCLE && hasHigherGroups && group.suggestions.size > 4
+                    if (collapsible) {
+                        val selectedInGroup = group.suggestions.any { it.exercise.id == selectedId }
+                        LaunchedEffect(selectedInGroup) { if (selectedInGroup) moreExpanded = true }
+                        val expanded = moreExpanded
+                        Row(
+                            Modifier
+                                .padding(top = 8.dp)
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(tonalFill())
+                                .testTag("expand-more-muscle")
+                                .clickable(role = Role.Button) { moreExpanded = !moreExpanded }
+                                .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" }
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "${group.title} (${group.suggestions.size})",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = scheme.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Chevron(expanded, tint = scheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                        }
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = expanded,
+                            enter = com.rebuild.ui.theme.Motion.expand(),
+                            exit = com.rebuild.ui.theme.Motion.collapse()
+                        ) {
+                            Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                                group.suggestions.forEachIndexed { i, suggestion ->
+                                    RadioRow(
+                                        text = suggestion.exercise.name,
+                                        supporting = swapSuggestionSupporting(suggestion),
+                                        selected = suggestion.exercise.id == selectedId,
+                                        index = i, count = group.suggestions.size,
+                                        onClick = { onSelect(suggestion.exercise.id) }
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        Text(
+                            group.title,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = scheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 10.dp, bottom = 4.dp).semantics { heading() }
+                        )
+                        group.suggestions.forEachIndexed { i, suggestion ->
+                            RadioRow(
+                                text = suggestion.exercise.name,
+                                supporting = swapSuggestionSupporting(suggestion),
+                                selected = suggestion.exercise.id == selectedId,
+                                index = i, count = group.suggestions.size,
+                                onClick = { onSelect(suggestion.exercise.id) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        // Only exercises measured the same way can take its place.
+        val shown = (options + listOfNotNull(env.exercise(selectedId))).distinctBy { it.id }
+            .filter { it.measure == measure || it.id == selectedId }
+        // The choices as one grouped list (a radio group for screen readers), then the ways to every other exercise as a
+        // group of their own, so neither reads as part of the other and the body holds no loose pills.
+        // RadioRow draws its own 2 dp seam above each row after the first.
+        Column(Modifier.fillMaxWidth().selectableGroup()) {
+            shown.forEachIndexed { i, option ->
+                RadioRow(
+                    text = option.name,
+                    // "external" is the ordinary case, so only a load that changes what gets logged is spelled out.
+                    supporting = listOfNotNull(loadingShort(option).takeIf { it != "external" }, "custom".takeIf { option.custom })
+                        .joinToString(" · ").ifEmpty { null },
+                    selected = option.id == selectedId,
+                    locked = swapLocked != null,
+                    enabled = swapLocked == null || option.id == selectedId,
+                    index = i, count = shown.size,
+                    onClick = { onSelect(option.id) }
+                )
+            }
+        }
+    }
+    if (swapLocked == null) {
+        Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            EditorActionRow(R.drawable.ic_search, "All exercises", groupShape(0, 1), chevron = true) { browsing = true }
+            EditorActionRow(R.drawable.ic_plus, "New exercise", groupShape(1, 1)) { addingCustom = true }
+        }
+    }
+    if (addingCustom) {
+        CustomExerciseDialog(env, onDismiss = { addingCustom = false }, measure = measure,
+            muscleHint = swapMuscle.takeIf { it != MuscleGroup.UNKNOWN }
+                ?: env.exercise(selectedId)?.primaryMuscle ?: MuscleGroup.UNKNOWN) {
+            addingCustom = false
+            onSelect(it.id)
+        }
+    }
+    if (browsing) ExerciseLibraryPicker(
+        env,
+        onDismiss = { browsing = false },
+        marked = marked,
+        markedLabel = markedLabel,
+        measure = measure,
+        initialMuscle = browseInitialMuscle
+    ) {
+        browsing = false
+        onSelect(it.id)
+    }
+}
+
 @Composable
 internal fun TargetEditorFields(
     env: AppEnv,
@@ -541,42 +712,31 @@ internal fun TargetEditorFields(
     onAllowAboveCap: (Boolean) -> Unit,
     measure: Measure = Measure.REPS,
     /** The muscle the quick swaps match on, so an exercise made here shows up among them next time. */
-    swapMuscle: MuscleGroup = MuscleGroup.UNKNOWN
+    swapMuscle: MuscleGroup = MuscleGroup.UNKNOWN,
+    /** Grouped swap suggestions; when non-empty, replaces the flat [options] list with labelled groups. */
+    swapGroups: List<SwapGroup> = emptyList(),
+    /** The starting exercise being edited, kept visible so the user can return to it after tapping another option. */
+    currentId: String = selectedId,
+    /** Section heading for the exercise picker (e.g. a slot's own muscle label like "Side delts"). */
+    exerciseLabel: String = "Exercise",
+    marked: Set<String> = emptySet(),
+    markedLabel: String = "in this workout"
 ) {
-    var addingCustom by rememberSaveable { mutableStateOf(false) }
-    var browsing by rememberSaveable { mutableStateOf(false) }
     val scheme = MaterialTheme.colorScheme
-    EditorSection("Exercise")
-    if (swapLocked != null) {
-        Text(swapLocked, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
-    }
-    // Only exercises measured the same way can take its place.
-    val shown = (options + listOfNotNull(env.exercise(selectedId))).distinctBy { it.id }
-        .filter { it.measure == measure || it.id == selectedId }
-    // The choices as one grouped list (a radio group for screen readers), then the ways to every other exercise as a
-    // group of their own, so neither reads as part of the other and the body holds no loose pills.
-    // RadioRow draws its own 2 dp seam above each row after the first.
-    Column(Modifier.fillMaxWidth().selectableGroup()) {
-        shown.forEachIndexed { i, option ->
-            RadioRow(
-                text = option.name,
-                // "external" is the ordinary case, so only a load that changes what gets logged is spelled out.
-                supporting = listOfNotNull(loadingShort(option).takeIf { it != "external" }, "custom".takeIf { option.custom })
-                    .joinToString(" · ").ifEmpty { null },
-                selected = option.id == selectedId,
-                locked = swapLocked != null,
-                enabled = swapLocked == null || option.id == selectedId,
-                index = i, count = shown.size,
-                onClick = { onSelect(option.id) }
-            )
-        }
-    }
-    if (swapLocked == null) {
-        Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            EditorActionRow(R.drawable.ic_search, "All exercises", groupShape(0, 1), chevron = true) { browsing = true }
-            EditorActionRow(R.drawable.ic_plus, "New exercise", groupShape(1, 1)) { addingCustom = true }
-        }
-    }
+    SwapChoiceSection(
+        env = env,
+        options = options,
+        swapGroups = swapGroups,
+        currentId = currentId,
+        selectedId = selectedId,
+        onSelect = onSelect,
+        swapLocked = swapLocked,
+        measure = measure,
+        swapMuscle = swapMuscle,
+        exerciseLabel = exerciseLabel,
+        marked = marked,
+        markedLabel = markedLabel
+    )
     Spacer(Modifier.height(8.dp))
     EditorSection(if (measure == Measure.CARDIO) "Rest" else "Sets and rest")
     val restLabel = if (measure == Measure.CARDIO) "Rest when you start one" else "Rest between sets"
@@ -617,18 +777,6 @@ internal fun TargetEditorFields(
             )
             CheckRow("I understand: allow $sets sets", allowAboveCap, onAllowAboveCap, modifier = Modifier.testTag("allow-above-cap"))
         }
-    }
-    if (addingCustom) {
-        CustomExerciseDialog(env, onDismiss = { addingCustom = false }, measure = measure,
-            muscleHint = swapMuscle.takeIf { it != MuscleGroup.UNKNOWN }
-                ?: env.exercise(selectedId)?.primaryMuscle ?: MuscleGroup.UNKNOWN) {
-            addingCustom = false
-            onSelect(it.id)
-        }
-    }
-    if (browsing) ExerciseLibraryPicker(env, onDismiss = { browsing = false }, measure = measure) {
-        browsing = false
-        onSelect(it.id)
     }
 }
 
@@ -691,16 +839,17 @@ private fun EditorSection(title: String) {
 
 /** The end of the exercise list: a way to another exercise, drawn as a row of the same group. */
 @Composable
-private fun EditorActionRow(
+internal fun EditorActionRow(
     @androidx.annotation.DrawableRes icon: Int,
     label: String,
     shape: androidx.compose.ui.graphics.Shape,
     chevron: Boolean = false,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     val scheme = MaterialTheme.colorScheme
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(shape).background(tonalFill())
+        modifier.fillMaxWidth().heightIn(min = 56.dp).clip(shape).background(tonalFill())
             .clickable(role = Role.Button, onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

@@ -1,5 +1,7 @@
 package com.rebuild.domain
 
+import java.util.Locale
+
 const val MAX_WORKOUT_EXERCISES = 100
 const val DEFAULT_REST_SECONDS = 90
 const val EXTRA_WORKOUT_NAME = "Extra workout"
@@ -120,6 +122,141 @@ fun AppState.asksPerLeg(exercise: Exercise): Boolean {
         overrides.any { it.exerciseId == exercise.id } || planAdditions.any { it.exerciseId == exercise.id } ||
         routines.any { r -> r.exercises.any { it.exerciseId == exercise.id } }
     return heldByPlan || exercise.primaryMuscle in ONE_LEG_CANDIDATES
+}
+
+/**
+ * Whether [this] piece of equipment is available with [gear]. A dumbbell plan also uses bodyweight exercises; a
+ * bodyweight plan uses bodyweight only; a gym plan allows every piece of equipment (including older custom exercises
+ * with [Equipment.UNKNOWN]).
+ */
+fun Equipment.fits(gear: Gear): Boolean = when (gear) {
+    Gear.GYM -> true
+    Gear.DUMBBELLS -> this == Equipment.DUMBBELL || this == Equipment.BODYWEIGHT
+    Gear.BODYWEIGHT -> this == Equipment.BODYWEIGHT
+}
+
+enum class SwapGroupKind {
+    PLAN_ALTERNATIVES,
+    SAME_MOVEMENT,
+    SAME_MUSCLE
+}
+
+/** One candidate exercise offered when swapping, with a plain-text reason and whether the lifter has logged it before. */
+data class SwapSuggestion(
+    val exercise: Exercise,
+    val reason: String,
+    val loggedBefore: Boolean
+)
+
+/** A labelled group of swap suggestions in display order. Empty groups are omitted. */
+data class SwapGroup(
+    val kind: SwapGroupKind,
+    val title: String,
+    val suggestions: List<SwapSuggestion>
+)
+
+/**
+ * Grouped swap suggestions for [exerciseId], ordered from closest prescription match to broader same-muscle options:
+ * 1. Plan alternatives: [slot]'s default exercise and [PlanSlot.alternativesFor] [gear].
+ * 2. Same movement: built-in exercises sharing the code-side [Movement] tag.
+ * 3. More for `<muscle>`: other library and custom exercises with the same primary muscle.
+ *
+ * Every suggestion shares [exerciseId]'s [Measure], fits [gear] (when non-null), and is neither [exerciseId] nor in
+ * [excluding]. Within `Plan alternatives`, the slot's default exercise stays first; all other items within each group
+ * rank exercises logged before first, then alphabetical by name. The order is fixed and never applied automatically.
+ */
+fun AppState.swapSuggestions(
+    exerciseId: String,
+    slot: PlanSlot? = null,
+    gear: Gear? = this.gear,
+    excluding: Set<String> = emptySet()
+): List<SwapGroup> {
+    val current = exercises.find { it.id == exerciseId } ?: return emptyList()
+    val measure = current.measure
+    val byId = exercises.associateBy { it.id }
+    val logged = workouts.asSequence()
+        .flatMap { it.exercises.asSequence() }
+        .filter { it.hasLoggedWork() }
+        .map { it.exercise.id }
+        .toSet()
+    val order = compareByDescending<Exercise> { it.id in logged }
+        .thenBy { it.name.lowercase(Locale.ROOT) }
+        .thenBy { it.name }
+        .thenBy { it.id }
+    val seen = mutableSetOf(exerciseId).apply { addAll(excluding) }
+    fun fits(exercise: Exercise): Boolean =
+        exercise.measure == measure && (gear == null || exercise.equipment.fits(gear))
+
+    val groups = mutableListOf<SwapGroup>()
+
+    // 1. Plan alternatives (for a plan slot).
+    val slotDefaultId = slot?.let { if (gear != null) it.exerciseFor(gear) else it.exerciseId }
+    val slotAltIds = slot?.let { if (gear != null) it.alternativesFor(gear) else it.alternatives }.orEmpty()
+    if (slot != null) {
+        val planOrder = compareByDescending<Exercise> { it.id == slotDefaultId }.then(order)
+        val planCandidates = (listOfNotNull(slotDefaultId) + slotAltIds)
+            .distinct()
+            .filter { it !in seen }
+            .mapNotNull(byId::get)
+            .filter(::fits)
+            .sortedWith(planOrder)
+        if (planCandidates.isNotEmpty()) {
+            planCandidates.forEach { seen.add(it.id) }
+            groups += SwapGroup(
+                kind = SwapGroupKind.PLAN_ALTERNATIVES,
+                title = "Plan alternatives",
+                suggestions = planCandidates.map { ex ->
+                    SwapSuggestion(
+                        exercise = ex,
+                        reason = if (ex.id == slotDefaultId) "Plan default" else "Plan alternative",
+                        loggedBefore = ex.id in logged
+                    )
+                }
+            )
+        }
+    }
+
+    // Anchor movement and muscle on the slot's default exercise when present (matching existing plan-slot behaviour),
+    // falling back to the current exercise when there is no slot or the slot has no exercise for this gear.
+    val anchor = slotDefaultId?.let(byId::get) ?: current
+    val movement = ExerciseCatalog.movementOf(anchor.id) ?: ExerciseCatalog.movementOf(current.id)
+    val muscle = anchor.primaryMuscle.takeIf { it != MuscleGroup.UNKNOWN } ?: current.primaryMuscle
+
+    // 2. Same movement.
+    if (movement != null) {
+        val movementMatches = exercises.filter { ex ->
+            ex.id !in seen && fits(ex) && ExerciseCatalog.movementOf(ex.id) == movement
+        }.sortedWith(order)
+        if (movementMatches.isNotEmpty()) {
+            movementMatches.forEach { seen.add(it.id) }
+            groups += SwapGroup(
+                kind = SwapGroupKind.SAME_MOVEMENT,
+                title = "Same movement",
+                suggestions = movementMatches.map { ex ->
+                    SwapSuggestion(ex, reason = movement.label, loggedBefore = ex.id in logged)
+                }
+            )
+        }
+    }
+
+    // 3. More for <muscle> (library + custom exercises with the same primary muscle).
+    if (muscle != MuscleGroup.UNKNOWN) {
+        val muscleMatches = exercises.filter { ex ->
+            ex.id !in seen && fits(ex) && ex.primaryMuscle == muscle
+        }.sortedWith(order)
+        if (muscleMatches.isNotEmpty()) {
+            muscleMatches.forEach { seen.add(it.id) }
+            groups += SwapGroup(
+                kind = SwapGroupKind.SAME_MUSCLE,
+                title = "More for ${muscle.title}",
+                suggestions = muscleMatches.map { ex ->
+                    SwapSuggestion(ex, reason = "Same muscle", loggedBefore = ex.id in logged)
+                }
+            )
+        }
+    }
+
+    return groups
 }
 
 /**

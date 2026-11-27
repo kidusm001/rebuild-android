@@ -727,9 +727,20 @@ internal object StateChanges {
         }
         val existing = state.planAdditions.find { it.id == action.id }
         if (existing != null) {
-            ensure(existing.phase == action.phase && existing.templateId == action.templateId &&
-                existing.exerciseId == definition.id,
-                "This saved exercise belongs to another routine or exercise. Add it again instead.")
+            ensure(existing.phase == action.phase && existing.templateId == action.templateId,
+                "This saved exercise belongs to another routine or phase. Add it again instead.")
+            if (existing.exerciseId != definition.id) {
+                val oldMeasure = state.measureOf(existing.exerciseId)
+                ensure(definition.measure == oldMeasure,
+                    "This saved exercise is planned as ${oldMeasure.title.lowercase()} work, so swap it for another exercise measured the same way.")
+                ensure(!state.inPlan(template, action.phase, definition.id),
+                    "${definition.name} is already in ${template.name} for this phase.")
+                val planned = state.plannedExercises(template, action.phase)
+                if (planned.none { it.slotId == existing.id }) {
+                    ensure(planned.size < MAX_WORKOUT_EXERCISES,
+                        "A routine can hold at most $MAX_WORKOUT_EXERCISES exercises.")
+                }
+            }
         } else {
             // Workouts started from a since-removed addition keep its ID; a new addition must never take it over.
             ensure(state.templates.none { t -> t.slots.any { it.id == action.id } } &&
@@ -772,8 +783,21 @@ internal object StateChanges {
         val replacement = library(state, action.replacementId)
         val entry = workout.exercises.find { it.id == action.exerciseId }
             ?: throw RepositoryException("This exercise is not part of the workout.")
-        ensure(!entry.optional, "${entry.exercise.name} was added today. Edit its optional goal instead.")
         val substituted = replacement.id != entry.exercise.id
+        val convention = if (entry.optional && substituted) state.perLegConvention(replacement.id) else null
+        if (entry.optional) {
+            ensure(!action.saveToPlan && substituted,
+                "${entry.exercise.name} was added today. Edit its optional goal instead.")
+            ensure(workout.exercises.none { it.id != entry.id && it.exercise.id == replacement.id },
+                "${replacement.name} is already in this workout.")
+            ensure(!replacement.measured || action.perLeg != true, "Only reps can be counted per leg.")
+            if (action.perLeg != null && convention != null) {
+                ensure(action.perLeg == convention, "Your plan already counts ${replacement.name} reps " +
+                    if (convention) "per leg." else "without a per-leg label.")
+            }
+        } else {
+            ensure(action.perLeg == null, "Per-leg can only be set when switching an exercise added today.")
+        }
         val measure = entry.exercise.measure
         ensure(replacement.measure == measure, "${entry.exercise.name} is planned as " +
             measure.title.lowercase() + " work, so swap it for another exercise measured the same way.")
@@ -782,18 +806,31 @@ internal object StateChanges {
         ensure(!substituted || entry.efforts.isEmpty(), "Remove this exercise's logged efforts before substituting " +
             "it, or log another exercise instead. Logged efforts cannot be converted.")
         if (substituted) requireNotStopwatchEntry(state, workout.id, entry, "swapping it")
-        if (measure == Measure.CARDIO) {
-            ensure(action.sets == null, "Cardio has a total time or distance instead of sets.")
-            SnapshotCodec.rest(action.restSeconds)
-        } else {
-            ensure(action.sets != null, "Enter the number of sets.")
-            checkTarget(action.sets!!, action.restSeconds, entry.upperSets, action.allowAboveCap)
+        when {
+            entry.optional -> {
+                SnapshotCodec.goal(measure, required = false, action.sets, entry.minReps, entry.maxReps, entry.measuredGoal)
+                SnapshotCodec.rest(action.restSeconds)
+            }
+            measure == Measure.CARDIO -> {
+                ensure(action.sets == null, "Cardio has a total time or distance instead of sets.")
+                SnapshotCodec.rest(action.restSeconds)
+            }
+            else -> {
+                ensure(action.sets != null, "Enter the number of sets.")
+                checkTarget(action.sets!!, action.restSeconds, entry.upperSets, action.allowAboveCap)
+            }
         }
         // Even library edits must not alter the loading convention of an existing snapshot.
         var changed = editExercise(state, workout.id, entry.id) {
-            it.copy(exercise = if (substituted) replacement.copy() else it.exercise,
-                targetSets = action.sets, restSeconds = action.restSeconds,
-                entryLoadUnit = if (substituted) replacement.preferredLoadUnit else it.entryLoadUnit)
+            it.copy(
+                exercise = if (substituted) replacement.copy() else it.exercise,
+                targetSets = action.sets,
+                restSeconds = action.restSeconds,
+                perLeg = if (substituted && it.optional) {
+                    !replacement.measured && (convention ?: action.perLeg ?: state.lastLoggedPerLeg(replacement.id) ?: false)
+                } else it.perLeg,
+                entryLoadUnit = if (substituted) replacement.preferredLoadUnit else it.entryLoadUnit
+            )
         }
         if (action.saveToPlan) {
             // A removed occurrence has no future workouts, so a change made today never brings it back.
@@ -803,10 +840,12 @@ internal object StateChanges {
             if (slot != null) {
                 ensure(!state.slotRemoved(workout.phase, slot.id),
                     "${entry.exercise.name} was removed from this phase's plan. Restore it in Plan to change it.")
-                requireNotAdded(state, template, workout.phase, replacement,
-                    keeping = state.targetFor(slot, workout.phase).exerciseId)
-                changed = override(changed, PlanOverride(workout.phase, slot.id, replacement.id, action.sets!!,
-                    action.restSeconds, storedGear(state.gear)))
+                val currentPlan = state.targetFor(slot, workout.phase)
+                requireNotAdded(state, template, workout.phase, replacement, keeping = currentPlan.exerciseId)
+                val planSets = if (action.keepPlanTargets) currentPlan.sets else action.sets!!
+                val planRest = if (action.keepPlanTargets) currentPlan.restSeconds else action.restSeconds
+                changed = override(changed, PlanOverride(workout.phase, slot.id, replacement.id, planSets,
+                    planRest, storedGear(state.gear)))
             } else {
                 // A removed addition is never brought back by a change made to today's copy of it.
                 val addition = state.planAdditions.find { it.id == entry.slotId && it.phase == workout.phase }
@@ -821,8 +860,11 @@ internal object StateChanges {
                         "add it to the plan on its own.")
                 }
                 changed = changed.copy(planAdditions = changed.planAdditions.map {
-                    if (it.id == addition.id) it.copy(exerciseId = replacement.id, sets = action.sets,
-                        restSeconds = action.restSeconds) else it
+                    if (it.id == addition.id) it.copy(
+                        exerciseId = replacement.id,
+                        sets = if (action.keepPlanTargets) it.sets else action.sets,
+                        restSeconds = if (action.keepPlanTargets) it.restSeconds else action.restSeconds
+                    ) else it
                 })
             }
         }
